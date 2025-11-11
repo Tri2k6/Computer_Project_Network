@@ -1,0 +1,14 @@
+[
+{
+  "directory": "/Users/admin/Documents/MMT/Computer_Project_Network/build",
+  "command": "/usr/bin/clang++   -g -std=gnu++17 -o CMakeFiles/my_client.dir/src/client/client.cpp.o -c /Users/admin/Documents/MMT/Computer_Project_Network/src/client/client.cpp",
+  "file": "/Users/admin/Documents/MMT/Computer_Project_Network/src/client/client.cpp",
+  "output": "CMakeFiles/my_client.dir/src/client/client.cpp.o"
+},
+{
+  "directory": "/Users/admin/Documents/MMT/Computer_Project_Network/build",
+  "command": "/usr/bin/clang++   -g -std=gnu++17 -o CMakeFiles/my_server.dir/src/server/server.cpp.o -c /Users/admin/Documents/MMT/Computer_Project_Network/src/server/server.cpp",
+  "file": "/Users/admin/Documents/MMT/Computer_Project_Network/src/server/server.cpp",
+  "output": "CMakeFiles/my_server.dir/src/server/server.cpp.o"
+}
+]

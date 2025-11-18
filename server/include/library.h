@@ -11,13 +11,13 @@
 #include <chrono>       // Cho xử lý thời gian (nếu cần)
 #include <thread>       // Cho đa luồng (nếu cần)
 #include <fstream>
-#include <Windows.h>
 
 // 2. Macro phát hiện Hệ điều hành (OS Detection)
 #ifdef _WIN32
     #define OS_TYPE "Windows"
     // Trên Windows, lệnh 'pause' giúp dừng màn hình console
     #define PAUSE_CMD "pause"
+    #include <Windows.h>
 #elif __APPLE__
     #define OS_TYPE "MacOS"
     #define PAUSE_CMD "read -n 1 -s -r -p 'Press any key to continue'"

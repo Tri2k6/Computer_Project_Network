@@ -10,6 +10,7 @@
 #include "Message.hpp"
 #include "Protocol.hpp"
 #include "Router.hpp"
+#include "library.h"
 
 namespace beast = boost::beast;
 namespace asio = boost::asio;

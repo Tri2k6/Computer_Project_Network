@@ -1,5 +1,11 @@
-#include "ProcControl.h"
-#include "AppControl.h"
+#if defined(_WIN32)
+    #include "AppControl_WIN.h"
+    #include "ProcessControl_WIN.h"
+#elif defined(__APPLE__)
+    #include "AppControl_MAC.h"
+    #include "ProcessControl_MAC.h"
+#endif
+
 #include <iostream>
 #include <fcntl.h>
 #include <io.h>
@@ -9,8 +15,8 @@ int main() {
     _setmode(_fileno(stdout), _O_U16TEXT);
     _setmode(_fileno(stdin),  _O_U16TEXT);
 
-    ProcessController pc;
-    AppplicationController ac;
+    WinProcessController pc;
+    WinAppController ac;
     int i = 0;
 
     pc.listProcesses();

@@ -1,7 +1,9 @@
-#include "ProcControl.h"
+#ifdef _WIN32
+
+#include "ProcessControl_WIN.h"
 
 
-void ProcessController::listProcesses() {
+void WinProcessController::listProcesses() {
     HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
     if (snapshot == INVALID_HANDLE_VALUE) {
         std::cerr << "Cannot take process snapshot\n";
@@ -14,7 +16,7 @@ void ProcessController::listProcesses() {
     if (Process32FirstW(snapshot, &entry)) {
         int i = 0;
         do {
-            procList.push_back(Process {entry.th32ProcessID, entry.szExeFile});
+            procList.push_back({entry.th32ProcessID, entry.szExeFile});
 
             std::wcout << i++ << L". PID: " << entry.th32ProcessID
                        << L" | Name: " << entry.szExeFile << std::endl;
@@ -25,7 +27,7 @@ void ProcessController::listProcesses() {
 }
 
 
-Process ProcessController::getProcess(int i)
+WinProcess WinProcessController::getProcess(int i)
 {
     if (i < 0 || i >= procList.size())
         return {};
@@ -34,7 +36,7 @@ Process ProcessController::getProcess(int i)
 }
 
 
-bool ProcessController::startProcess(const Process& proc) {
+bool WinProcessController::startProcess(const WinProcess& proc) {
     STARTUPINFOW si = { sizeof(si) };
     PROCESS_INFORMATION pi;
 
@@ -57,7 +59,7 @@ bool ProcessController::startProcess(const Process& proc) {
 }
 
 
-bool ProcessController::stopProcess(const Process& proc) {
+bool WinProcessController::stopProcess(const WinProcess& proc) {
     HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
     if (snapshot == INVALID_HANDLE_VALUE)
         return false;
@@ -84,3 +86,5 @@ bool ProcessController::stopProcess(const Process& proc) {
     CloseHandle(snapshot);
     return stopped;
 }
+
+#endif

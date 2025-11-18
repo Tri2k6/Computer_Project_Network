@@ -1,10 +1,11 @@
-#include "AppControl.h"
-#include <filesystem>
+#ifdef _WIN32
+
+#include "AppControl_WIN.h"
 namespace fs = std::filesystem;
 
 
 // đọc tên path và trả về đường dẫn exe có thể chạy được
-std::wstring AppplicationController::resolveShortcut(const std::wstring& lnkPath)
+std::wstring WinAppController::resolveShortcut(const std::wstring& lnkPath)
 {
     CoInitialize(NULL);
 
@@ -33,7 +34,7 @@ std::wstring AppplicationController::resolveShortcut(const std::wstring& lnkPath
 }
 
 
-void AppplicationController::listApps()
+void WinAppController::listApps()
 {
     std::vector<std::wstring> dirs = {
         L"C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs",
@@ -53,7 +54,7 @@ void AppplicationController::listApps()
         {
             if (p.path().extension() == L".lnk")
             {
-                AppShortcut app;
+                WinApp app;
                 app.exeName = p.path().stem().wstring();
                 app.shortcutPath = p.path().wstring();
                 app.targetExe = resolveShortcut(app.shortcutPath);
@@ -68,7 +69,7 @@ void AppplicationController::listApps()
 }
 
 
-AppShortcut AppplicationController::getApp(int i)
+WinApp WinAppController::getApp(int i)
 {
     if (i < 0 || i >= appList.size())
         return {};
@@ -77,7 +78,7 @@ AppShortcut AppplicationController::getApp(int i)
 }
 
 
-bool AppplicationController::startApp(const AppShortcut& app)
+bool WinAppController::startApp(const WinApp& app)
 {
     HINSTANCE h = ShellExecuteW(NULL, L"open", app.shortcutPath.c_str(),
                                 NULL, NULL, SW_SHOWNORMAL);
@@ -85,7 +86,7 @@ bool AppplicationController::startApp(const AppShortcut& app)
 }
 
 
-bool AppplicationController::stopApp(const AppShortcut& app) {
+bool WinAppController::stopApp(const WinApp& app) {
     HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
     if (snapshot == INVALID_HANDLE_VALUE)
         return false;
@@ -114,3 +115,5 @@ bool AppplicationController::stopApp(const AppShortcut& app) {
     CloseHandle(snapshot);
     return stopped;
 }
+
+#endif

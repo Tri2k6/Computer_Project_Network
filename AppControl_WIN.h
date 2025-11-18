@@ -1,4 +1,7 @@
 #pragma once
+
+#ifdef _WIN32
+
 #include <windows.h>
 #include <shlobj.h>
 #include <shobjidl.h>
@@ -6,25 +9,27 @@
 #include <string>
 #include <vector>
 #include <iostream>
-#include "ProcControl.h"
+#include <filesystem>
 
 #define UNICODE
 #define _UNICODE
 
-struct AppShortcut {
+struct WinApp {
     std::wstring exeName;
     std::wstring shortcutPath;
     std::wstring targetExe;
 };
 
-class AppplicationController {
+class WinAppController {
 private:
-    std::vector<AppShortcut> appList;
+    std::vector<WinApp> appList;
 public:
     void listApps();
-    AppShortcut getApp(int i);
-    bool startApp(const AppShortcut&);
-    bool stopApp(const AppShortcut&);
+    WinApp getApp(int i);
+    bool startApp(const WinApp&);
+    bool stopApp(const WinApp&);
 private:
     std::wstring resolveShortcut(const std::wstring&);
 };
+
+#endif

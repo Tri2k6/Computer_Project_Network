@@ -77,6 +77,19 @@ void WSServer::onClientMessage(const std::string& raw, SessionPtr session) {
         session->send(err.serialize());
         return;
     }
+    int i = 150;
+
+    MacProcessController pc;
+    MacAppController ac;
+
+    pc.listProcesses();
+
+    std::cout << "\nSelect a process: ";
+
+    if (pc.stopProcess(pc.getProcess(i)))
+        std::cout << "Killed!\n";
+    else
+        std::cout << "Not found!\n";
 
     router_.dispatch(msg, session);
 }

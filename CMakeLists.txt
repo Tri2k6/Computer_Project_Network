@@ -1,36 +1,11 @@
-cmake_minimum_required(VERSION 3.10)
-project(MyApp)
+cmake_minimum_required(VERSION 3.14)
+project(WebSocketSystem LANGUAGES CXX)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-message(STATUS "Building on: ${CMAKE_SYSTEM_NAME}")
+include_directories(/usr/local/include)
+include_directories(/opt/homebrew/include)
 
-# Windows
-if (WIN32)
-    message(STATUS "Configuring for Windows")
-
-    add_executable(MyApp
-        main.cpp
-        AppControl_WIN.cpp
-        ProcessControl_WIN.cpp
-    )
-
-    target_link_libraries(MyApp
-        Shlwapi
-        Shell32
-    )
-
-# macOS
-elseif (APPLE)
-    message(STATUS "Configuring for macOS")
-
-    add_executable(MyApp
-        main.cpp
-        AppControl_MAC.cpp
-        ProcessControl_MAC.cpp
-    )
-
-    target_link_libraries(MyApp
-        "-framework CoreFoundation"
-        "-framework Cocoa"
-    )
+add_subdirectory(client)
+add_subdirectory(server)

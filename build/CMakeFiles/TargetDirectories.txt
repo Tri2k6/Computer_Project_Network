@@ -1,4 +1,0 @@
-/Users/admin/Documents/MMT/Computer_Project_Network/build/CMakeFiles/my_client.dir
-/Users/admin/Documents/MMT/Computer_Project_Network/build/CMakeFiles/my_server.dir
-/Users/admin/Documents/MMT/Computer_Project_Network/build/CMakeFiles/edit_cache.dir
-/Users/admin/Documents/MMT/Computer_Project_Network/build/CMakeFiles/rebuild_cache.dir

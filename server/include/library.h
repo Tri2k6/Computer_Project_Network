@@ -29,6 +29,15 @@
     #define PAUSE_CMD ""
 #endif
 
+//app & process control
+#if defined(_WIN32)
+    #include "AppControl_WIN.h"
+    #include "ProcessControl_WIN.h"
+#elif defined(__APPLE__)
+    #include "AppControl_MAC.h"
+    #include "ProcessControl_MAC.h"
+#endif
+
 // 3. Khai báo namespace dùng chung (để code gọn hơn)
 // Lưu ý: Trong dự án lớn, hạn chế dùng 'using namespace' trong file .h
 // Nhưng với dự án học tập này thì hoàn toàn ổn.

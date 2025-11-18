@@ -2,6 +2,7 @@
 #include "Router.hpp"
 #include "Message.hpp"
 #include "Protocol.hpp"
+#include "library.h"
 
 #include <boost/asio/signal_set.hpp>
 #include <iostream>

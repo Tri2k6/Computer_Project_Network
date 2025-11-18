@@ -1,7 +1,7 @@
 #include "WebcamController.h"
 
 string WebcamController::getCameraNameFromConfig() {
-    string configFileName = "camera_config.txt";
+    string configFileName = "../../camera_config.txt";
     ifstream file(configFileName);
     string name = ""; // Khởi tạo rỗng
     

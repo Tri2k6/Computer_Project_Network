@@ -2,7 +2,7 @@
 #include "Router.hpp"
 #include "Message.hpp"
 #include "Protocol.hpp"
-#include "library.h"
+#include "Discovery.hpp"
 
 #include <boost/asio/signal_set.hpp>
 #include <iostream>
@@ -23,6 +23,9 @@ int main() {
 
         auto server = std::make_shared<WSServer>(io, 8080, router);
         server->start();
+        DiscoveryService discovery(io);
+        discovery.openSocket(0);
+        discovery.startAdvertising("Server 1", 8080);
         asio::signal_set signals(io, SIGINT, SIGTERM);
         signals.async_wait(
             [&io](beast::error_code const&, int) {

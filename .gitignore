@@ -46,3 +46,74 @@ CMakeCache.txt
 CMakeFiles/
 cmake_install.cmake
 Makefile
+# User-specific files
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# User-specific files (MonoDevelop/Xamarin Studio)
+*.userprefs
+
+# Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+build/
+bld/
+[Bb]in/
+[Oo]bj/
+
+# Visual Studio 2015/2017 cache/options directory
+.vs/
+
+# Others
+*.log
+*.tlog
+*.lastbuildstate
+
+# Rider
+.idea/
+
+# DotCover
+*.dotCover
+
+# Resharper
+_ReSharper*/
+*.ReSharper*/
+*.DotSettings.user
+
+# NCrunch
+_NCrunch_*
+.*crunch*.local.xml
+
+# TeamCity
+_TeamCity*
+
+# DotCover
+*.dotCover
+
+# NUnit
+*.VisualState.xml
+TestResult.xml
+nunit-*.xml
+
+# Build Results of an ATL Project
+[Dd]ebugPS/
+[Rr]eleasePS/
+
+# MSTest test Results
+[Tt]est[Rr]esult*/
+[Bb]uild[Ll]og.*
+
+# Web Files
+*.Publish.xml
+*.pubxml
+*.publishproj
+
+# Node.js
+node_modules/
+
+# Visual Studio Code
+.vscode/

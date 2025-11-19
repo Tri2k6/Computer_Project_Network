@@ -1,5 +1,10 @@
 #pragma once
 
+// Windows define sẵn ERROR rồi nên define như dưới sẽ bug =))))
+#ifdef ERROR
+#undef ERROR
+#endif
+
 #include <string>
 #include <unordered_set>
 

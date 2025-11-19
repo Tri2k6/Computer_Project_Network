@@ -9,6 +9,7 @@ include_directories(${CMAKE_SOURCE_DIR}/server/include)
 
 file(GLOB SERVER_SRC
     "${CMAKE_SOURCE_DIR}/server/src/*.cpp"
+    "${CMAKE_SOURCE_DIR}/server/src/module/*.cpp"
 )
 
 add_executable(server ${SERVER_SRC})

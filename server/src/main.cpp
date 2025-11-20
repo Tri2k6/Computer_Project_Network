@@ -3,6 +3,7 @@
 #include "Message.hpp"
 #include "Protocol.hpp"
 #include "Discovery.hpp"
+#include "feature_library.h"
 
 #include <boost/asio/signal_set.hpp>
 #include <iostream>

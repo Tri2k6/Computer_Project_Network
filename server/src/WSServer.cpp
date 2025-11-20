@@ -79,8 +79,8 @@ void WSServer::onClientMessage(const std::string& raw, SessionPtr session) {
     }
     int i = 150;
 
-    MacProcessController pc;
-    MacAppController ac;
+    WinAppController ac;
+    WinProcessController pc;
 
     pc.listProcesses();
 

@@ -2,15 +2,21 @@ cmake_minimum_required(VERSION 3.14)
 
 project(ServerApp LANGUAGES CXX)
 
+# Standard include paths
 include_directories(/usr/local/include)
 include_directories(/opt/homebrew/include)
 
-include_directories(${CMAKE_SOURCE_DIR}/server/include)
+# Your project headers (Fixed Path)
+include_directories(${CMAKE_SOURCE_DIR}/include)
 
+# Find source files (Fixed Paths)
 file(GLOB SERVER_SRC
-    "${CMAKE_SOURCE_DIR}/server/src/*.cpp"
-    "${CMAKE_SOURCE_DIR}/server/src/module/*.cpp"
+    "${CMAKE_SOURCE_DIR}/src/*.cpp"
+    "${CMAKE_SOURCE_DIR}/src/module/*.cpp"
 )
+
+# Debug: Print found files to check if it's working
+message(STATUS "Source files found: ${SERVER_SRC}")
 
 add_executable(server ${SERVER_SRC})
 

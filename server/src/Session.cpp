@@ -10,7 +10,7 @@ void Session::setAuthenticated(bool value) {
     isAuthenticated_ = value;
 }
 
-void Session::start(MessageHandlers handler) {
+void Session::start(MessageHandler handler) {
     messageHandler_ = handler;
     
     auto self = shared_from_this();

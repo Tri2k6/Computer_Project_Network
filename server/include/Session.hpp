@@ -21,6 +21,8 @@ public:
     std::function <void(std::shared_ptr<Session>)> onClosed;
     explicit Session(tcp::socket socket) : ws_(std::move(socket)) {}
 
+    bool isLoggedIn() const;
+    void setAuthenticated(bool value);
     void start(MessageHandler handler);
     void send(const std::string& msg);
 
@@ -30,6 +32,7 @@ private:
     beast::flat_buffer buffer_;
     std::queue<std::string> writeQueue_;
     MessageHandler messageHandler_;
+    bool isAuthenticated_ = false;
 
     void doRead();
     void doWrite();

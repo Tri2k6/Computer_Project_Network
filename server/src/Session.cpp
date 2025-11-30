@@ -2,7 +2,15 @@
 
 #include <iostream>
 
-void Session::start(MessageHandler handler) {
+bool Session::isLoggedIn() const {
+    return isAuthenticated_;
+}
+
+void Session::setAuthenticated(bool value) {
+    isAuthenticated_ = value;
+}
+
+void Session::start(MessageHandlers handler) {
     messageHandler_ = handler;
     
     auto self = shared_from_this();

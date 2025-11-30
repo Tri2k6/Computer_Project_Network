@@ -1,39 +1,42 @@
 #include "Gateway.hpp"
 
-Gateway::Gateway(WSServer& server, Router& payload) : _server(server), _appRouter(Router) {}
+Gateway::Gateway(WSServer& server, Router& router) : server_(server), router_(router) {}
 
-void Gateway::onMessage(int clientId, const std::string& msg) {
-    std::cout << "[Gateway] Received from " << clientId << ": " << payload << "\n";
-    bool isLogged = Session::isLoggedIn(clientId);
+bool Gateway::validateLogin(const const json& data) {
+    if (!data.contains("user") || !data.contains("pass")) {
+        std::cerr << "[Gateway] Login failed: Missing user or pass field";
+        return false;
+    }
+    std::string user = data["user"];
+    std::string pass = data["pass"];
+
+    const std::string VALID_USER = "8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918";
+    const std::string VALID_PASS = "8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918";
+    return user == VALID_USER && pass == VALID_PASS;
+}
+
+void Gateway::onMessage(SessionPtr session, const Message& msg) {
+    //std::cout << "[Gateway] Received from " << clientId << ": " << payload << "\n";
+    bool isLogged = session->isLoggedIn();
 
     if (!isLogged) {
-        if (isAuthRequest(payload)) {
-            handleLogin(clientId, payload);
+        if (msg.type == Protocol::TYPE::AUTH) {
+            if (validateLogin(msg.data)) {
+                if (msg.data.is_object() && validateLogin(msg.data)) {
+                    session->setAuthenticated(true);
+                    session->send(Message("auth_result", "ok").serialize());
+                    std::cout << "[Gateway] User logged in!\n";
+                } else {
+                    session->send(Message("error", "Invalid username or password.").serialize());
+                }
+            } else {
+                session->send(Message("error", "Wrong password").serialize());
+            }
         } else {
-            sendError(clientId, "401 Unauthorized: Please login first.");
+            session->send(Message("error", "Please login first").serialize());
         }
+        
         return;
     }
-    _appRouter.route(clientId, message);
-}
-
-bool Gateway::isAuthRequest(const std::string& payload) {
-    return payload.find("\"type\":\"login\"") != std::string::npos;
-}
-
-void Gateway::handleLogin(int clientId, const std::string& payload) {
-    bool loginSuccess = true;
-
-    if (loginSuccess) {
-        Session::createSession(clientId);
-        _server.send(clientId, "{\"status\"ok\", \"msg\":\"Login success\"}");
-        std::cout << "[Gateway] Client" << ClientId << " authenticated.\n";
-    } else {
-        sendError(clientId, "Login failed: wrong password.");
-    }
-}
-
-void Gateway::sendError(int clientId, const std::string& errorMsg) {
-    str::string response = "{\"status\":\"error\", \"msg\":\"" + errorMsg + "\"}";
-    _server.send(clientId, response);
+    router_.dispatch(msg, session);
 }

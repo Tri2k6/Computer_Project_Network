@@ -1,7 +1,7 @@
 #ifdef _WIN32
 
 #include "AppControl_WIN.h"
-namespace fs = std::filesystem;
+#include "Converter.h"
 
 
 // đọc tên path và trả về đường dẫn exe có thể chạy được
@@ -34,8 +34,10 @@ std::wstring WinAppController::resolveShortcut(const std::wstring& lnkPath)
 }
 
 
-void WinAppController::listApps()
-{
+std::string WinAppController::listApps() {
+    std::wstringstream ans;
+    appList.clear();
+
     std::vector<std::wstring> dirs = {
         L"C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs",
         L"%APPDATA%\\Microsoft\\Windows\\Start Menu\\Programs"
@@ -61,16 +63,20 @@ void WinAppController::listApps()
 
                 if (!app.targetExe.empty()) {
                     appList.push_back(app);
-                    std::wcout << i++ << L". Name: " << app.exeName << '\n';
+                    ans << i++ << L". Name: " << app.exeName << '\n';
                 }
             }
         }
     }
+
+    return ws_to_utf8(ans.str());
 }
 
 
-WinApp WinAppController::getApp(int i)
-{
+WinApp WinAppController::getApp(int i) {
+    if (appList.size() <= 0)
+        listApps();
+
     if (i < 0 || i >= appList.size())
         return {};
 
@@ -78,8 +84,7 @@ WinApp WinAppController::getApp(int i)
 }
 
 
-bool WinAppController::startApp(const WinApp& app)
-{
+bool WinAppController::startApp(const WinApp& app) {
     HINSTANCE h = ShellExecuteW(NULL, L"open", app.shortcutPath.c_str(),
                                 NULL, NULL, SW_SHOWNORMAL);
     return ((INT_PTR)h > 32);
@@ -96,18 +101,24 @@ bool WinAppController::stopApp(const WinApp& app) {
 
     bool stopped = false;
 
-    std::wstring exeName = std::filesystem::path(app.targetExe).filename().wstring();
+    //std::wstring exeName = fs::path(app.targetExe).filename().wstring();
+    std::wstring exeName = app.exeName + L".exe";
 
-    // về căn bản thì y chang stopProc nhưng bỏ qua check PID và đóng hết tất cả process cùng tên
     if (Process32FirstW(snapshot, &pe)) {
         do {
             if (_wcsicmp(pe.szExeFile, exeName.c_str()) == 0) {
                 HANDLE h = OpenProcess(PROCESS_TERMINATE, FALSE, pe.th32ProcessID);
-                if (h) {
-                    TerminateProcess(h, 0);
-                    CloseHandle(h);
-                    stopped = true;
+                if (!h) {
+                    continue;
                 }
+
+                if (!TerminateProcess(h, 0)) {
+                    CloseHandle(h);
+                    return false;
+                }
+
+                CloseHandle(h);
+                stopped = true;
             }
         } while (Process32NextW(snapshot, &pe));
     }

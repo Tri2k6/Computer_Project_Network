@@ -77,19 +77,9 @@ void WSServer::onClientMessage(const std::string& raw, SessionPtr session) {
         session->send(err.serialize());
         return;
     }
-    int i = 150;
 
-    WinAppController ac;
-    WinProcessController pc;
-
-    pc.listProcesses();
-
-    std::cout << "\nSelect a process: ";
-
-    if (pc.stopProcess(pc.getProcess(i)))
-        std::cout << "Killed!\n";
-    else
-        std::cout << "Not found!\n";
+    std::string ans = ParseCommand(msg);
+    // session->send(Message::deserialize(ans).serialize());
 
     router_.dispatch(msg, session);
 }

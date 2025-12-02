@@ -3,8 +3,10 @@
 #include "AppControl_MAC.h"
 
 
-void MacAppController::listApps() {
-    apps.clear();
+std::string MacAppController::listApps() {
+    std::stringstream ans;
+    appList.clear();
+
     std::vector<std::string> dirs = {
         "/Applications",
         "/System/Applications",
@@ -13,23 +15,27 @@ void MacAppController::listApps() {
 
     int i = 0;
     for (auto& d : dirs) {
-        for (auto& p : std::filesystem::directory_iterator(d)) {
-            if (p.path().extension() == ".app") {
-                MacApp app;
-                app.name = p.path().stem().string();
-                app.path = p.path().string();
-                apps.push_back(app);
+        try {
+            for (auto& p : std::filesystem::directory_iterator(d)) {
+                if (p.path().extension() == ".app") {
+                    MacApp app;
+                    app.name = p.path().stem().string();
+                    app.path = p.path().string();
+                    appList.push_back(app);
 
-                std::cout << i++ << ". " << app.name << "\n";
+                    ans << i++ << ". " << app.name << "\n";
+                }
             }
-        }
+        } catch (...) {}
     }
+
+    return ans.str();
 }
 
 
 MacApp MacAppController::getApp(int index) {
-    if (index < 0 || index >= apps.size()) return {};
-    return apps[index];
+    if (index < 0 || index >= appList.size()) return {};
+    return appList[index];
 }
 
 
@@ -40,8 +46,12 @@ bool MacAppController::startApp(const MacApp& app) {
 
 
 bool MacAppController::stopApp(const MacApp& app) {
-    std::string cmd = "pkill -f \"" + app.name + "\"";
-    return (system(cmd.c_str()) == 0);
+    std::string quitCmd = "osascript -e 'tell application \"" + app.name + "\" to quit'";
+    system(quitCmd.c_str());
+    sleep(1);
+
+    std::string killCmd = "pkill -x \"" + app.name + "\"";
+    return (system(killCmd.c_str()) == 0);
 }
 
 #endif

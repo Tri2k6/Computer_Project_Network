@@ -1,0 +1,34 @@
+body { 
+    font-family: 'Inter', sans-serif; 
+}
+
+/* Remove default outline for inputs */
+input:focus { 
+    outline: none; 
+    border-color: #8b5cf6; 
+}
+
+/* Custom scrollbar - Làm đẹp thanh cuộn */
+::-webkit-scrollbar { 
+    width: 8px; 
+}
+
+::-webkit-scrollbar-track { 
+    background: #0f172a; 
+}
+
+::-webkit-scrollbar-thumb { 
+    background: #334155; 
+    border-radius: 4px; 
+}
+
+/* Toggle Switch CSS - Nút gạt Broadcast Mode */
+.toggle-checkbox:checked {
+    /* right: 0;  <-- Bỏ dòng này đi */
+    left: 1.25rem; /* Di chuyển sang phải 1.25rem (bằng đúng chiều rộng w-5 của nút) */
+    border-color: #8b5cf6;
+}
+
+.toggle-checkbox:checked + .toggle-label {
+    background-color: #8b5cf6;
+}

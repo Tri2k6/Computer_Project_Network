@@ -3,7 +3,8 @@
 #include "ProcessControl_MAC.h"
 
 
-void MacProcessController::listProcesses() {
+std::string MacProcessController::listProcesses() {
+    std::stringstream ans;
     procList.clear();
 
     int mib[4] = { CTL_KERN, KERN_PROC, KERN_PROC_ALL, 0 };
@@ -18,13 +19,15 @@ void MacProcessController::listProcesses() {
     for (int i = 0; i < count; i++) {
         auto &p = processes[i];
         int pid = p.kp_proc.p_pid;
-        std::string name = p.kp_proc.p_comm;
+        if (pid <= 0) continue;
 
+        std::string name = p.kp_proc.p_comm;
         procList.push_back({ pid, name });
 
-        std::cout << i << ". PID: " << pid
-                    << " | Name: " << name << "\n";
+        ans << i << ". PID: " << pid << " | Name: " << name << "\n";
     }
+
+    return ans.str();
 }
 
 
@@ -35,12 +38,8 @@ MacProcess MacProcessController::getProcess(int i) {
 
 
 bool MacProcessController::startProcess(const MacProcess& proc) {
-    pid_t pid;
-    const char* path = proc.name.c_str();
-    char* argv[] = { (char*)path, NULL };
-
-    int status = posix_spawn(&pid, path, NULL, NULL, argv, environ);
-    return (status == 0);
+    std::string cmd = "open -a \"" + proc.name + "\"";
+    return (system(cmd.c_str()) == 0);
 }
 
 

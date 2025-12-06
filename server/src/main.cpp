@@ -9,6 +9,8 @@
 #include <iostream>
 
 int main() {
+    SetConsoleOutputCP(CP_UTF8); // đổi sang UTF8 để khỏi bị lỗi ký tự tiếng Việt
+
     try {
         asio::io_context io;
         

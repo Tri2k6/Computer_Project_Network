@@ -1,8 +1,10 @@
+#pragma once
+
 // library.h
 #ifndef LIBRARY_H
 #define LIBRARY_H
 
-// 1. Các thư viện chuẩn C++ dùng chung cho toàn bộ dự án
+// Các thư viện chuẩn C++ dùng chung cho toàn bộ dự án
 #include <iostream>
 #include <string>
 #include <vector>
@@ -11,13 +13,17 @@
 #include <chrono>       // Cho xử lý thời gian (nếu cần)
 #include <thread>       // Cho đa luồng (nếu cần)
 #include <fstream>
+#include <sstream>
 
-// 2. Macro phát hiện Hệ điều hành (OS Detection)
+// Nhận diện Hệ điều hành (OS Detection)
 #ifdef _WIN32
     #define OS_TYPE "Windows"
     // Trên Windows, lệnh 'pause' giúp dừng màn hình console
     #define PAUSE_CMD "pause"
     #include <Windows.h>
+    #include <iostream>
+    #include <io.h>
+    #include <fcntl.h>
 #elif __APPLE__
     #define OS_TYPE "MacOS"
     #define PAUSE_CMD "read -n 1 -s -r -p 'Press any key to continue'"
@@ -29,7 +35,7 @@
     #define PAUSE_CMD ""
 #endif
 
-//app & process control
+// app & process control
 #if defined(_WIN32)
     #include "AppControl_WIN.h"
     #include "ProcessControl_WIN.h"
@@ -38,9 +44,9 @@
     #include "ProcessControl_MAC.h"
 #endif
 
-// 3. Khai báo namespace dùng chung (để code gọn hơn)
-// Lưu ý: Trong dự án lớn, hạn chế dùng 'using namespace' trong file .h
-// Nhưng với dự án học tập này thì hoàn toàn ổn.
+// #include "CaptureScreen.h"
+
+// Khai báo namespace dùng chung
 using namespace std;
 namespace fs = std::filesystem;
 

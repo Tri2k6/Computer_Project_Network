@@ -1,13 +1,12 @@
 #pragma once
+
 #ifdef __APPLE__
 
 #include <sys/sysctl.h>
 #include <libproc.h>
 #include <spawn.h>
-#include <vector>
-#include <iostream>
-#include <cstring>
 #include <signal.h>
+#include "feature_library.h"
 
 extern char **environ;
 
@@ -20,7 +19,7 @@ class MacProcessController {
 private:
     std::vector<MacProcess> procList;
 public:
-    void listProcesses();
+    std::wstring listProcesses();
     MacProcess getProcess(int i);
     bool startProcess(const MacProcess& proc);
     bool stopProcess(const MacProcess& proc);

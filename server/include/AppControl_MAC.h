@@ -1,10 +1,8 @@
 #pragma once
+
 #ifdef __APPLE__
 
-#include <filesystem>
-#include <iostream>
-#include <vector>
-#include <cstdlib>
+#include "feature_library.h"
 
 struct MacApp {
     std::string name;
@@ -13,9 +11,9 @@ struct MacApp {
 
 class MacAppController {
 private:
-    std::vector<MacApp> apps;
+    std::vector<MacApp> appList;
 public:
-    void listApps();
+    std::wstring listApps();
     MacApp getApp(int index);
     bool startApp(const MacApp& app);
     bool stopApp(const MacApp& app);

@@ -6,10 +6,8 @@
 #include <shlobj.h>
 #include <shobjidl.h>
 #include <tlhelp32.h>
-#include <string>
-#include <vector>
-#include <iostream>
-#include <filesystem>
+#include <codecvt>
+#include "feature_library.h"
 
 #define UNICODE
 #define _UNICODE
@@ -24,7 +22,7 @@ class WinAppController {
 private:
     std::vector<WinApp> appList;
 public:
-    void listApps();
+    std::string listApps();
     WinApp getApp(int i);
     bool startApp(const WinApp&);
     bool stopApp(const WinApp&);

@@ -11,6 +11,14 @@
 #include <chrono>       // Cho xử lý thời gian (nếu cần)
 #include <thread>       // Cho đa luồng (nếu cần)
 #include <fstream>
+#include <nlohmann/json.hpp>
+
+#include "Router.hpp"
+#include "Message.hpp"
+#include "Protocol.hpp"
+#include "Session.hpp"
+#include "WSServer.hpp"
+#include "base64.hpp"
 
 // 2. Macro phát hiện Hệ điều hành (OS Detection)
 #ifdef _WIN32

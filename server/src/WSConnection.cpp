@@ -13,6 +13,17 @@ void WSConnection::connect() {
     );
 }
 
+void WSConnection::doResolve() {
+    resolver_.async_resolve(
+        host_,
+        port_,
+        beast::bind_front_handler(
+            &WSConnection::onResolve,
+            shared_from_this()
+        )
+    );
+}
+
 void WSConnection::onResolve(beast::error_code ec,
                              tcp::resolver::results_type results) {
     if (ec) {

@@ -2,7 +2,7 @@
 
 Gateway::Gateway(WSServer& server, Router& router) : server_(server), router_(router) {}
 
-bool Gateway::validateLogin(const const json& data) {
+bool Gateway::validateLogin(const json& data) {
     if (!data.contains("user") || !data.contains("pass")) {
         std::cerr << "[Gateway] Login failed: Missing user or pass field";
         return false;
@@ -38,5 +38,40 @@ void Gateway::onMessage(SessionPtr session, const Message& msg) {
         
         return;
     }
+
     router_.dispatch(msg, session);
+}
+
+void Gateway::registerInternalRoutes() {
+    router_.registerHandler(
+        Protocol::TYPE::PING,
+        [](const Message&, Gateway::SessionPtr s) {
+            s->send(
+                Message(Protocol::TYPE::PONG, "Server Alive").serialize()
+            );
+        }
+    );
+
+    router_.registerHandler(
+        Protocol::TYPE::HEARTBEAT,
+        [](const Message&, Gateway::SessionPtr s) {
+            s->send(
+                Message(Protocol::TYPE::HEARTBEAT, "bump - bump").serialize()
+            );
+        }
+    );
+    
+    router_.registerHandler(
+        Protocol::TYPE::BROADCAST, 
+        [this](const Message& msg, SessionPtr session) {
+            this->server_.broadcast(msg);
+    });
+
+    router_.registerHandler(
+        Protocol::TYPE::PROC_LIST, 
+        [this](const Message& msg, SessionPtr s) {
+            MacAppController ac;
+            auto apps = ac.listApps();
+            s->send(Message(Protocol::TYPE::PROC_LIST, apps));
+    });
 }

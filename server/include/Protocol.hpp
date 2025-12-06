@@ -18,7 +18,6 @@ namespace Protocol {
         static const std::string HEARTBEAT = "heartbeat";
         static const std::string ERROR = "error";
         static const std::string BROADCAST = "broadcast";
-        static const std::string DIRECT = "direct";   
         
         // app
         static const std::string APP_LIST = "app_list";
@@ -45,8 +44,8 @@ namespace Protocol {
             TYPE::PONG,
             TYPE::AUTH,
             TYPE::HEARTBEAT,
-            TYPE::HEARTBEAT,
             TYPE::ERROR,
+            TYPE::BROADCAST,
 
             TYPE::APP_LIST,
             TYPE::APP_START,

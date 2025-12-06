@@ -3,7 +3,7 @@
 #include "AppControl_MAC.h"
 
 
-void MacAppController::listApps() {
+std::vector<MacApp> MacAppController::listApps() {
     apps.clear();
     std::vector<std::string> dirs = {
         "/Applications",
@@ -24,6 +24,7 @@ void MacAppController::listApps() {
             }
         }
     }
+    return apps;
 }
 
 

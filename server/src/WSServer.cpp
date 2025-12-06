@@ -3,14 +3,7 @@
 WSServer::WSServer(asio::io_context& io, uint16_t port, Router& router)
     : acceptor_(io, tcp::endpoint(tcp::v4(), port)),
       socket_(io),
-      router_(router) {
-    
-    router_.registerHandler(Protocol::CMD::BROADCAST, 
-        [this](const Message& msg, SessionPtr session) {
-            std::cout << "[Server Internal] Executing Broadcast: " << msg.data << "\n";
-            this->broadcast(msg);
-        });
-}
+      router_(router) {}
 
 void WSServer::start() {
     doAccept();
@@ -67,29 +60,16 @@ void WSServer::onClientMessage(const std::string& raw, SessionPtr session) {
     std::cout << "[Server] Received: " << raw << "\n";
     Message msg = Message::deserialize(raw);
 
-    if (!Protocol::isValidCommand(msg.cmd)) {
+    if (!Protocol::isValidCommand(msg.type)) {
 
         Message err(
-            Protocol::CMD::ERROR,
+            Protocol::TYPE::ERROR,
             Protocol::ERROR::INVALID_CMD
         );
 
         session->send(err.serialize());
         return;
     }
-    int i = 150;
-
-    WinAppController ac;
-    WinProcessController pc;
-
-    pc.listProcesses();
-
-    std::cout << "\nSelect a process: ";
-
-    if (pc.stopProcess(pc.getProcess(i)))
-        std::cout << "Killed!\n";
-    else
-        std::cout << "Not found!\n";
 
     router_.dispatch(msg, session);
 }

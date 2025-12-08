@@ -7,7 +7,7 @@
 struct MacApp {
     std::string name;
     std::string path;
-    NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MacApp, name, path)
+    NLOHMANN_DEFINE_TYPE_INTRUSIVE(MacApp, name, path)
 };
 
 class MacAppController {

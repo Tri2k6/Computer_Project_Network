@@ -1,12 +1,12 @@
 #pragma once
 
+#include <string>
+#include <unordered_set>
+
 // Windows define sẵn ERROR rồi nên define như dưới sẽ bug =))))
 #ifdef ERROR
 #undef ERROR
 #endif
-
-#include <string>
-#include <unordered_set>
 
 namespace Protocol {
     static const std::string VERSION = "1.0";

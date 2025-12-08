@@ -66,12 +66,4 @@ void Gateway::registerInternalRoutes() {
         [this](const Message& msg, SessionPtr session) {
             this->server_.broadcast(msg);
     });
-
-    router_.registerHandler(
-        Protocol::TYPE::PROC_LIST, 
-        [this](const Message& msg, SessionPtr s) {
-            MacAppController ac;
-            auto apps = ac.listApps();
-            s->send(Message(Protocol::TYPE::PROC_LIST, apps));
-    });
 }

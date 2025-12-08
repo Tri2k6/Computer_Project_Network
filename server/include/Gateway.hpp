@@ -1,6 +1,14 @@
 #pragma once
 
-#include "feature_library.h"
+#include "Router.hpp"
+#include "Message.hpp"
+#include "Session.hpp"
+#include "WSServer.hpp"
+
+#include <memory>
+#include <nlohmann/json.hpp>
+
+class WSServer;
 
 class Gateway {
 public:

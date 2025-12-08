@@ -1,3 +1,5 @@
+#pragma once
+
 #include "feature_library.h"
 
 class WebcamController {

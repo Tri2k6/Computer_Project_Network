@@ -1,14 +1,6 @@
 #pragma once
 
-#include <boost/beast/core.hpp>
-#include <boost/beast/websocket.hpp>
-#include <boost/asio.hpp>
-#include <boost/asio/strand.hpp>
-
-#include <queue>
-#include <functional>
-#include <string>
-#include <memory>
+#include "feature_library.h"
 
 namespace beast = boost::beast;
 namespace websocket = beast::websocket;

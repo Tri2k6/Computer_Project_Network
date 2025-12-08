@@ -13,7 +13,17 @@
 #include <chrono>       // Cho xử lý thời gian (nếu cần)
 #include <thread>       // Cho đa luồng (nếu cần)
 #include <fstream>
+#include <unordered_map>
+#include <unordered_set>
 #include <nlohmann/json.hpp>
+#include <boost/asio/signal_set.hpp>
+#include <locale> // for std::string::wstring_convert
+#include <codecvt> // for std::codecvt_utf8
+#include <boost/asio.hpp>
+#include <boost/beast.hpp>
+#include <boost/beast/core.hpp>
+#include <boost/beast/websocket.hpp>
+#include <boost/asio/strand.hpp>
 
 #include "Router.hpp"
 #include "Message.hpp"
@@ -21,6 +31,11 @@
 #include "Session.hpp"
 #include "WSServer.hpp"
 #include "base64.hpp"
+#include "Discovery.hpp"
+#include "CommandManager.hpp"
+#include "Converter.h"
+#include "WSConnection.hpp"
+#include "Gateway.hpp"
 
 // Nhận diện Hệ điều hành (OS Detection)
 #ifdef _WIN32

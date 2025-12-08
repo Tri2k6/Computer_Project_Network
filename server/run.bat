@@ -31,6 +31,6 @@ echo =======================
 echo Running server...
 echo.
 
-server.exe
+REM server.exe
 
 pause

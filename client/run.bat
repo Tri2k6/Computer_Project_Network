@@ -31,6 +31,6 @@ echo =======================
 echo Running client...
 echo.
 
-client.exe
+REM client.exe
 
 pause

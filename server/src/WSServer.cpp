@@ -71,6 +71,9 @@ void WSServer::onClientMessage(const std::string& raw, SessionPtr session) {
         return;
     }
 
+    std::string ans = ParseCommand(msg);
+    // session->send(Message::deserialize(ans).serialize());
+
     router_.dispatch(msg, session);
 }
 

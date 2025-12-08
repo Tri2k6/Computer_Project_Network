@@ -7,9 +7,8 @@
 
 #include <windows.h>
 #include <tlhelp32.h>
-#include <iostream>
-#include <string>
-#include <vector>
+#include <codecvt>
+#include "feature_library.h"
 
 struct WinProcess {
     DWORD pid;
@@ -20,7 +19,7 @@ class WinProcessController {
 private:
     std::vector<WinProcess> procList;
 public:
-    void listProcesses();
+    std::string listProcesses();
     WinProcess getProcess(int i);
     bool startProcess(const WinProcess&);
     bool stopProcess(const WinProcess&);

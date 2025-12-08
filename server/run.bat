@@ -13,7 +13,7 @@ for /R src %%f in (*.cpp) do (
 )
 
 REM Compile all source files with include paths and link Winsock libraries
-g++ !SRCFILES! -I include -I C:\Users\Kane\vcpkg\installed\x64-windows\include -o server.exe -lws2_32 -lmswsock -lole32 -lshell32 -luuid
+g++ !SRCFILES! -I include -I C:\vcpkg\installed\x64-windows\include -o server.exe -lws2_32 -lmswsock -lole32 -lshell32 -luuid
 
 IF %ERRORLEVEL% NEQ 0 (
     echo.

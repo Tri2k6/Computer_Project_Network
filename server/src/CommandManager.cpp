@@ -17,12 +17,10 @@ std::string ParseCommand(Message msg) {
     WinAppController ac;
     WinProcessController pc;
     #endif
-    
-    // ScreenCapture sc;
-    // WebcamController wc;
 
     if (cmd == "LISTAPP")
     {
+        cerr << "Toi bi ngu";
         return ac.listApps();
     }
     else if(cmd == "STARTAPP")
@@ -91,7 +89,44 @@ std::string ParseCommand(Message msg) {
     }
     else if(cmd == "SCRSHOT")
     {
-        // sc.captureNow();
+        CaptureScreen sc;
+        // string Encoding = sc.captureAndEncode();
+        
+        string imageBuffer = sc.captureRaw();
+
+        std::string filename = "screenshot_output.jpg";
+        std::cout << "3. Dang luu ra file: " << filename << "..." << std::endl;
+
+        // Mở file output với cờ std::ios::binary (Bắt buộc cho ảnh)
+        std::ofstream outFile(filename, std::ios::binary);
+        
+        if (outFile.is_open()) {
+            // Ép kiểu dữ liệu từ unsigned char* sang char* để hàm write hiểu
+            outFile.write(reinterpret_cast<const char*>(imageBuffer.data()), imageBuffer.size());
+            outFile.close();
+            std::cout << "=== THANH CONG! Hay mo file " << filename << " de xem anh. ===" << std::endl;
+        } else {
+            std::cerr << "Loi: Khong the tao file tren dia." << std::endl;
+        }
+    } else if (cmd == "CAM_RECORD") {
+        CameraRecorder CR;
+
+        string imageBuffer = CR.recordRawData(10);
+
+        std::string filename = "screenshot_output.mp4";
+        std::cout << "3. Dang luu ra file: " << filename << "..." << std::endl;
+
+        // Mở file output với cờ std::ios::binary (Bắt buộc cho ảnh)
+        std::ofstream outFile(filename, std::ios::binary);
+        
+        if (outFile.is_open()) {
+            // Ép kiểu dữ liệu từ unsigned char* sang char* để hàm write hiểu
+            outFile.write(reinterpret_cast<const char*>(imageBuffer.data()), imageBuffer.size());
+            outFile.close();
+            std::cout << "=== THANH CONG! Hay mo file " << filename << " de xem anh. ===" << std::endl;
+        } else {
+            std::cerr << "Loi: Khong the tao file tren dia." << std::endl;
+        }
     }
 
     return "Unrecognized command!\n";

@@ -15,23 +15,25 @@ namespace Protocol {
         static const std::string PING = "ping";
         static const std::string PONG = "pong"; 
         static const std::string AUTH = "auth";
+        static const std::string STATUS = "status";
         static const std::string HEARTBEAT = "heartbeat";
         static const std::string ERROR = "error";
         static const std::string BROADCAST = "broadcast";
         
         // app
-        static const std::string APP_LIST = "app_list";
-        static const std::string APP_START = "app_start";
-        static const std::string APP_KILL = "app_kill";
+        static const std::string APP_LIST = "LISTAPP";
+        static const std::string APP_START = "STARTAPP";
+        static const std::string APP_KILL = "STOPAPP";
 
         // process
-        static const std::string PROC_LIST = "proc_list";
-        static const std::string PROC_START = "proc_start";
-        static const std::string PROC_KILL = "proc_kill";
+        static const std::string PROC_LIST = "LISTPROC";
+        static const std::string PROC_START = "STARTPROC";
+        static const std::string PROC_KILL = "STOPPROC";
 
         static const std::string CAM_RECORD = "cam_record";
-        static const std::string SCREENSHOT = "screenshot";
-        static const std::string KEYLOG = "keylog";
+        static const std::string SCREENSHOT = "SCRSHOT";
+        static const std::string START_KEYLOG = "STARTKLOG";
+        static const std::string STOP_KEYLOG = "STOPKLOG";
 
         // power
         static const std::string SHUTDOWN = "shutdown";
@@ -43,6 +45,7 @@ namespace Protocol {
             TYPE::PING,
             TYPE::PONG,
             TYPE::AUTH,
+            TYPE::STATUS,
             TYPE::HEARTBEAT,
             TYPE::ERROR,
             TYPE::BROADCAST,
@@ -56,7 +59,8 @@ namespace Protocol {
             TYPE::PROC_KILL,
             TYPE::CAM_RECORD,
             TYPE::SCREENSHOT,
-            TYPE::KEYLOG,
+            TYPE::START_KEYLOG,
+            TYPE::STOP_KEYLOG
         };
         
         return types;

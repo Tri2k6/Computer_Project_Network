@@ -15,11 +15,13 @@ struct MacProcess {
     std::string name;
 };
 
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MacProcess, name, pid)
+
 class MacProcessController {
 private:
     std::vector<MacProcess> procList;
 public:
-    std::wstring listProcesses();
+    std::vector<MacProcess> listProcesses();
     MacProcess getProcess(int i);
     bool startProcess(const MacProcess& proc);
     bool stopProcess(const MacProcess& proc);

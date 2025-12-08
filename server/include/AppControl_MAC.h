@@ -14,7 +14,7 @@ class MacAppController {
 private:
     std::vector<MacApp> appList;
 public:
-    std::wstring listApps();
+    std::vector<MacApp> listApps();
     MacApp getApp(int index);
     bool startApp(const MacApp& app);
     bool stopApp(const MacApp& app);

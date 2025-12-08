@@ -1,4 +1,4 @@
 #pragma once
-#include "WSServer.hpp"
+#include "feature_library.h"
 
-std::string ParseCommand(Message msg);
+Message ParseCommand(Message msg);

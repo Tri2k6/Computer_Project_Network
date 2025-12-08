@@ -3,7 +3,7 @@
 #include "AppControl_MAC.h"
 
 
-std::string MacAppController::listApps() {
+std::vector<MacApp> MacAppController::listApps() {
     std::stringstream ans;
     appList.clear();
 
@@ -29,7 +29,7 @@ std::string MacAppController::listApps() {
         } catch (...) {}
     }
 
-    return ans.str();
+    return appList;
 }
 
 

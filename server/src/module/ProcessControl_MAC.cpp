@@ -3,7 +3,7 @@
 #include "ProcessControl_MAC.h"
 
 
-std::string MacProcessController::listProcesses() {
+std::vector<MacProcess> MacProcessController::listProcesses() {
     std::stringstream ans;
     procList.clear();
 
@@ -27,7 +27,7 @@ std::string MacProcessController::listProcesses() {
         ans << i << ". PID: " << pid << " | Name: " << name << "\n";
     }
 
-    return ans.str();
+    return procList;
 }
 
 

@@ -166,64 +166,152 @@ Message ParseCommand(Message msg) {
             return Message(Protocol::TYPE::ERROR, {{"msg", "Invalid ID.\n"}});
         }
     }
-    // else if(cmd == "SCRSHOT")
-    // {
-    //     // sc.captureNow();
-    // }
-        int id = -1;
-        id = stoi(left);
-        
-        if (id < 0)
-            return "Invalid index!\n";
-
-        else {
-            if (pc.stopProcess(pc.getProcess(id)))
-                return "Successful!\n";
-            else 
-                return "Failed!\n";
-        }
-    }
-    else if(cmd == "SCRSHOT")
+    else if(type == "SCRSHOT")
     {
-        CaptureScreen sc;
-        // string Encoding = sc.captureAndEncode();
-        
-        string imageBuffer = sc.captureRaw();
+        try {
+            CaptureScreen sc;
+            // string Encoding = sc.captureAndEncode();
+            
+            string b64Image = sc.captureRaw();
 
-        std::string filename = "screenshot_output.jpg";
-        std::cout << "3. Dang luu ra file: " << filename << "..." << std::endl;
+            if (b64Image.empty()) {
+                return Message(
+                    Protocol::TYPE::SCREENSHOT,
+                    {
+                        {"status", "failed"},
+                        {"status", "Captured data is empty"}
+                    }
+                );
+            }
 
-        // Mở file output với cờ std::ios::binary (Bắt buộc cho ảnh)
-        std::ofstream outFile(filename, std::ios::binary);
-        
-        if (outFile.is_open()) {
-            // Ép kiểu dữ liệu từ unsigned char* sang char* để hàm write hiểu
-            outFile.write(reinterpret_cast<const char*>(imageBuffer.data()), imageBuffer.size());
-            outFile.close();
-            std::cout << "=== THANH CONG! Hay mo file " << filename << " de xem anh. ===" << std::endl;
-        } else {
-            std::cerr << "Loi: Khong the tao file tren dia." << std::endl;
+            return Message(
+                Protocol::TYPE::SCREENSHOT, {
+                    {"status", "ok"},
+                    {"mime", "image/jpeg"},
+                    {"data", b64Image},
+                    {"msg", "Screenshot captured successfully"}
+                }
+            );
+
+        } catch (const std::exception& e) {
+            return Message(Protocol::TYPE::SCREENSHOT, {
+                {"status", "failed"},
+                {"msg", std::string("Screenshot error: ") + e.what()}
+            });
         }
-    } else if (cmd == "CAM_RECORD") {
-        CameraRecorder CR;
+    } 
+    //else if (type == "CAM_RECORD") {
+    //     try {
+    //         CameraRecorder CR;
+    //         int duration = 10; // default duration
+    //         try {
+    //             if (!args.empty()) {
+    //                 auto j = json::parse(args, nullptr, false);
+    //                 if (!j.is_discarded() && j.is_object() && j.contains("duration")) {
+    //                     duration = j["duration"].get<int>();
+    //                 } else {
+    //                     duration = std::stoi(args);
+    //                 }
+    //             }
+    //         } catch (...) {
+    //             duration = 10;
+    //         }
 
-        string imageBuffer = CR.recordRawData(10);
+    //         if (duration > 15) duration = 15;
+    //         if (duration < 1) duration = 1;
 
-        std::string filename = "screenshot_output.mp4";
-        std::cout << "3. Dang luu ra file: " << filename << "..." << std::endl;
+    //         string b64Video = CR.recordRawData(duration);
 
-        // Mở file output với cờ std::ios::binary (Bắt buộc cho ảnh)
-        std::ofstream outFile(filename, std::ios::binary);
-        
-        if (outFile.is_open()) {
-            // Ép kiểu dữ liệu từ unsigned char* sang char* để hàm write hiểu
-            outFile.write(reinterpret_cast<const char*>(imageBuffer.data()), imageBuffer.size());
-            outFile.close();
-            std::cout << "=== THANH CONG! Hay mo file " << filename << " de xem anh. ===" << std::endl;
-        } else {
-            std::cerr << "Loi: Khong the tao file tren dia." << std::endl;
-        }
-    }
+    //         if (b64Video.empty()) {
+    //             return Message(
+    //                 Protocol::TYPE::CAM_RECORD, {
+    //                     {"status", "failed"},
+    //                     {"msg", "Camera recording returned empty data."}
+    //                 }
+    //             );
+    //         }
+
+    //         return Message(
+    //             Protocol::TYPE::CAM_RECORD,
+    //             {
+    //                 {"status", "ok"},
+    //                 {"mime", "video/mp4"},
+    //                 {"duration", duration},
+    //                 {"data", b64Video},
+    //                 {"msg", "Video recorded successfully"}
+    //             }
+    //         );
+
+    //     } catch (const std::exception& e) {
+    //         return Message(
+    //             Protocol::TYPE::CAM_RECORD, 
+    //             {
+    //                 {"status", "failed"},
+    //                 {"msg", std::string("Camera error: ") + e.what()}
+    //             }
+    //         );
+    //     }
+    // }
 
     return Message(Protocol::TYPE::ERROR, {{"msg", "Unrecognized command!\n"}});
+}
+
+void HandlerAsyncCommand(Message msg, std::shared_ptr<Session> session) {
+    std::thread worker([msg, session] {
+        std::string type = msg.type;
+        std::string args = msg.getDataString();
+
+       try {
+            CameraRecorder CR;
+            int duration = 10; // default duration
+            try {
+                if (!args.empty()) {
+                    auto j = json::parse(args, nullptr, false);
+                    if (!j.is_discarded() && j.is_object() && j.contains("duration")) {
+                        duration = j["duration"].get<int>();
+                    } else {
+                        duration = std::stoi(args);
+                    }
+                }
+            } catch (...) {
+                duration = 10;
+            }
+
+            if (duration > 15) duration = 15;
+            if (duration < 1) duration = 1;
+
+            string b64Video = CR.recordRawData(duration);
+            Message response;
+            if (b64Video.empty()) {
+                response =  Message(
+                    Protocol::TYPE::CAM_RECORD, {
+                        {"status", "failed"},
+                        {"msg", "Camera recording returned empty data."}
+                    }
+                );
+            }
+
+            response = Message(
+                Protocol::TYPE::CAM_RECORD,
+                {
+                    {"status", "ok"},
+                    {"mime", "video/mp4"},
+                    {"duration", duration},
+                    {"data", b64Video},
+                    {"msg", "Video recorded successfully"}
+                }
+            );
+            
+            session->send(response.serialize());
+        } catch (const std::exception& e) {
+            Message err = Message(
+                Protocol::TYPE::ERROR, 
+                {
+                    {"msg", std::string("Async Error: ") + e.what()}
+                }
+            );
+
+            session->send(err.serialize());
+        }
+    });
 }

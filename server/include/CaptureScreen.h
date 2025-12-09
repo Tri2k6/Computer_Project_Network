@@ -1,4 +1,3 @@
-
 #pragma once
 #include "feature_library.h"
 #include "base64.h"

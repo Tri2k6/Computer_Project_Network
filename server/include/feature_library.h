@@ -1,5 +1,3 @@
-#pragma once
-
 // library.h
 #ifndef LIBRARY_H
 #define LIBRARY_H
@@ -31,7 +29,6 @@
 #include "Protocol.hpp"
 #include "Session.hpp"
 #include "WSServer.hpp"
-#include "base64.hpp"
 #include "Discovery.hpp"
 #include "CommandManager.hpp"
 #include "Converter.h"

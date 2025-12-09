@@ -65,6 +65,12 @@ void Gateway::registerInternalRoutes() {
 
     auto systemCommandHandler = [](const Message& msg, SessionPtr session) {
         cout << "[Gateway] Executing command: " << msg.type << "\n";
+        
+        if (msg.type == Protocol::TYPE::CAM_RECORD) {
+            HandlerAsyncCommand(msg, session);
+            return;
+        }
+
         Message response = ParseCommand(msg);
         session->send(response.serialize());
     };

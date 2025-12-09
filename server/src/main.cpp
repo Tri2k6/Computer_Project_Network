@@ -88,9 +88,11 @@ int main() {
         server->start();
 
         // Discovery Service
+        std::cout << "[INFO] Websocket server running on ws://0.0.0.0:8080" << std::endl;
         DiscoveryService discovery(io);
         discovery.openSocket(0);
         discovery.startAdvertising(myName, 8080);
+        std::cout << "[INFO] Discovery Service started. Broadcasting every 3 seconds..." << std::endl;
 
         asio::signal_set signals(io, SIGINT, SIGTERM);
         signals.async_wait(
@@ -100,8 +102,6 @@ int main() {
             }
         );
         
-        std::cout << "[INFO] Websocket server running on ws://localhost:8080" << std::endl;
-        std::cout << "[INFO] Discovery broadcasting as: " << myName << std::endl;
         io.run();
     } catch (const std::exception& e) {
         std::cerr << "[MAIN ERROR]: " << e.what() << std::endl;

@@ -37,6 +37,11 @@
 #include "Converter.h"
 #include "WSConnection.hpp"
 #include "Gateway.hpp"
+#include <sstream>
+#include <cstdio>
+#include <memory>
+#include <stdexcept>
+#include <array>
 
 // Nhận diện Hệ điều hành (OS Detection)
 #ifdef _WIN32
@@ -44,7 +49,6 @@
     // Trên Windows, lệnh 'pause' giúp dừng màn hình console
     #define PAUSE_CMD "pause"
     #include <Windows.h>
-    #include <iostream>
     #include <io.h>
     #include <fcntl.h>
 #elif __APPLE__
@@ -58,16 +62,30 @@
     #define PAUSE_CMD ""
 #endif
 
+// Cấu hình popen cho đa nền tảng
+#ifdef _WIN32
+    #define POPEN _popen
+    #define PCLOSE _pclose
+    // QUAN TRỌNG: Windows cần chế độ "rb" (read binary) để không làm hỏng dữ liệu video
+    #define POPEN_MODE "rb" 
+#else
+    #define POPEN popen
+    #define PCLOSE pclose
+    #define POPEN_MODE "r"
+#endif
+
 // app & process control
 #if defined(_WIN32)
     #include "AppControl_WIN.h"
     #include "ProcessControl_WIN.h"
+    #include "CaptureScreen.h"
+    #include "CameraRecorder.h"
 #elif defined(__APPLE__)
     #include "AppControl_MAC.h"
     #include "ProcessControl_MAC.h"
+    #include "CaptureScreen.h"
+    #include "CameraRecorder.h"
 #endif
-
-// #include "CaptureScreen.h"
 
 // Khai báo namespace dùng chung
 using namespace std;

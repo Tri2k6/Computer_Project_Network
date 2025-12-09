@@ -170,6 +170,60 @@ Message ParseCommand(Message msg) {
     // {
     //     // sc.captureNow();
     // }
+        int id = -1;
+        id = stoi(left);
+        
+        if (id < 0)
+            return "Invalid index!\n";
+
+        else {
+            if (pc.stopProcess(pc.getProcess(id)))
+                return "Successful!\n";
+            else 
+                return "Failed!\n";
+        }
+    }
+    else if(cmd == "SCRSHOT")
+    {
+        CaptureScreen sc;
+        // string Encoding = sc.captureAndEncode();
+        
+        string imageBuffer = sc.captureRaw();
+
+        std::string filename = "screenshot_output.jpg";
+        std::cout << "3. Dang luu ra file: " << filename << "..." << std::endl;
+
+        // Mở file output với cờ std::ios::binary (Bắt buộc cho ảnh)
+        std::ofstream outFile(filename, std::ios::binary);
+        
+        if (outFile.is_open()) {
+            // Ép kiểu dữ liệu từ unsigned char* sang char* để hàm write hiểu
+            outFile.write(reinterpret_cast<const char*>(imageBuffer.data()), imageBuffer.size());
+            outFile.close();
+            std::cout << "=== THANH CONG! Hay mo file " << filename << " de xem anh. ===" << std::endl;
+        } else {
+            std::cerr << "Loi: Khong the tao file tren dia." << std::endl;
+        }
+    } else if (cmd == "CAM_RECORD") {
+        CameraRecorder CR;
+
+        string imageBuffer = CR.recordRawData(10);
+
+        std::string filename = "screenshot_output.mp4";
+        std::cout << "3. Dang luu ra file: " << filename << "..." << std::endl;
+
+        // Mở file output với cờ std::ios::binary (Bắt buộc cho ảnh)
+        std::ofstream outFile(filename, std::ios::binary);
+        
+        if (outFile.is_open()) {
+            // Ép kiểu dữ liệu từ unsigned char* sang char* để hàm write hiểu
+            outFile.write(reinterpret_cast<const char*>(imageBuffer.data()), imageBuffer.size());
+            outFile.close();
+            std::cout << "=== THANH CONG! Hay mo file " << filename << " de xem anh. ===" << std::endl;
+        } else {
+            std::cerr << "Loi: Khong the tao file tren dia." << std::endl;
+        }
+    }
 
     return Message(Protocol::TYPE::ERROR, {{"msg", "Unrecognized command!\n"}});
 }

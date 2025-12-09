@@ -24,6 +24,7 @@
 #include <boost/beast/core.hpp>
 #include <boost/beast/websocket.hpp>
 #include <boost/asio/strand.hpp>
+#include <memory>
 
 #include "Router.hpp"
 #include "Message.hpp"

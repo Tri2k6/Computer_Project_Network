@@ -48,13 +48,13 @@ int main() {
         std::cout << " SERVER STARTING ON: " << myName << "\n";
         std::cout << "=======================================\n";
 
-        Router router;
+        auto router = std::make_shared<Router>();
 
         // Handler Echo cũ
-        router.registerHandler(
+        router->registerHandler(
             "echo",
             [](const Message& msg, Router::SessionPtr session) {
-                //std::cout << "[Handler] Processing echo for: " << msg.data << "\n";
+                //std::cout << "[Handler] Processing echo for: " << msg->data << "\n";
                 std::string data;
                 if (msg.data.is_string()) 
                     data = msg.data.get<std::string>();
@@ -66,7 +66,7 @@ int main() {
         );
 
         // Handler whoami
-        router.registerHandler(
+        router->registerHandler(
             "whoami",
             [myName](const Message& msg, Router::SessionPtr session) {
                 Message reply("whoami_result", myName);
@@ -76,6 +76,15 @@ int main() {
         );
 
         auto server = std::make_shared<WSServer>(io, 8080, router);
+        
+        Gateway gateway(*server, router);
+
+        server->setMessageHandler(
+            [&gateway](WSServer::SessionPtr session, const Message& msg) {
+                gateway.onMessage(session, msg);
+            }
+        );
+
         server->start();
 
         // Discovery Service
@@ -91,10 +100,10 @@ int main() {
             }
         );
         
-        std::cout << "Websocket server running on ws://localhost:8080" << std::endl;
-        std::cout << "Discovery broadcasting as: " << myName << std::endl;
+        std::cout << "[INFO] Websocket server running on ws://localhost:8080" << std::endl;
+        std::cout << "[INFO] Discovery broadcasting as: " << myName << std::endl;
         io.run();
     } catch (const std::exception& e) {
-        std::cerr << "Error: " << e.what() << std::endl;
+        std::cerr << "[MAIN ERROR]: " << e.what() << std::endl;
     }
 }

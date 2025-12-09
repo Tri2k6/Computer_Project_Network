@@ -1,6 +1,6 @@
 #include "WSServer.hpp"
 
-WSServer::WSServer(asio::io_context& io, uint16_t port, Router& router)
+WSServer::WSServer(asio::io_context& io, uint16_t port, std::shared_ptr<Router> router)
     : acceptor_(io, tcp::endpoint(tcp::v4(), port)),
       socket_(io),
       router_(router) {}
@@ -72,8 +72,11 @@ void WSServer::onClientMessage(const std::string& raw, SessionPtr session) {
     }
 
     // session->send(Message::deserialize(ans).serialize());
-
-    router_.dispatch(msg, session);
+    if (customHandler_) {
+        customHandler_(session, msg);
+    } else {
+        router_->dispatch(msg, session);
+    }
 }
 
 void WSServer::broadcast(const Message& msg) {
@@ -81,6 +84,10 @@ void WSServer::broadcast(const Message& msg) {
     for (auto& s : sessions_) {
         s->send(data);
     }
+}
+
+void WSServer::setMessageHandler(MessageHandler handler) {
+    customHandler_ = handler;
 }
 
 

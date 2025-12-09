@@ -21,17 +21,26 @@ Message ParseCommand(Message msg) {
     // WebcamController wc;
 
     if (type == Protocol::TYPE::APP_LIST)
-    {
-        std::vector<MacApp> apps = ac.listApps();
-        json jArray =json::array();
-        int i = 0;
-        for (const auto& app: apps) {
-            jArray.push_back({
-                {"id", i++},
-                {"name", app.name}
-            });
-        }
-        return Message(Protocol::TYPE::APP_LIST, jArray);
+    {   
+        #ifdef __APPLE__
+            std::vector<MacApp> apps = ac.listApps();
+        #elif _WIN32
+            return Message(Protocol::TYPE::APP_LIST, {{"list", ac.listApps()}});
+        #endif
+
+        #ifdef __APPLE__
+            json jArray =json::array();
+            int i = 0;
+            for (const auto& app: apps) {
+                jArray.push_back({
+                    {"id", i++},
+                    {"name", app.name}
+                });
+            }
+            return Message(Protocol::TYPE::APP_LIST, jArray);
+        
+        #endif
+        return Message(Protocol::TYPE::ERROR, {{"msg", "OS not support."}});
     }
     else if(type == "STARTAPP")
     {   
@@ -91,9 +100,13 @@ Message ParseCommand(Message msg) {
     }
     else if(type == "LISTPROC")
     {
-        std::vector<MacProcess> apps = pc.listProcesses();
-        json j = apps;
-        return Message(Protocol::TYPE::PROC_LIST, j);
+        #ifdef __APPLE__
+            std::vector<MacProcess> apps = pc.listProcesses();
+            json j = apps;
+            return Message(Protocol::TYPE::PROC_LIST, j);
+        #elif _WIN32
+            return Message(Protocol::TYPE::PROC_LIST, {{"list", pc.listProcesses()}});
+        #endif
     }
     else if(type == "STARTPROC")
     {

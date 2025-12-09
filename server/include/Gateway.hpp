@@ -13,11 +13,11 @@ class WSServer;
 class Gateway {
 public:
     using SessionPtr = std::shared_ptr<Session>;
-    Gateway(WSServer& server, Router& router);
+    Gateway(WSServer& server, std::shared_ptr<Router> router);
     void onMessage(SessionPtr session, const Message& msg);
     bool validateLogin(const json& inputHash);
 private:
     void registerInternalRoutes();
     WSServer& server_;
-    Router router_; //pre-routing
+    std::shared_ptr<Router> router_; //pre-routing
 };

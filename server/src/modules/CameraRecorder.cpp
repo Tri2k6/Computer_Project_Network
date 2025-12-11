@@ -1,4 +1,3 @@
-#pragma once
 #include "CameraRecorder.h"
 
 std::string CameraRecorder::dectectDefaultCamera() {

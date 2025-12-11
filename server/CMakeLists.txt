@@ -1,60 +1,76 @@
 cmake_minimum_required(VERSION 3.14)
 
-project(ServerApp LANGUAGES CXX)
+project(AgentClient LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# --- KHẮC PHỤC LỖI BOOST ---
-# Ép buộc CMake dùng FindBoost.cmake có sẵn thay vì BoostConfig.cmake bị lỗi
-set(Boost_NO_BOOST_CMAKE ON) 
-# Tắt cảnh báo về Policy CMP0167 (nếu có)
-if(POLICY CMP0167)
-    cmake_policy(SET CMP0167 OLD)
+if(WIN32)
+    add_compile_options(/U__APPLE__)
+    add_compile_options(/FI"utils/FeatureLibrary.h")
+
+    add_compile_definitions(
+        _WIN32_WINNT=0x0A00 
+        WINVER=0x0A00
+        _HAS_STD_BYTE=0
+        _SILENCE_CXX17_CODECVT_HEADER_DEPRECATION_WARNING
+        NOMINMAX 
+    )
 endif()
 
-# 1. Tìm gói Boost (Bắt buộc)
-find_package(Boost REQUIRED COMPONENTS filesystem thread)
+find_package(Boost REQUIRED COMPONENTS filesystem thread system)
 
-# 2. Tìm gói nlohmann_json (Nếu bạn dùng vcpkg hoặc brew)
-find_package(nlohmann_json QUIET) 
+find_package(nlohmann_json QUIET)
 
-# Include paths cho hệ thống (Hỗ trợ cả Intel và Apple Silicon)
-include_directories(/usr/local/include)
-include_directories(/opt/homebrew/include)
+include_directories(
+    ${CMAKE_SOURCE_DIR}/include
+    ${CMAKE_SOURCE_DIR}/include/core
+    ${CMAKE_SOURCE_DIR}/include/handlers
+    ${CMAKE_SOURCE_DIR}/include/modules
+    ${CMAKE_SOURCE_DIR}/include/network
+    ${CMAKE_SOURCE_DIR}/include/utils
+    ${CMAKE_SOURCE_DIR}/config
+)
 
-# Include header của Boost tìm được
+if(UNIX AND NOT APPLE)
+    include_directories(/usr/local/include)
+elseif(APPLE)
+    include_directories(/opt/homebrew/include)
+    include_directories(/usr/local/include)
+endif()
+
 if(Boost_FOUND)
     include_directories(${Boost_INCLUDE_DIRS})
 endif()
 
-# Project headers
-include_directories(${CMAKE_SOURCE_DIR}/include)
-
-# Find source files
-file(GLOB SERVER_SRC
+file(GLOB_RECURSE AGENT_SOURCES
     "${CMAKE_SOURCE_DIR}/src/*.cpp"
-    "${CMAKE_SOURCE_DIR}/src/module/*.cpp"
 )
 
-add_executable(server ${SERVER_SRC})
+if(WIN32)
+    list(FILTER AGENT_SOURCES EXCLUDE REGEX "_MAC\\.cpp$")
+elseif(APPLE)
+    list(FILTER AGENT_SOURCES EXCLUDE REGEX "_WIN\\.cpp$")
+endif()
 
-# 3. Liên kết thư viện (Link Libraries)
-# Sử dụng biến Boost_LIBRARIES thay vì target nếu Module mode không tạo target
+message(STATUS "Found Source Files: ${AGENT_SOURCES}")
+
+add_executable(agent ${AGENT_SOURCES})
+
 if(TARGET Boost::system)
-    target_link_libraries(server PRIVATE Boost::system Boost::thread)
+    target_link_libraries(agent PRIVATE Boost::system Boost::thread Boost::filesystem)
 else()
-    target_link_libraries(server PRIVATE ${Boost_LIBRARIES})
+    target_link_libraries(agent PRIVATE ${Boost_LIBRARIES})
 endif()
 
-# Link JSON nếu tìm thấy
 if(nlohmann_json_FOUND)
-    target_link_libraries(server PRIVATE nlohmann_json::nlohmann_json)
+    target_link_libraries(agent PRIVATE nlohmann_json::nlohmann_json)
+else()
+    message(WARNING "nlohmann_json not found via find_package. Make sure it is in include path.")
 endif()
 
-# Cấu hình riêng cho từng hệ điều hành
-if(UNIX)
-    target_link_libraries(server PRIVATE pthread)
-elseif(WIN32)
-    target_link_libraries(server PRIVATE ws2_32 mswsock iphlpapi)
+if(WIN32)
+    target_link_libraries(agent PRIVATE ws2_32 mswsock iphlpapi)
+elseif(UNIX)
+    target_link_libraries(agent PRIVATE pthread)
 endif()

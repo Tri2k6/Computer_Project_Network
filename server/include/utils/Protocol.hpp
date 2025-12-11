@@ -4,8 +4,8 @@
 #include <unordered_set>
 
 // Windows define sẵn ERROR rồi nên define như dưới sẽ bug =))))
-#ifdef ERROR
-#undef ERROR
+#if defined(_WIN32) && defined(ERROR)
+    #undef ERROR
 #endif
 
 #ifdef ECHO

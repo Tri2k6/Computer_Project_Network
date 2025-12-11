@@ -2,7 +2,7 @@
 
 #ifdef __APPLE__
 
-#include "feature_library.h"
+#include "utils/FeatureLibrary.h"
 
 struct MacApp {
     std::string name;

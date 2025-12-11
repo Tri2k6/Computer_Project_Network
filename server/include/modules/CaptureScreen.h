@@ -1,6 +1,6 @@
 #pragma once
-#include "feature_library.h"
-#include "base64.h"
+#include "utils/FeatureLibrary.h"
+#include "utils/base64.h"
 
 #ifdef _WIN32
     #define POPEN _popen

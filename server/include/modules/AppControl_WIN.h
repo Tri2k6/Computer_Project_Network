@@ -2,12 +2,12 @@
 
 #ifdef _WIN32
 
-#include <windows.h>
+#include "FeatureLibrary.h"
+
 #include <shlobj.h>
 #include <shobjidl.h>
 #include <tlhelp32.h>
 #include <codecvt>
-#include "feature_library.h"
 
 #define UNICODE
 #define _UNICODE

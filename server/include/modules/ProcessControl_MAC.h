@@ -6,7 +6,7 @@
 #include <libproc.h>
 #include <spawn.h>
 #include <signal.h>
-#include "feature_library.h"
+#include "utils/FeatureLibrary.h"
 
 extern char **environ;
 

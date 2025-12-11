@@ -1,6 +1,6 @@
 #pragma once
 
-#include "feature_library.h"
+#include "FeatureLibrary.h"
 
 namespace beast = boost::beast;
 namespace websocket = beast::websocket;
@@ -9,16 +9,20 @@ using tcp = asio::ip::tcp;
 
 class WSConnection : public std::enable_shared_from_this<WSConnection> {
 public:
-    explicit WSConnection (asio::io_context& ioc,
-                           const std::string& url,
-                           const std::string& port = "80",
-                           const std::string& target = "/")
-            : resolver_(asio::make_strand(ioc)), 
-              ws_(asio::make_strand(ioc)),
-              host_(url),
-              port_(port),
-              target_(target)
-    {}
+  explicit WSConnection (asio::io_context& ioc,
+                        const std::string& url,
+                        const std::string& port = "80",
+                        const std::string& target = "/")
+          try : resolver_(asio::make_strand(ioc)), 
+                ws_(asio::make_strand(ioc)),
+                host_(url),
+                port_(port),
+                target_(target)
+  {
+      std::cout << "[DEBUG] WSConnection Constructor entered success!" << std::endl;
+  } catch (...) {
+      std::cerr << "[CRITICAL] Crash inside WSConnection Init List!" << std::endl;
+  }
 
     std::function<void()> onConnected;
     std::function<void(std::string)> onMessage;

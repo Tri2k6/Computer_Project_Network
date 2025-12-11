@@ -5,10 +5,9 @@
 #define UNICODE
 #define _UNICODE
 
-#include <windows.h>
+#include "FeatureLibrary.h"
 #include <tlhelp32.h>
 #include <codecvt>
-#include "feature_library.h"
 
 struct WinProcess {
     DWORD pid;

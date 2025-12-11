@@ -18,7 +18,7 @@ if(WIN32)
     )
 endif()
 
-find_package(Boost REQUIRED COMPONENTS filesystem thread system)
+find_package(Boost REQUIRED)
 
 find_package(nlohmann_json QUIET)
 

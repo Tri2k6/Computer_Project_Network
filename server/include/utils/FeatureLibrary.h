@@ -75,7 +75,7 @@
 
     inline std::string getHostName() {
         char buffer[256];
-        if (getHostname(buffer, sizeof(buffer)) == 0) {
+        if (gethostname(buffer, sizeof(buffer)) == 0) {
             return std::string(buffer);
         }
 

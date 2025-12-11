@@ -96,9 +96,8 @@ void WSConnection::onRead(beast::error_code ec, std::size_t) {
 }
 
 void WSConnection::send(const std::string& msg) {
-    bool idle = writeQueue_.empty();
-
-    if (idle) {
+    writeQueue_.push(msg);
+    if (writeQueue_.size() == 1) {
         doWrite();
     }
 }

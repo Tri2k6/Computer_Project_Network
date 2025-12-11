@@ -1,18 +1,19 @@
 import { WebSocket } from 'ws';
 import { Logger } from '../utils/Logger';
+import { Connection } from '../core/Connection';
 
 export class AgentManager {
-    private agents: Map<string, WebSocket> = new Map();
+    private agents: Map<string, Connection> = new Map();
 
-    public addAgent(id: string, ws: WebSocket) {
-        if (this.agents.has(id)) {
-            Logger.warn(`Agent ${id} reconnecting... closing old socket.`);
-            const oldWs = this.agents.get(id);
+    public addAgent(conn: Connection) {
+        if (this.agents.has(conn.id)) {
+            Logger.warn(`Agent ${conn.id} reconnecting... closing old socket.`);
+            const oldWs = this.agents.get(conn.id);
             oldWs?.close()
         }
 
-        this.agents.set(id, ws);
-        Logger.info(`Agent added: ${id}. Total agents: ${this.agents.size}`);
+        this.agents.set(conn.id, conn);
+        Logger.info(`Agent added: ${conn.id}. Total agents: ${this.agents.size}`);
     }
 
     public removeAgent(id: string) {
@@ -22,11 +23,11 @@ export class AgentManager {
         }
     }
 
-    public getAgentSocket(id: string): WebSocket | undefined {
+    public getAgentSocket(id: string): Connection | undefined {
         return this.agents.get(id);
     }
 
-    public getAllAgentIds(): string[] {
+    public getAllAgent(): string[] {
         return Array.from(this.agents.keys());
     }
 }

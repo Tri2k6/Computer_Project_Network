@@ -1,13 +1,15 @@
-export class Logger {
-    public static info(msg: string, ...args: any[]) {
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.Logger = void 0;
+class Logger {
+    static info(msg, ...args) {
         console.log(`[${new Date().toISOString()}] [INFO] ${msg}`, ...args);
     }
-
-    public static warn(msg: string, ...args: any[]) {
+    static warn(msg, ...args) {
         console.warn(`[${new Date().toISOString()}] [ERROR] ${msg}`, ...args);
     }
-
-    public static error(msg: string, ...args: any[]) {
+    static error(msg, ...args) {
         console.error(`[${new Date().toISOString()}] [ERROR] ${msg}`, ...args);
     }
 }
+exports.Logger = Logger;

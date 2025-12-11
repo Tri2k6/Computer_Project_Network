@@ -3,8 +3,8 @@ import {CommandType} from './Protocols'
 export interface Message {
     type: CommandType | string;
     data: any;
-    from: string;
-    to: string;
+    from?: string;
+    to?: string;
 }
 
 export const createMessage = (

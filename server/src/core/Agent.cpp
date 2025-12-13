@@ -18,9 +18,12 @@ void Agent::run() {
 }
 
 void Agent::connect() {
-    cout << "[Debug] Init WSConnection...\n" << std::flush;
+
+    boost::asio::ssl::context ctx(boost::asio::ssl::context::tlsv12_client);
+    ctx.set_verify_mode(boost::asio::ssl::verify_none);
+    // cout << "[Debug] Init WSConnection...\n" << std::flush;
     try {
-        client_ = std::make_shared<WSConnection>(ioc_, Config::SERVER_HOST, Config::SERVER_PORT);
+        client_ = std::make_shared<WSConnection>(ioc_, ctx, Config::SERVER_HOST, Config::SERVER_PORT, "/");
 
         client_->onConnected = [this]() {
             this->onConnected();
@@ -38,14 +41,14 @@ void Agent::connect() {
             std::cerr << "[Network] Error: " << ec.message() << "\n";
             this->onDisconnected();
         };
-        std::cout << "[Debug] Triggering client_->connect()...\n" << std::flush;
+        // std::cout << "[Debug] Triggering client_->connect()...\n" << std::flush;
         client_->connect();
 
     } catch (const std::exception& e) {
-        std::cerr << "[CRITICAL] Exception in connect(): " << e.what() << "\n" << std::flush;
+        // std::cerr << "[CRITICAL] Exception in connect(): " << e.what() << "\n" << std::flush;
         onDisconnected();
     } catch (...) {
-        std::cerr << "[FATAL] Unknown Low-level Crash in Agent::connect()!\n" << std::flush;
+        // std::cerr << "[FATAL] Unknown Low-level Crash in Agent::connect()!\n" << std::flush;
         onDisconnected();
     }
 }
@@ -59,7 +62,8 @@ void Agent::sendAuth() {
     json authPayload = {
         {"role", "AGENT"},
         {"user", agentID_},
-        {"pass", Config::AGENT_TOKEN}
+        {"pass", Config::AGENT_TOKEN},
+        {"machineId", agentID_}
     };
 
     Message msg(Protocol::TYPE::AUTH, authPayload, agentID_);

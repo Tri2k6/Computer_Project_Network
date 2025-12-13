@@ -32,6 +32,10 @@ std::vector<MacProcess> MacProcessController::listProcesses() {
 
 
 MacProcess MacProcessController::getProcess(int i) {
+    if (procList.empty()) {
+        listProcesses();
+    }
+    
     if (i < 0 || i >= procList.size()) return {};
     return procList[i];
 }

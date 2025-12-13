@@ -1,22 +1,21 @@
 {
     "configurations": [
         {
-            "name": "Win32",
+            "name": "Mac",
             "includePath": [
                 "${workspaceFolder}/**",
                 "/usr/local/include",
-                "${workspaceFolder}/include",
-                "${workspaceFolder}/include/**"
+                "${workspaceFolder}/include"
             ],
-            "defines": [
-                "_DEBUG",
-                "UNICODE",
-                "_UNICODE"
+            "defines": [],
+            "macFrameworkPath": [
+                "/System/Library/Frameworks",
+                "/Library/Frameworks"
             ],
             "cStandard": "c17",
             "cppStandard": "c++17",
             "intelliSenseMode": "macos-clang-x64",
-            "compilerPath": "cl.exe"
+            "compilerPath": "/usr/bin/clang"
         }
     ],
     "version": 4

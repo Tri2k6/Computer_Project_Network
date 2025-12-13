@@ -86,9 +86,10 @@ std::string CaptureScreen::captureRaw() {
         throw std::runtime_error("CaptureScreen: Ffmpeg chay xong nhung khong co du lieu anh.");
     }
     
-    string res = "";
-    for (int i = 0;i < imageData.size();i++) {
-        res += imageData[i];
-    }
+    // string res = "";
+    // for (int i = 0;i < imageData.size();i++) {
+    //     res += imageData[i];
+    // }
+    std::string res(imageData.begin(), imageData.end());
     return res;
 }

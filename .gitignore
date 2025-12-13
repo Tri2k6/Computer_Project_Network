@@ -72,3 +72,4 @@ node_modules/
 
 .gitignore
 *.json
+.bat

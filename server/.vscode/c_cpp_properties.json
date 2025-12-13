@@ -1,16 +1,15 @@
 {
     "configurations": [
         {
-            "name": "Mac",
+            "name": "Win32",
             "includePath": [
                 "${workspaceFolder}/**",
-                "/usr/local/include",
-                "${workspaceFolder}/include"
+                "${workspaceFolder}/include/**"
             ],
-            "defines": [],
-            "macFrameworkPath": [
-                "/System/Library/Frameworks",
-                "/Library/Frameworks"
+            "defines": [
+                "_DEBUG",
+                "UNICODE",
+                "_UNICODE"
             ],
             "cStandard": "c17",
             "cppStandard": "c++17",

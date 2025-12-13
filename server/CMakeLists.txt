@@ -74,6 +74,12 @@ endif()
 
 if(WIN32)
     target_link_libraries(agent PRIVATE ws2_32 mswsock iphlpapi)
+elseif(APPLE) 
+    target_link_libraries(agent PRIVATE 
+        "-framework ApplicationServices" 
+        "-framework Carbon" 
+        "-framework Foundation"
+    )
 elseif(UNIX)
     target_link_libraries(agent PRIVATE pthread)
 endif()

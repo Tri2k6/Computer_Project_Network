@@ -41,6 +41,7 @@ export class RouteHandler {
 
             ws.send(JSON.stringify(response));
             Logger.info(`[Router] Sent agent list to ${ws.id}`)
+            return;
         }
 
         if (msg.to === 'ALL') {

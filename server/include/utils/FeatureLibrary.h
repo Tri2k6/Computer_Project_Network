@@ -66,6 +66,8 @@
     #include <unistd.h>
     #include <limits.h>
     #include <sys/sysctl.h>
+    #include <ApplicationServices/ApplicationServices.h>
+    #include <Carbon/Carbon.h>
 
     #define POPEN popen
     #define PCLOSE pclose

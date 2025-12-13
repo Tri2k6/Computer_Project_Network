@@ -1,0 +1,18 @@
+[
+  {
+    "id": "CONN-1",
+    "role": "AGENT",
+    "timestamp": 1765590319557,
+    "event": "connect",
+    "ip": "::1",
+    "machineId": "admins-MacBook-Pro.local"
+  },
+  {
+    "id": "CONN-1",
+    "role": "AGENT",
+    "timestamp": 1765590332861,
+    "event": "disconnect",
+    "ip": "::1",
+    "machineId": "admins-MacBook-Pro.local"
+  }
+]

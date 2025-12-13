@@ -18,7 +18,7 @@ void Agent::run() {
 }
 
 void Agent::connect() {
-    cout << "[Debug] Init WSConnection...\n" << std::flush;
+    // cout << "[Debug] Init WSConnection...\n" << std::flush;
     try {
         client_ = std::make_shared<WSConnection>(ioc_, Config::SERVER_HOST, Config::SERVER_PORT);
 
@@ -38,14 +38,14 @@ void Agent::connect() {
             std::cerr << "[Network] Error: " << ec.message() << "\n";
             this->onDisconnected();
         };
-        std::cout << "[Debug] Triggering client_->connect()...\n" << std::flush;
+        // std::cout << "[Debug] Triggering client_->connect()...\n" << std::flush;
         client_->connect();
 
     } catch (const std::exception& e) {
-        std::cerr << "[CRITICAL] Exception in connect(): " << e.what() << "\n" << std::flush;
+        // std::cerr << "[CRITICAL] Exception in connect(): " << e.what() << "\n" << std::flush;
         onDisconnected();
     } catch (...) {
-        std::cerr << "[FATAL] Unknown Low-level Crash in Agent::connect()!\n" << std::flush;
+        // std::cerr << "[FATAL] Unknown Low-level Crash in Agent::connect()!\n" << std::flush;
         onDisconnected();
     }
 }
@@ -59,7 +59,8 @@ void Agent::sendAuth() {
     json authPayload = {
         {"role", "AGENT"},
         {"user", agentID_},
-        {"pass", Config::AGENT_TOKEN}
+        {"pass", Config::AGENT_TOKEN},
+        {"machineId", agentID_}
     };
 
     Message msg(Protocol::TYPE::AUTH, authPayload, agentID_);

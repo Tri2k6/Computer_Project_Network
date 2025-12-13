@@ -12,6 +12,7 @@ export class GatewayServer {
     private clientManager: ClientManager;
     private router: RouteHandler;
     private heartbeatInterval: NodeJS.Timeout | null = null;
+    private connectionCounter: number = 1;
 
     constructor(port: number) {
         this.agentManager = new AgentManager();
@@ -25,6 +26,8 @@ export class GatewayServer {
     public start() {
         this.wss.on('connection', (ws: WebSocket, req) => {
             const ip = req.socket.remoteAddress;
+            const sessionId = `CONN-${this.connectionCounter++}`;
+            ws.id = sessionId;
             Logger.info(`New connection from IP: ${ip}`);
 
             ws.isAlive = true;
@@ -40,6 +43,20 @@ export class GatewayServer {
         });
 
         this.startHeartbeat();
+
+        process.on('SIGINT', this.shutdown.bind(this));
+        process.on('SIGTERM', this.shutdown.bind(this));
+    }
+
+    private async shutdown() {
+        Logger.info("Received shutdown signal. Starting gracful shutdown...");
+        this.wss.close();
+        const clientSave = this.clientManager.saveCache();
+        const agentSave = this.agentManager.saveHistory();
+
+        await Promise.all([clientSave, agentSave]);
+        Logger.info("All data saved. Gateway process terminated.");
+        process.exit(0);
     }
 
     private handleMessage(ws: WebSocket, data:any) {

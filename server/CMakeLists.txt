@@ -16,6 +16,9 @@ if(WIN32)
         _SILENCE_CXX17_CODECVT_HEADER_DEPRECATION_WARNING
         NOMINMAX 
     )
+
+    add_compile_definitions(_SILENCE_ALL_CXX17_DEPRECATION_WARNINGS)
+    add_compile_options(/utf-8)
 endif()
 
 find_package(Boost REQUIRED)

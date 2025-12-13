@@ -19,7 +19,7 @@ public:
                 port_(port),
                 target_(target)
   {
-      std::cout << "[DEBUG] WSConnection Constructor entered success!" << std::endl;
+      //std::cout << "[DEBUG] WSConnection Constructor entered success!" << std::endl;
   } catch (...) {
       std::cerr << "[CRITICAL] Crash inside WSConnection Init List!" << std::endl;
   }

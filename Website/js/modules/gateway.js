@@ -14,11 +14,23 @@ export class Gateway{
         this.ws = null;
         this.callbacks = callbacks;
         this.isAuthenticated = false;
+        this.machineId = this._getMachineId();
+        this.targetId = 'ALL';
 
         this.ui = window.ui || {
             renderList: (title, list) => console.table(list),
             log: (src, msg) => console.log(`[${src}] ${msg}`)
         };
+    }
+
+    _getMachineId() {
+        let id = localStorage.getItem(CONFIG.LOCAL_STORAGE_ID_KEY);
+        if (!id) {
+            id = 'CLI-' + Math.random().toString(36).substring(2, 10).toUpperCase();
+            localStorage.setItem(CONFIG.LOCAL_STORAGE_ID_KEY, id);
+        }
+        //this.ui.log('System', `Machine Id:  ${id}`, 'info');
+        return id;
     }
 
     /**
@@ -38,9 +50,13 @@ export class Gateway{
 
         this.ws.onopen = () => {
             console.log(`[Network] Socket opened.`)
-            if (this.callbacks.onConnected) this.callbacks.onConnected(ip);
-
-            this.authenticate();
+            this.send(
+                CONFIG.CMD.AUTH, {
+                    pass: CONFIG.AUTH_HASH,
+                    role: 'CLIENT',
+                    machineId: this.machineId
+                }
+            );
         };
 
         this.ws.onmessage = (event) => this._handleInternalMessage(event);
@@ -63,30 +79,66 @@ export class Gateway{
 
     authenticate() {
         this.send(CONFIG.CMD.AUTH, {
-            user: CONFIG.AUTH_HASH,
-            pass: CONFIG.AUTH_HASH
-        });
+            pass: CONFIG.AUTH_HASH,
+            role: 'CLIENT',
+            machineId: this.clientMachineId
+,        });
     }
 
     /**
      * @param {string} type 
      * @param {any} data 
+     * @param {string|null} specificTarget // if null -> targetId
      */
 
-    send(type, data) {
+    send(type, data, specificTarget = null) {
         if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
             console.warn(`[Gateway] Cannot send: Socket not open.`);
             return;
         }
-        const packet = JSON.stringify({ type, data });
-        this.ws.send(packet);
+        //const from = this.clientConnectionId;
+        // if (type === CONFIG.CMD.AUTH) {
+        //     const packet = JSON.stringify({ type, data });
+        //     this.ws.send(packet);
+        // } else {
+        //     if (!from) {
+        //         console.error("[Gateway] Cannot send. Not authenticated (missing Session ID).");
+        //         return;
+        //     }
+
+        //     const packet = JSON.stringify({ type, data, to, from });
+        //     this.ws.send(packet);
+        // }
+
+        if (type === CONFIG.CMD.AUTH) {
+            this.ws.send(JSON.stringify({type, data}));
+            return;
+        }
+
+        const payload = {
+            type: type,
+            data: data,
+            from: this.sessionId,
+            to: specificTarget || this.targetId
+        }
+
+        this.ws.send(JSON.stringify(payload));
+    }
+
+    setTarget(id) {
+        this.targetId = id;
+        console.log(`[Gateway] Target set to: ${id}`);
+    }
+
+    refreshAgents() {
+        this.send(CONFIG.CMD.GET_AGENTS, {});
     }
 
     fetchProcessList() {
         this.send(CONFIG.CMD.PROC_LIST, "");
     }
 
-    startProcesS(id) {
+    startProcess(id) {
         this.send(CONFIG.CMD.PROC_START, String(id));
     }
 
@@ -116,11 +168,19 @@ export class Gateway{
                 case CONFIG.CMD.AUTH:
                     if (msg.data && msg.data.status === 'ok') {
                         this.isAuthenticated = true;
+                        this.clientConnectionId = msg.data.sessionId;
+                        this.ui.log('Auth', `Success! Connected as: ${this.clientConnectionId}`, 'info');
                         if (this.callbacks.onAuthSuccess) this.callbacks.onAuthSuccess();
+                        this.refreshAgents();
                     }
                     else {
                         console.error(`[Gateway] Auth Failed`);
                     }
+                    break;
+                case CONFIG.CMD.GET_AGENTS:
+                    if (this.callbacks.onAgentListUpdate) {
+                        this.callbacks.onAgentListUpdate(msg.data) // array [agent, agent]
+                    } 
                     break;
                 case CONFIG.CMD.PROC_LIST:
                     this.ui.renderList('Process List', msg.data);
@@ -134,6 +194,8 @@ export class Gateway{
                 case CONFIG.CMD.APP_KILL:
                     this._handleCommandResult(msg.type, msg.data);
                     break;
+                case CONFIG.CMD.SCREENSHOT:
+                    console.log(`[Data] Received Screenshot from ${sender}`)
                 case CONFIG.CMD.ERROR:
                     console.error("[Server Error]", msg.data);
                     this.ui.log('Error', typeof msg.data === 'string' ? msg.data : msg.data.msg);

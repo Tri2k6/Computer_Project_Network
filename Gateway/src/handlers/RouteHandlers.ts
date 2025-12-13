@@ -32,11 +32,6 @@ export class RouteHandler {
             return;
         }
 
-        if (msg.to) {
-            this.forwardMessage(msg);
-            return;
-        }
-
         if (msg.type === CommandType.GET_AGENTS) {
             const list = this.agentManager.getAllAgent();
             const response = createMessage(
@@ -47,22 +42,56 @@ export class RouteHandler {
             ws.send(JSON.stringify(response));
             Logger.info(`[Router] Sent agent list to ${ws.id}`)
         }
+
+        if (msg.to === 'ALL') {
+            this.broadcastToAgents(ws, msg);
+            return;
+        }
+
+        if (msg.to) {
+            this.forwardMessage(ws, msg);
+            return;
+        }
+
+        if (msg.type === CommandType.ECHO) {
+            ws.send(JSON.stringify(createMessage(
+                CommandType.ECHO,
+                "Gateway echo: " + msg.data
+            )));
+        }
     }
 
-    private forwardMessage(msg: Message) {
-        const targetAgent = this.agentManager.getAgentSocket(msg.to!);
-        const targetClient = this.clientManager.getClientSocket(msg.to!);
+    private forwardMessage(sender: WebSocket, msg: Message) {
+        const targetId = msg.to!;
+        const targetAgent = this.agentManager.getAgentSocket(targetId);
 
         if (targetAgent && targetAgent.isAlive) {
+            msg.from = sender.id;
             targetAgent.send(msg);
-            return;
+            Logger.info(`[Router] Forwarded ${msg.type} from ${sender.id} to ${targetId}`);
+        } else {
+            sender.send(JSON.stringify(createMessage(
+                CommandType.ERROR, 
+                { msg: `Target ${targetId} not found or offline` }
+            )));
         }
+    }
 
-        if (targetClient && targetClient.isAlive) {
-            targetClient.send(msg);
-            return;
-        }
+    private broadcastToAgents(sender: WebSocket, msg: Message) {
+        const agents = this.agentManager.getAllSockets();
+        let count = 0;
+        msg.from = sender.id;
+        agents.forEach(agent =>{
+            if (agent.isAlive) {
+                agent.send(msg);
+                count++
+            }
+        });
 
-        console.warn(`[ROUTER] Target not found or offline: ${msg.to}`);
+        Logger.info(`[Router] Broadcast ${msg.type} from ${sender.id} to ${count} agents.`);
+        sender.send(JSON.stringify(createMessage(
+            CommandType.ECHO, 
+            { msg: `Broadcasted to ${count} agents` }
+        )));
     }
 }

@@ -2,6 +2,7 @@
 #include "Agent.hpp"
 
 int main() {
+    cout << "[Main] Debug 1\n";
     setupConsole();
 
     try {
@@ -13,10 +14,10 @@ int main() {
             io.stop();
         });
 
-        std::cout << "[Debug] Creating Agent...\n" << std::flush;
+        //std::cout << "[Debug] Creating Agent...\n" << std::flush;
         auto agent = std::make_shared<Agent>(io);
         
-        std::cout << "[Debug] Calling agent->run()...\n" << std::flush;
+        //std::cout << "[Debug] Calling agent->run()...\n" << std::flush;
         agent->run();
 
         std::cout << "===========================================\n";

@@ -46,8 +46,8 @@ std::string CameraRecorder::recordRawData(int durationSeconds) {
                 " -f mp4 -movflags frag_keyframe+empty_moov -"; 
     #elif __APPLE__
         // macOS: Dùng avfoundation, xuất ra stdout (-)
-        cmd = "ffmpeg -loglevel quiet -f avfoundation -framerate 30 -i \"" + cameraName + "\" -t " + to_string(durationSeconds) + 
-                " -f mp4 -movflags frag_keyframe+empty_moov -";
+        cmd = "ffmpeg -loglevel quiet -f avfoundation -framerate 30 -pixel_format uyvy422 -i \"" + cameraName + "\" -t " + to_string(durationSeconds) + 
+        " -f mp4 -movflags frag_keyframe+empty_moov -";
     #endif
 
     FILE* pipe = POPEN(cmd.c_str(), POPEN_MODE);

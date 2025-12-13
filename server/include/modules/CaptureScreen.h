@@ -9,7 +9,7 @@
 #elif __APPLE__
     #define POPEN popen
     #define PCLOSE pclose
-    const std::string OS_CMD = "ffmpeg -f avfoundation -i \"1\" -vframes 1 -f image2pipe -c:v mjpeg -q:v 2 -hide_banner -loglevel error -";
+    const std::string OS_CMD = "ffmpeg -f avfoundation -pixel_format uyvy422 -i \"1\" -vframes 1 -f image2pipe -c:v mjpeg -q:v 2 -hide_banner -loglevel error -";
 #else
     #error "OS not supported yet"
 #endif

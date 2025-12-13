@@ -32,7 +32,8 @@ export const CONFIG = {
 
         GET_AGENTS: "get_agents",
         AGEN_STATUS: "agent_status",
-        CONNECT_AGENT: "connect_agent"
+        CONNECT_AGENT: "connect_agent",
+        STREAM_DATA: "stream_data"
     },
     SCAN_TIMEOUT: 1500,
     SCAN_BATCH_SIZE: 30

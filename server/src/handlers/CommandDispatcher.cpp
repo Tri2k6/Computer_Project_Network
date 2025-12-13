@@ -59,7 +59,7 @@ void CommandDispatcher::registerHandlers() {
     };
 
     routes_[Protocol::TYPE::APP_LIST] = [](const Message& msg, ResponseCallBack cb) {
-        #if defined(_WIN32) || defined(__APPLES)
+        #if defined(_WIN32) || defined(__APPLE__)
             AppController ac;
             auto list = ac.listApps();
             cb(Message(
@@ -162,6 +162,32 @@ void CommandDispatcher::registerHandlers() {
             ));
         #endif
     };
+
+    routes_[Protocol::TYPE::PROC_START] = [](const Message& msg, ResponseCallBack cb) {
+        try {
+            int id = -1;
+            if (msg.data.is_number()) id = msg.data.get<int>();
+            else if (msg.data.is_string()) id = std::stoi(msg.data.get<std::string>());
+
+            ProcessController pc;
+            auto proc = pc.getProcess(id); 
+            bool success = pc.startProcess(proc);
+
+            cb(Message(Protocol::TYPE::PROC_START, {
+                {"status", success ? "ok" : "failed"},
+                {"msg", success ? "Process start succesfully!" : "Failed to start process"},
+                {"id", id}
+            }, "", msg.from));
+        } catch (...) {
+            cb(Message(
+                Protocol::TYPE::ERROR, 
+                {{"msg", "Invalid Process ID"}},
+                "", 
+                msg.from
+            ));
+        }
+    };
+
     routes_[Protocol::TYPE::PROC_KILL] = [](const Message& msg, ResponseCallBack cb) {
         try {
             int id = -1;
@@ -190,7 +216,7 @@ void CommandDispatcher::registerHandlers() {
     routes_[Protocol::TYPE::SCREENSHOT] = [](const Message& msg, ResponseCallBack cb) {
         try {
             CaptureScreen sc;
-            std::string b64Image = sc.captureRaw();
+            std::string b64Image = sc.captureAndEncode();
             if (b64Image.empty()) {
                 cb(Message(
                     Protocol::TYPE::SCREENSHOT, 

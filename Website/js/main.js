@@ -125,7 +125,7 @@ window.help = () => {
     return "Hãy bắt đầu bằng lệnh: connect('localhost')";
 };
 
-gateway.connect('localhost');
+gateway.connect('172.16.26.95');
 
 window.getAgentList = () => {
     gateway.refreshAgents();

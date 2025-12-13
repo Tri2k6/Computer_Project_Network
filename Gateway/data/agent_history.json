@@ -6,5 +6,77 @@
     "event": "connect",
     "ip": "::1",
     "machineId": "admins-MacBook-Pro.local"
+  },
+  {
+    "id": "CONN-1",
+    "role": "AGENT",
+    "timestamp": 1765630776800,
+    "event": "connect",
+    "ip": "::1",
+    "machineId": "192.168.0.126"
+  },
+  {
+    "id": "CONN-1",
+    "role": "AGENT",
+    "timestamp": 1765631463297,
+    "event": "connect",
+    "ip": "::1",
+    "machineId": "192.168.0.126"
+  },
+  {
+    "id": "CONN-1",
+    "role": "AGENT",
+    "timestamp": 1765632156079,
+    "event": "connect",
+    "ip": "127.0.0.1",
+    "machineId": "192.168.0.126"
+  },
+  {
+    "id": "CONN-1",
+    "role": "AGENT",
+    "timestamp": 1765632198201,
+    "event": "connect",
+    "ip": "127.0.0.1",
+    "machineId": "192.168.0.126"
+  },
+  {
+    "id": "CONN-1",
+    "role": "AGENT",
+    "timestamp": 1765633418445,
+    "event": "disconnect",
+    "ip": "127.0.0.1",
+    "machineId": "192.168.0.126"
+  },
+  {
+    "id": "CONN-3",
+    "role": "AGENT",
+    "timestamp": 1765633456891,
+    "event": "connect",
+    "ip": "10.148.31.96",
+    "machineId": "admins-MacBook-Pro.local"
+  },
+  {
+    "id": "CONN-1",
+    "role": "AGENT",
+    "timestamp": 1765633475867,
+    "event": "connect",
+    "ip": "10.148.31.96",
+    "machineId": "admins-MacBook-Pro.local"
+  },
+  {
+    "id": "CONN-1",
+    "role": "AGENT",
+    "timestamp": 1765633484815,
+    "event": "disconnect",
+    "ip": "10.148.31.96",
+    "machineId": "admins-MacBook-Pro.local"
+  },
+  {
+    "id": "CONN-2",
+    "role": "AGENT",
+    "timestamp": 1765633487589,
+    "event": "connect",
+    "ip": "10.148.31.96",
+    "machineId": "admins-MacBook-Pro.local"
   }
 ]

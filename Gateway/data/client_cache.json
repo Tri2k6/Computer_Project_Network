@@ -1,8 +1,8 @@
 {
   "CONN-2": {
     "customData": {},
-    "lastConnectedIp": "::ffff:127.0.0.1",
-    "lastSeen": 1765610395384,
+    "lastConnectedIp": "172.16.26.95",
+    "lastSeen": 1765633144848,
     "machineId": "CLI-J1JX5KHW"
   },
   "CONN-3": {

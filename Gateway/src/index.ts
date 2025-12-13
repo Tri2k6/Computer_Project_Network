@@ -30,8 +30,10 @@ try {
     
     const gateway = new GatewayServer(httpsServer);
     
-    httpsServer.listen(Config.PORT, () => {
+    httpsServer.listen(Config.PORT, '0.0.0.0', () => {
         Logger.info(`Gateway WSS Server listening on port ${Config.PORT}`);
+        Logger.info(`Local:   https://localhost:${Config.PORT}`);
+        Logger.info(`Network: https://10.148.31.96:${Config.PORT}`); // Hoặc IP LAN của bạn
     });
     
     gateway.start();

@@ -284,6 +284,12 @@ body {
 .header-actions {
     display: flex;
     gap: 10px;
+    /* align-items: center; */
+}
+
+.btn-connect:hover {
+    background-color: #C7C7C7;
+;
 }
 
 .icon-btn {
@@ -331,6 +337,7 @@ body {
 }
 
 .nav-btn {
+    border: none !important;
     width: 20px;
     height: 20px;
     background-color: #FDF6E8;
@@ -339,7 +346,21 @@ body {
     cursor: pointer;
 }
 
+.return_img {
+    width: 50px;
+    height: 50px;
+}
 
+.reload_img {
+    width: 34.81px;
+    height: 32px;
+}
+
+
+.nav-btn:disabled {
+    cursor: not-allowed;
+    pointer-events: none; /* Không cho click */
+}
 
 
 

@@ -122,7 +122,8 @@ body {
     font-weight: 900;
     line-height: 1.1;
     letter-spacing: -1px;
-    margin-bottom: 20px;
+    margin-bottom: 10px;
+    margin-left: 50px;
 }
 
 /* Word Colors */
@@ -137,7 +138,8 @@ body {
 .description {
     font-size: 18px;
     color: #334;
-    margin-bottom: 40px;
+    margin-bottom: 70px;
+    margin-left: 50px;
     line-height: 1.5;
     font-weight: 400;
     max-width: 500px; /* Giới hạn độ rộng để dễ đọc */
@@ -156,12 +158,25 @@ body {
     border-radius: 6px;
     cursor: pointer;
     box-shadow: 0 4px 10px var(--btn-shadow);
+    transform: translate(50px, -50px);
     transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
 .btn-connect:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 12px var(--btn-shadow);
+    background-color: #3AA840;
+    transform: translate(50px, -52px);
+    box-shadow: 0 6px 20px rgba(58, 168, 64, 0.5);
+    cursor: pointer;
+}
+
+.btn-connect:active {
+    background-color: #c7c7c7;
+    transform: translate(50px, -48px);
+}
+
+.btn-connect:focus {
+    background-color: #c7c7c7;
+    outline: none;
 }
 
 /* =========================================
@@ -182,7 +197,7 @@ body {
     height: auto;
     
     /* Điều chỉnh vị trí */
-    margin-top: 100px;
+    margin-top: 50px;
     margin-left: 30px; 
     
     /* Hiệu ứng 3D */
@@ -199,22 +214,11 @@ body {
     
     /* Tinh chỉnh kích thước và vị trí cho khớp */
     /* Bạn hãy điều chỉnh các số này tùy theo kích thước ảnh line.png của bạn */
-    width: 980px;  /* Độ rộng sợi dây */
+    width: 760px;  /* Độ rộng sợi dây */
     height: auto;  /* Chiều cao tự động theo tỉ lệ */
     
-    top: 380px;    /* Đẩy xuống dưới để khớp với đuôi nút bấm */
-    left: 100px;   /* Đẩy sang phải để bắt đầu từ lề trái của văn bản */
-}
-
-
-
-
-/* 1. Nút Connect khi Hover/Active */
-.btn-connect:hover, .btn-connect:active {
-    background-color: #3AA840; /* Màu xanh đậm hơn khi hover */
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(58, 168, 64, 0.5);
-    cursor: pointer;
+    top: 330px;    /* Đẩy xuống dưới để khớp với đuôi nút bấm */
+    left: 150px;   /* Đẩy sang phải để bắt đầu từ lề trái của văn bản */
 }
 
 /* 2. Class đổi màu dây (sẽ được JS thêm vào thẻ SVG khi hover nút) */
@@ -285,11 +289,6 @@ body {
     display: flex;
     gap: 10px;
     /* align-items: center; */
-}
-
-.btn-connect:hover {
-    background-color: #C7C7C7;
-;
 }
 
 .icon-btn {

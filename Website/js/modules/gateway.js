@@ -22,7 +22,7 @@ export class Gateway{
         this.machineId = this._getMachineId();
         this.targetId = 'ALL';
 
-this.ui = window.ui || { log: console.log, renderList: console.table };
+        this.ui = window.ui || { log: console.log, renderList: console.table };
 
         this.agentsList = [];
     }
@@ -59,7 +59,7 @@ this.ui = window.ui || { log: console.log, renderList: console.table };
             this.ws.close();
         }
 
-        const url = `ws://${ip}:${port}`;
+        const url = `wss://${ip}:${port}`;
         console.log(`[Gateway] Connecting to ${url}...`);
 
         this.ws = new WebSocket(url);

@@ -18,9 +18,12 @@ void Agent::run() {
 }
 
 void Agent::connect() {
+
+    boost::asio::ssl::context ctx(boost::asio::ssl::context::tlsv12_client);
+    ctx.set_verify_mode(boost::asio::ssl::verify_none);
     // cout << "[Debug] Init WSConnection...\n" << std::flush;
     try {
-        client_ = std::make_shared<WSConnection>(ioc_, Config::SERVER_HOST, Config::SERVER_PORT);
+        client_ = std::make_shared<WSConnection>(ioc_, ctx, Config::SERVER_HOST, Config::SERVER_PORT, "/");
 
         client_->onConnected = [this]() {
             this->onConnected();

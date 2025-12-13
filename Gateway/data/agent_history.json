@@ -62,5 +62,13 @@
     "event": "disconnect",
     "ip": "::1",
     "machineId": "admins-MacBook-Pro.local"
+  },
+  {
+    "id": "CONN-1",
+    "role": "AGENT",
+    "timestamp": 1765600887851,
+    "event": "connect",
+    "ip": "::1",
+    "machineId": "admins-MacBook-Pro.local"
   }
 ]

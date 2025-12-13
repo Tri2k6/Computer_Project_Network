@@ -8,6 +8,9 @@ namespace Config {
     const std::string SERVER_HOST = "localhost"; // Gatewayserver IP
     const std::string SERVER_PORT = "8080";
     const int RECONNECT_DELAY_MS = 3000;
+
+    inline std::string AGENT_TOKEN = "";
+
     inline bool loadToken() {
         std::ifstream file("config.txt");
         if (!file.is_open()) {

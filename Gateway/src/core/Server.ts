@@ -5,6 +5,7 @@ import { RouteHandler } from "../handlers/RouteHandlers";
 import { Logger } from "../utils/Logger";
 import { Message } from "../types/Message";
 import { CommandType } from "../types/Protocols";
+import * as https from 'https'
 
 export class GatewayServer {
     private wss: WebSocketServer;
@@ -14,13 +15,13 @@ export class GatewayServer {
     private heartbeatInterval: NodeJS.Timeout | null = null;
     private connectionCounter: number = 1;
 
-    constructor(port: number) {
+    constructor(server: https.Server) {
         this.agentManager = new AgentManager();
         this.clientManager = new ClientManager();
         this.router = new RouteHandler(this.agentManager, this.clientManager);
-        this.wss = new WebSocketServer({ port });
+        this.wss = new WebSocketServer({ server });
 
-        Logger.info(`GatewayServer initialized on port ${port}`);
+        Logger.info(`GatewayServer initialized WSS mode`);
     }
 
     public start() {

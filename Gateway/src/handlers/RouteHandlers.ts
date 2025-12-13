@@ -64,7 +64,11 @@ export class RouteHandler {
 
     private forwardMessage(sender: WebSocket, msg: Message) {
         const targetId = msg.to!;
-        const targetAgent = this.agentManager.getAgentSocket(targetId);
+        let targetAgent = this.agentManager.getAgentSocket(targetId);
+
+        if (!targetAgent) {
+            targetAgent = this.clientManager.getClientSocket(targetId);
+        }
 
         if (targetAgent && targetAgent.isAlive) {
             msg.from = sender.id;

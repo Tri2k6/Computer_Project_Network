@@ -21,9 +21,14 @@ if(WIN32)
     add_compile_options(/utf-8)
 endif()
 
+if(APPLE)
+    set(OPENSSL_ROOT_DIR "/opt/homebrew/opt/openssl" "/usr/local/opt/openssl")
+endif()
+
 find_package(Boost REQUIRED)
 
 find_package(nlohmann_json QUIET)
+find_package(OpenSSL REQUIRED)
 
 include_directories(
     ${CMAKE_SOURCE_DIR}/include
@@ -33,6 +38,7 @@ include_directories(
     ${CMAKE_SOURCE_DIR}/include/network
     ${CMAKE_SOURCE_DIR}/include/utils
     ${CMAKE_SOURCE_DIR}/config
+    ${OPENSSL_INCLUDE_DIR}
 )
 
 if(UNIX AND NOT APPLE)
@@ -59,6 +65,8 @@ endif()
 message(STATUS "Found Source Files: ${AGENT_SOURCES}")
 
 add_executable(agent ${AGENT_SOURCES})
+
+target_link_libraries(agent PRIVATE OpenSSL::SSL OpenSSL::Crypto)
 
 if(TARGET Boost::system)
     target_link_libraries(agent PRIVATE Boost::system Boost::thread Boost::filesystem)

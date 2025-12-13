@@ -1,0 +1,10 @@
+[
+  {
+    "id": "CONN-1",
+    "role": "AGENT",
+    "timestamp": 1765610154264,
+    "event": "connect",
+    "ip": "::1",
+    "machineId": "admins-MacBook-Pro.local"
+  }
+]

@@ -2,7 +2,7 @@
   "CONN-3": {
     "customData": {},
     "lastConnectedIp": "::ffff:127.0.0.1",
-    "lastSeen": 1765590707040,
+    "lastSeen": 1765595278646,
     "machineId": "CLI-J1JX5KHW"
   },
   "CONN-4": {
@@ -14,7 +14,7 @@
   "CONN-5": {
     "customData": {},
     "lastConnectedIp": "::ffff:127.0.0.1",
-    "lastSeen": 1765590879673,
+    "lastSeen": 1765595278656,
     "machineId": "CLI-J1JX5KHW"
   }
 }

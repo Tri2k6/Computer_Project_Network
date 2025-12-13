@@ -33,7 +33,7 @@ export class RouteHandler {
         }
 
         if (msg.type === CommandType.GET_AGENTS) {
-            const list = this.agentManager.getAllAgent();
+            const list = this.agentManager.getAgentListDetails();
             const response = createMessage(
                 CommandType.GET_AGENTS,
                 list

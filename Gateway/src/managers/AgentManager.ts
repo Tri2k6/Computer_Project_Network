@@ -3,6 +3,7 @@ import { Logger } from '../utils/Logger';
 import { Connection } from '../core/Connection';
 import * as fs from 'fs/promises';
 import { Config } from '../config';
+import { machine } from 'os';
 
 export interface ConnectionHistory {
     id: string;
@@ -95,6 +96,15 @@ export class AgentManager {
 
     public getConnectionHistory(): ConnectionHistory[] {
         return this.connectionHistory;
+    }
+
+    public getAgentListDetails() {
+        return Array.from(this.agents.values()).map(conn => ({
+            id: conn.id,
+            ip: conn.ip,
+            machineId: conn.machineId,
+            role: conn.role
+        }));
     }
 
     public getAgentSocket(id: string): Connection | undefined {

@@ -22,5 +22,45 @@
     "event": "connect",
     "ip": "::1",
     "machineId": "admins-MacBook-Pro.local"
+  },
+  {
+    "id": "CONN-1",
+    "role": "AGENT",
+    "timestamp": 1765591939413,
+    "event": "connect",
+    "ip": "::1",
+    "machineId": "admins-MacBook-Pro.local"
+  },
+  {
+    "id": "CONN-2",
+    "role": "AGENT",
+    "timestamp": 1765591939687,
+    "event": "connect",
+    "ip": "::1",
+    "machineId": "admins-MacBook-Pro.local"
+  },
+  {
+    "id": "CONN-1",
+    "role": "AGENT",
+    "timestamp": 1765595109322,
+    "event": "disconnect",
+    "ip": "::1",
+    "machineId": "admins-MacBook-Pro.local"
+  },
+  {
+    "id": "CONN-4",
+    "role": "AGENT",
+    "timestamp": 1765595110979,
+    "event": "connect",
+    "ip": "::1",
+    "machineId": "admins-MacBook-Pro.local"
+  },
+  {
+    "id": "CONN-4",
+    "role": "AGENT",
+    "timestamp": 1765595311473,
+    "event": "disconnect",
+    "ip": "::1",
+    "machineId": "admins-MacBook-Pro.local"
   }
 ]

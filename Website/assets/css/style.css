@@ -1,0 +1,410 @@
+/* =========================================
+   1. VARIABLES & RESET
+   ========================================= */
+:root {
+    /* Color Palette */
+    --bg-color: #F0E6D2;      /* Kem nền */
+    --nav-bg: #EBAD62;        /* Cam menu */
+    --text-dark: #14234C;     /* Xanh đậm chính */
+    --text-black: #272830;    /* Đen chữ thường */
+    --text-orange: #E57D36;   /* Cam điểm nhấn */
+    --btn-green: #41D347;     /* Xanh lá nút */
+    --btn-shadow: rgba(65, 211, 71, 0.3);
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-dark);
+    height: 100vh;
+    width: 100vw;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden; /* Ngăn thanh cuộn nếu muốn trang cố định */
+}
+
+/* =========================================
+   2. NAVIGATION BAR
+   ========================================= */
+.navbar {
+    background-color: var(--nav-bg);
+    height: 75px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 5%; /* Padding trái phải 5% */
+    flex-shrink: 0;
+    z-index: 100; /* Luôn nằm trên cùng */
+}
+
+/* Logo Styling */
+.logo-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.MyLogo {
+    width: 44px;
+    height: 54px;
+    transform: rotate(-15deg); /* Dùng transform chuẩn hơn rotate */
+    object-fit: contain;
+}
+
+/* Menu Links */
+.nav-links {
+    display: flex;
+    align-items: center;
+    gap: 40px;
+}
+
+.nav-item {
+    text-decoration: none;
+    color: var(--text-dark);
+    font-weight: 500;
+    font-size: 20px;
+    line-height: 1.5;
+    transition: opacity 0.2s ease;
+}
+
+.nav-item:hover {
+    opacity: 0.7;
+}
+
+.btn-about {
+    background-color: var(--text-orange);
+    color: var(--text-dark);
+    padding: 10px 28px;
+    border-radius: 6px;
+    font-weight: 600;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* =========================================
+   3. HERO SECTION (MAIN LAYOUT)
+   ========================================= */
+.hero-section {
+    flex-grow: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 5%;
+    position: relative; /* Quan trọng để căn chỉnh absolute con */
+}
+
+.content-wrapper {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+    max-width: 1300px;
+    position: relative;
+    z-index: 2; /* Nằm trên đường dây */
+}
+
+/* =========================================
+   4. TYPOGRAPHY & TEXT CONTENT
+   ========================================= */
+.text-content {
+    flex: 1;
+    z-index: 10;
+    max-width: 600px;
+}
+
+.main-title {
+    font-size: 64px;
+    font-weight: 900;
+    line-height: 1.1;
+    letter-spacing: -1px;
+    margin-bottom: 20px;
+}
+
+/* Word Colors */
+.word-1, .word-3 {
+    color: var(--text-black);
+}
+
+.word-2, .word-4 {
+    color: var(--text-orange);
+}
+
+.description {
+    font-size: 18px;
+    color: #334;
+    margin-bottom: 40px;
+    line-height: 1.5;
+    font-weight: 400;
+    max-width: 500px; /* Giới hạn độ rộng để dễ đọc */
+}
+
+/* =========================================
+   5. BUTTONS & INTERACTIVE
+   ========================================= */
+.btn-connect {
+    background-color: var(--btn-green);
+    color: var(--text-dark);
+    font-size: 18px;
+    font-weight: 700;
+    padding: 14px 28px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    box-shadow: 0 4px 10px var(--btn-shadow);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.btn-connect:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px var(--btn-shadow);
+}
+
+/* =========================================
+   6. IMAGES & DECORATIONS
+   ========================================= */
+/* Router Image */
+.image-content {
+    flex: 1;
+    display: flex;
+    justify-content: flex-end;
+    position: relative;
+    z-index: 5;
+}
+
+.router-img {
+    width: 100%; /* Responsive theo khung cha */
+    max-width: 500px;
+    height: auto;
+    
+    /* Điều chỉnh vị trí */
+    margin-top: 100px;
+    margin-left: 30px; 
+    
+    /* Hiệu ứng 3D */
+    filter: drop-shadow(20px 30px 40px rgba(0,0,0,0.2));
+    transform: perspective(1000px) rotateY(-5deg);
+}
+
+/* Line Container (Dây nối) */
+/* Đã sửa lỗi thiếu đơn vị px */
+.line-container {
+    position: absolute;
+    z-index: 1; /* Quan trọng: Số nhỏ hơn nút (z-index 10) để nằm DƯỚI nút */
+    pointer-events: none; /* Để chuột không bị vướng vào ảnh */
+    
+    /* Tinh chỉnh kích thước và vị trí cho khớp */
+    /* Bạn hãy điều chỉnh các số này tùy theo kích thước ảnh line.png của bạn */
+    width: 980px;  /* Độ rộng sợi dây */
+    height: auto;  /* Chiều cao tự động theo tỉ lệ */
+    
+    top: 380px;    /* Đẩy xuống dưới để khớp với đuôi nút bấm */
+    left: 100px;   /* Đẩy sang phải để bắt đầu từ lề trái của văn bản */
+}
+
+
+
+
+/* 1. Nút Connect khi Hover/Active */
+.btn-connect:hover, .btn-connect:active {
+    background-color: #3AA840; /* Màu xanh đậm hơn khi hover */
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(58, 168, 64, 0.5);
+    cursor: pointer;
+}
+
+/* 2. Class đổi màu dây (sẽ được JS thêm vào thẻ SVG khi hover nút) */
+.line-active path {
+    stroke: #41D347 !important; /* Đổi màu dây thành xanh lá sáng */
+    stroke-width: 4px; /* Dây đậm hơn chút cho rõ */
+    filter: drop-shadow(0 0 5px #41D347); /* Hiệu ứng phát sáng nhẹ */
+    transition: stroke 0.3s ease;
+}
+
+.line-active circle {
+    fill: #41D347 !important; /* Đổi màu 2 chấm tròn đầu/cuối */
+    transition: fill 0.3s ease;
+}
+
+/* --- SERVER LIST POPUP (Overlay) --- */
+.overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background-color: rgba(0, 0, 0, 0.4); /* Nền tối mờ phía sau */
+    z-index: 100; /* Nằm trên tất cả */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s;
+}
+
+/* Class để hiện popup */
+.overlay.visible {
+    opacity: 1;
+    visibility: visible;
+}
+
+.server-list-container {
+    width: 500px;
+    height: 400px;
+    background-color: #F2AF58; /* Màu cam giống menu */
+    border-radius: 12px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    display: flex;
+    flex-direction: column;
+    padding: 20px;
+    font-family: 'Inter', sans-serif;
+    color: #14234C;
+}
+
+.list-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    border-bottom: 2px solid rgba(20, 35, 76, 0.1);
+    padding-bottom: 10px;
+}
+
+.list-header h2 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 700;
+}
+
+.header-actions {
+    display: flex;
+    gap: 10px;
+}
+
+.icon-btn {
+    background: none;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+    color: #14234C;
+    font-weight: bold;
+}
+
+/* Khu vực chứa danh sách */
+.server-items-wrapper {
+    flex-grow: 1;
+    background-color: #FDF6E8; /* Màu nền nhạt cho list */
+    border-radius: 8px;
+    padding: 10px;
+    overflow-y: auto; /* Cho phép cuộn nếu danh sách dài */
+}
+
+.server-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.server-item {
+    padding: 10px;
+    border-bottom: 1px solid #ddd;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 14px;
+}
+
+/* Footer phân trang */
+.list-footer {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-top: 15px;
+    gap: 15px;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.nav-btn {
+    width: 20px;
+    height: 20px;
+    background-color: #FDF6E8;
+    border: 1px solid #14234C;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+
+
+
+
+/* =========================================
+   7. RESPONSIVE DESIGN (MOBILE/TABLET)
+   ========================================= */
+@media (max-width: 1024px) {
+    .main-title {
+        font-size: 48px;
+    }
+    
+    .router-img {
+        max-width: 400px;
+    }
+}
+
+@media (max-width: 768px) {
+    body {
+        height: auto; /* Cho phép cuộn trên mobile */
+        overflow: auto;
+    }
+
+    .navbar {
+        padding: 0 20px;
+    }
+    
+    .nav-links {
+        gap: 15px;
+    }
+    
+    /* Ẩn bớt menu, chỉ hiện nút About */
+    .nav-item:not(.btn-about) {
+        display: none; 
+    }
+
+    .content-wrapper {
+        flex-direction: column-reverse; /* Đảo ngược: Ảnh trên, chữ dưới */
+        text-align: center;
+        padding-top: 40px;
+        padding-bottom: 40px;
+    }
+    
+    .image-content {
+        justify-content: center;
+        margin-bottom: 40px;
+        width: 100%;
+    }
+    
+    .router-img {
+        margin-top: 0;
+        margin-left: 0;
+        max-width: 300px;
+    }
+
+    .text-content {
+        align-items: center;
+        max-width: 100%;
+    }
+
+    .main-title {
+        font-size: 36px;
+    }
+
+    /* Ẩn dây nối trên mobile vì bố cục thay đổi */
+    .line-container {
+        display: none; 
+    }
+}

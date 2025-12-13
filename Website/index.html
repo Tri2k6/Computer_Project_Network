@@ -1,7 +1,84 @@
 <!DOCTYPE html>
-<html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Com.net - Default Page</title>
+    <link rel="stylesheet" href="assets/css/style.css">
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap" rel="stylesheet">
+</head>
 <body>
-    <h1>Open Console (F12) to test logic</h1>
-    <script type="module" src="./js/main.js"></script>
+
+    <div class="app-container">
+        <header class="navbar">
+            <div class="logo-container">
+                <img src="./assets/images/logo.png" alt="Logo" class="MyLogo">
+            </div>
+
+            <nav class="nav-links">
+                <a href="#" class="nav-item">More</a>
+                <a href="#" class="nav-item">Settings</a>
+                <a href="#" class="nav-item">Home</a>
+                <a href="#" class="nav-item btn-about">About</a>            
+            </nav>
+        </header>
+
+        <main class="hero-section">
+            <div class="content-wrapper">
+                
+                <div class="text-content">
+                    <h1 class="main-title">
+                        <span class="word-1">This is </span><span class="word-2">Com</span><span class="word-3">.n</span><span class="word-4">et</span>
+                    </h1>
+                    <p class="description">
+                        100% được tạo ra với lý do học tập và không phải để hack
+                    </p>
+                    
+                    <div class="action-area">
+                        <button class="btn-connect">Connect to server</button>
+                    </div>
+                    <script src = "."></script>
+                </div>
+
+                <div class="connection-line-container">
+                    <img src="./assets//images/Line.png" alt="Line" class = "line-container">
+                </div>
+
+                <div class="image-content">
+                    <img src="assets/images/router.png" alt="Router" class="router-img">
+                </div>
+            </div>
+        </main>
+
+    </div>
+
+    <div id="server-list-overlay" class="overlay hidden">
+        <div class="server-list-container">
+            <div class="list-header">
+                <h2>Available servers</h2>
+                <div class="header-actions">
+                    <button class="icon-btn refresh-btn">↺</button>
+                    <button class="icon-btn back-btn" onclick="closeServerList()">↩</button>
+                </div>
+            </div>
+            
+            <div class="server-items-wrapper">
+                <ul id="server-list-content" class="server-list">
+                    <li class="server-item">Loading servers...</li> 
+                </ul>
+            </div>
+
+            <div class="list-footer">
+                <button class="nav-btn prev-btn"></button>
+                <span id="page-indicator">Page 1/1</span>
+                <button class="nav-btn next-btn"></button>
+            </div>
+        </div>
+    </div>
+
+    <script src="./assets/js/scripts.js"></script>
 </body>
 </html>

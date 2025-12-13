@@ -13,7 +13,7 @@ public:
 
     void addConnection(const WSConnectionPtr& conn);
     void broadcast(const std::string& msg);
-    void sendTo(size_t index, const std::string& msg);
+    void sendTo(size_t index, const Message& msg);
     size_t size() const {
         return connections_.size();
     }

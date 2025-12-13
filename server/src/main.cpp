@@ -1,45 +1,40 @@
-#include "WSServer.hpp"
-#include "Router.hpp"
-#include "Message.hpp"
-#include "Protocol.hpp"
-#include "Discovery.hpp"
-#include "feature_library.h"
-
-#include <boost/asio/signal_set.hpp>
-#include <iostream>
+#include "FeatureLibrary.h"
+#include "Agent.hpp"
 
 int main() {
-    SetConsoleOutputCP(CP_UTF8); // đổi sang UTF8 để khỏi bị lỗi ký tự tiếng Việt
+    setupConsole();
 
     try {
-        asio::io_context io;
-        
-        Router router;
-        router.registerHandler(
-            "echo",
-            [](const Message& msg, Router::SessionPtr session) {
-                std::cout << "[Handler] Processing echo for: " << msg.data << "\n";
-                Message reply("echo_result", "Server says: " + msg.data);
-                session->send(reply.serialize());
-            }
-        );
+        boost::asio::io_context io;
 
-        auto server = std::make_shared<WSServer>(io, 8080, router);
-        server->start();
-        DiscoveryService discovery(io);
-        discovery.openSocket(0);
-        discovery.startAdvertising("Server 1", 8080);
-        asio::signal_set signals(io, SIGINT, SIGTERM);
-        signals.async_wait(
-            [&io](beast::error_code const&, int) {
-                io.stop();
-                std::cout << "\n [Server] Stopping...\n";
-            }
-        );
+        boost::asio::signal_set signals(io, SIGINT, SIGTERM);
+        signals.async_wait([&io](const boost::system::error_code&, int) {
+            std::cout << "\n[Main] Signal received. Stopping Agent...\n";
+            io.stop();
+        });
+
+        std::cout << "[Debug] Creating Agent...\n" << std::flush;
+        auto agent = std::make_shared<Agent>(io);
         
-        std::cout << "Websocket server running on ws://localhost:8080" << std::endl;
+        std::cout << "[Debug] Calling agent->run()...\n" << std::flush;
+        agent->run();
+
+        std::cout << "===========================================\n";
+        std::cout << "   AGENT CLIENT STARTED - RUNNING...       \n";
+        std::cout << "===========================================\n";
+
         io.run();
+
     } catch (const std::exception& e) {
-        std::cerr << "Error: " << e.what() << std::endl;
+        std::cerr << "\n[FATAL ERROR] " << e.what() << "\n";
+        // Giữ màn hình để đọc lỗi
+        system("pause");
+        return 1;
+    } catch (...) {
+        std::cerr << "\n[CRITICAL] Unknown Crash!\n";
+        system("pause");
+        return 1;
     }
+
+    return 0;
 }

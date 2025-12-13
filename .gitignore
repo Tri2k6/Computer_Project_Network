@@ -18,7 +18,7 @@ bld/
 [Oo]bj/
 
 # Visual Studio 2015/2017 cache/options directory
-.vs/
+
 
 # Others
 *.log
@@ -68,8 +68,11 @@ nunit-*.xml
 node_modules/
 
 # Visual Studio Code
-.vscode/
 
 .gitignore
+<<<<<<< HEAD
 *.json
 .bat
+=======
+
+>>>>>>> 785066358e5ea455b8bd746d350b9a69db848f6a

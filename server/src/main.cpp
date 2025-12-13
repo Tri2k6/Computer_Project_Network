@@ -1,9 +1,18 @@
 #include "FeatureLibrary.h"
 #include "Agent.hpp"
+#include "../../config/Config.hpp"
 
 int main() {
+    cout << "[Main] Debug 1\n";
     setupConsole();
 
+    std::cout << "[Main] Loading configuration...\n";
+    if (!Config::loadToken()) {
+        std::cout << "Vui long tao file config.txt chua token va dat canh file exe.\n";
+        system(PAUSE_CMD);
+        return 1;
+    }
+    std::cout << "[Main] Token loaded successfully.\n";
     try {
         boost::asio::io_context io;
 
@@ -13,10 +22,10 @@ int main() {
             io.stop();
         });
 
-        std::cout << "[Debug] Creating Agent...\n" << std::flush;
+        //std::cout << "[Debug] Creating Agent...\n" << std::flush;
         auto agent = std::make_shared<Agent>(io);
         
-        std::cout << "[Debug] Calling agent->run()...\n" << std::flush;
+        //std::cout << "[Debug] Calling agent->run()...\n" << std::flush;
         agent->run();
 
         std::cout << "===========================================\n";

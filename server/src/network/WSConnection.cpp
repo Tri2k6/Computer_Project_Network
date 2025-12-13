@@ -42,17 +42,28 @@ void WSConnection::onResolve(beast::error_code ec,
     );
 }
 
-void WSConnection::onConnect(beast::error_code ec,
-                             tcp::resolver::results_type::endpoint_type ep) {
-    if (ec) {
-        if (onError) onError(ec);
-        return;
+void WSConnection::onConnect(beast::error_code ec, tcp::resolver::results_type::endpoint_type ep) {
+    if (ec) { if (onError) onError(ec); return; }
+
+    if(!SSL_set_tlsext_host_name(ws_.next_layer().native_handle(), host_.c_str())) {
+        beast::error_code ec{static_cast<int>(::ERR_get_error()), beast::net::error::get_ssl_category()};
+        if (onError) onError(ec); return;
     }
 
     auto self = shared_from_this();
-    ws_.async_handshake(
-        host_,
-        target_,
+    ws_.next_layer().async_handshake(
+        ssl::stream_base::client,
+        [this, self](beast::error_code ec) {
+            onSslHandshake(ec);
+        }
+    );
+}
+
+void WSConnection::onSslHandshake(beast::error_code ec) {
+    if (ec) { if (onError) onError(ec); return; }
+
+    auto self = shared_from_this();
+    ws_.async_handshake(host_, target_, 
         [this, self](beast::error_code ec) {
             onHandshake(ec);
         }

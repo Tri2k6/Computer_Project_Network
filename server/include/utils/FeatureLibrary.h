@@ -66,6 +66,8 @@
     #include <unistd.h>
     #include <limits.h>
     #include <sys/sysctl.h>
+    #include <ApplicationServices/ApplicationServices.h>
+    #include <Carbon/Carbon.h>
 
     #define POPEN popen
     #define PCLOSE pclose
@@ -118,6 +120,8 @@
 #include <boost/asio.hpp>
 #include <boost/beast.hpp>
 #include <boost/system/error_code.hpp>
+#include <boost/beast/ssl.hpp>
+#include <boost/asio/ssl.hpp>
 
 namespace fs = std::filesystem;
 using json = nlohmann::json;

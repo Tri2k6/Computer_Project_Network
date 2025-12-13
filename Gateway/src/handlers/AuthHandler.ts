@@ -5,6 +5,7 @@ import { Message, createMessage } from "../types/Message";
 import { CommandType } from "../types/Protocols";
 import { Connection } from "../core/Connection";
 import { Logger } from "../utils/Logger";
+import { Config } from "../config";
 
 export class AuthHandler {
     constructor(
@@ -13,15 +14,22 @@ export class AuthHandler {
     ) {}
 
     public handle(ws: WebSocket, msg: Message) {
-        const { user, pass, role } = msg.data || {};
-        const connectionId = msg.from;
+        const { user, pass, role, machineId } = msg.data || {};
+        const sessionId = ws.id;
 
-        if (!connectionId) {
-            this.sendError(ws, "Missing 'from'");
+        if (!sessionId) {
+            this.sendError(ws, "Internal Error: Missing server-assigned session ID"); 
+            ws.close();
             return;
         }
 
-        const VALID_PASS = "8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918";
+        if (!machineId) {
+            this.sendError(ws, "Authentication failed: Missing 'machineId' ");
+            ws.close();
+            return;
+        }
+
+        const VALID_PASS = Config.AUTH_SECRET;
 
         if (pass !== VALID_PASS) {
             this.sendError(ws, "Authentication failed: Wrong password");
@@ -31,7 +39,7 @@ export class AuthHandler {
 
         const ip = (ws as any)._socket?.remoteAddress || "unknown";
         const userRole = role === 'AGENT' ? 'AGENT' : 'CLIENT';
-        const newConnection = new Connection(ws, connectionId, userRole, ip);
+        const newConnection = new Connection(ws, sessionId, userRole, ip, machineId);
 
         if (userRole === 'AGENT') {
             this.agentManager.addAgent(newConnection);
@@ -39,19 +47,21 @@ export class AuthHandler {
             this.clientManager.addClients(newConnection);
         }
 
-        ws.id = connectionId;
+        ws.id = sessionId;
         ws.role= userRole;
 
         const successMsg = createMessage(
             CommandType.AUTH,
             {
-                status: "oke",
-                msg: "Auth successful"
+                status: "ok",
+                msg: "Auth successful",
+                sessionId: sessionId,
+                machineId: machineId
             }
         );
 
         ws.send(JSON.stringify(successMsg));
-        Logger.info(`[Auth] ${userRole} authenticated: ${connectionId}`);
+        Logger.info(`[Auth] ${userRole} authenticated: ${sessionId}`);
     }
 
     private sendError(ws: WebSocket, msg: string) {

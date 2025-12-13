@@ -1,78 +1,139 @@
-# User-specific files
-*.rsuser
+##################################################
+# ===== Core build outputs (ALL platforms) =====
+##################################################
+
+build/
+bld/
+cmake-build-*/
+out/
+bin/
+lib/
+obj/
+*.o
+*.obj
+*.exe
+*.dll
+*.so
+*.dylib
+*.a
+*.lib
+*.pdb
+
+##################################################
+# ===== CMake generated files =====
+##################################################
+
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+
+##################################################
+# ===== Visual Studio / MSVC =====
+##################################################
+
+.vs/
+x64/
+x86/
+Debug/
+Release/
+RelWithDebInfo/
+MinSizeRel/
+
 *.suo
 *.user
 *.userosscache
 *.sln.docstates
+*.VC.db
+*.VC.opendb
+*.ipch
 
-# User-specific files (MonoDevelop/Xamarin Studio)
-*.userprefs
+##################################################
+# ===== VS Code =====
+##################################################
 
-# Build results
-[Dd]ebug/
-[Rr]elease/
-x64/
-build/
-bld/
-[Bb]in/
-[Oo]bj/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
 
-# Visual Studio 2015/2017 cache/options directory
+##################################################
+# ===== macOS =====
+##################################################
 
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
 
-# Others
+##################################################
+# ===== Linux =====
+##################################################
+
+*~
+*.swp
+*.swo
+.nfs*
+
+##################################################
+# ===== Node.js (nếu có dùng web / tooling) =====
+##################################################
+
+node_modules/
+npm-debug.log*
+yarn-error.log*
+
+##################################################
+# ===== Logs & temp =====
+##################################################
+
 *.log
 *.tlog
 *.lastbuildstate
+*.tmp
 
-# Rider
+##################################################
+# ===== Test / Coverage =====
+##################################################
+
+TestResult*/
+test-results/
+coverage/
+*.gcda
+*.gcno
+*.lcov
+
+##################################################
+# ===== IDEs / Tools =====
+##################################################
+
 .idea/
-
-# DotCover
-*.dotCover
-
-# Resharper
 _ReSharper*/
-*.ReSharper*/
+*.ReSharper*
 *.DotSettings.user
-
-# NCrunch
 _NCrunch_*
 .*crunch*.local.xml
-
-# TeamCity
-_TeamCity*
-
-# DotCover
+.dotCover
 *.dotCover
 
-# NUnit
-*.VisualState.xml
-TestResult.xml
-nunit-*.xml
+##################################################
+# ===== vcpkg (QUAN TRỌNG) =====
+##################################################
 
-# Build Results of an ATL Project
-[Dd]ebugPS/
-[Rr]eleasePS/
+vcpkg_installed/
+vcpkg/buildtrees/
+vcpkg/packages/
+vcpkg/downloads/
 
-# MSTest test Results
-[Tt]est[Rr]esult*/
-[Bb]uild[Ll]og.*
+##################################################
+# ===== OS-specific scripts =====
+##################################################
 
-# Web Files
-*.Publish.xml
-*.pubxml
-*.publishproj
-
-# Node.js
-node_modules/
-
-# Visual Studio Code
-
-.gitignore
-<<<<<<< HEAD
-*.json
-.bat
-=======
-
->>>>>>> 785066358e5ea455b8bd746d350b9a69db848f6a
+*.bat
+*.cmd
+*.ps1
+*.sh

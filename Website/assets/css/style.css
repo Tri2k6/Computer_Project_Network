@@ -3,13 +3,14 @@
    ========================================= */
 :root {
     /* Color Palette */
-    --bg-color: #F0E6D2;      /* Kem nền */
-    --nav-bg: #EBAD62;        /* Cam menu */
-    --text-dark: #14234C;     /* Xanh đậm chính */
-    --text-black: #272830;    /* Đen chữ thường */
+    --bg-color: #ECDFCC;      /* Cam nhạt */
+    --nav-bg: #EBAD62;        /* Cam vừa */
+    --text-dark: #14234C;     /* Xanh đậm */
+    --text-blue: #3A6DAF;     /* Xanh nhạt */
     --text-orange: #E57D36;   /* Cam điểm nhấn */
-    --btn-green: #41D347;     /* Xanh lá nút */
-    --btn-shadow: rgba(65, 211, 71, 0.3);
+    --btn-green: #41D347;     /* Xanh lá */
+    --disabled: #C7C7C7;      /* Xám */
+    --btn-shadow: rgba(57, 182, 61, 0.3);
 }
 
 * {
@@ -53,7 +54,7 @@ body {
 .MyLogo {
     width: 44px;
     height: 54px;
-    transform: rotate(-15deg); /* Dùng transform chuẩn hơn rotate */
+    transform: rotate(-15deg);
     object-fit: contain;
 }
 
@@ -95,7 +96,7 @@ body {
     align-items: center;
     justify-content: center;
     padding: 0 5%;
-    position: relative; /* Quan trọng để căn chỉnh absolute con */
+    position: relative;
 }
 
 .content-wrapper {
@@ -105,7 +106,7 @@ body {
     width: 100%;
     max-width: 1300px;
     position: relative;
-    z-index: 2; /* Nằm trên đường dây */
+    z-index: 2;
 }
 
 /* =========================================
@@ -128,7 +129,7 @@ body {
 
 /* Word Colors */
 .word-1, .word-3 {
-    color: var(--text-black);
+    color: var(--text-dark);
 }
 
 .word-2, .word-4 {
@@ -137,7 +138,7 @@ body {
 
 .description {
     font-size: 18px;
-    color: #334;
+    color: var(--text-dark);
     margin-bottom: 70px;
     margin-left: 50px;
     line-height: 1.5;
@@ -150,7 +151,7 @@ body {
    ========================================= */
 .btn-connect {
     background-color: var(--btn-green);
-    color: var(--text-dark);
+    color: var(--text-blue);
     font-size: 18px;
     font-weight: 700;
     padding: 14px 28px;
@@ -165,18 +166,21 @@ body {
 .btn-connect:hover {
     background-color: #3AA840;
     transform: translate(50px, -52px);
-    box-shadow: 0 6px 20px rgba(58, 168, 64, 0.5);
+    box-shadow: 0 6px 20px var(--btn-shadow);
     cursor: pointer;
 }
 
 .btn-connect:active {
-    background-color: #c7c7c7;
+    background-color: var(--disabled);
     transform: translate(50px, -48px);
+    box-shadow: none;
 }
 
 .btn-connect:focus {
-    background-color: #c7c7c7;
+    background-color: var(--disabled);
+    transform: translate(50px, -48px);
     outline: none;
+    box-shadow: none;
 }
 
 /* =========================================
@@ -201,37 +205,53 @@ body {
     margin-left: 30px; 
     
     /* Hiệu ứng 3D */
-    filter: drop-shadow(20px 30px 40px rgba(0,0,0,0.2));
+    filter: drop-shadow(20px 30px 40px rgba(0,0,0,0.4));
     transform: perspective(1000px) rotateY(-5deg);
 }
 
-/* Line Container (Dây nối) */
-/* Đã sửa lỗi thiếu đơn vị px */
-.line-container {
+/* Wire Container (Dây nối) */
+.wire {
     position: absolute;
-    z-index: 1; /* Quan trọng: Số nhỏ hơn nút (z-index 10) để nằm DƯỚI nút */
-    pointer-events: none; /* Để chuột không bị vướng vào ảnh */
-    
-    /* Tinh chỉnh kích thước và vị trí cho khớp */
-    /* Bạn hãy điều chỉnh các số này tùy theo kích thước ảnh line.png của bạn */
-    width: 760px;  /* Độ rộng sợi dây */
-    height: auto;  /* Chiều cao tự động theo tỉ lệ */
-    
-    top: 330px;    /* Đẩy xuống dưới để khớp với đuôi nút bấm */
-    left: 150px;   /* Đẩy sang phải để bắt đầu từ lề trái của văn bản */
+    z-index: 1;
+    pointer-events: none;
+
+    width: 760px;
+    height: 150px;
+
+    top: 330px;
+    left: 150px;
 }
 
-/* 2. Class đổi màu dây (sẽ được JS thêm vào thẻ SVG khi hover nút) */
-.line-active path {
-    stroke: #41D347 !important; /* Đổi màu dây thành xanh lá sáng */
-    stroke-width: 4px; /* Dây đậm hơn chút cho rõ */
-    filter: drop-shadow(0 0 5px #41D347); /* Hiệu ứng phát sáng nhẹ */
-    transition: stroke 0.3s ease;
+.wire-active {
+    stroke: var(--btn-green);
+    stroke-width: 6.5;
+    fill: none;
+
+    
+    opacity: 1;
 }
 
-.line-active circle {
-    fill: #41D347 !important; /* Đổi màu 2 chấm tròn đầu/cuối */
-    transition: fill 0.3s ease;
+.wire-base {
+    stroke: var(--text-dark);
+    stroke-width: 6;
+    stroke-dasharray: 900;
+    stroke-dashoffset: 0;
+    fill: none;
+}
+
+.wire.active .wire-base {
+    animation: wire-fill 1.2s ease forwards;
+}
+
+.wire.off .wire-base {
+    animation: wire-fill 1.2s ease forwards;
+    animation-direction: reverse;
+}
+
+@keyframes wire-fill {
+    to {
+        stroke-dashoffset: 900;
+    }
 }
 
 /* --- SERVER LIST POPUP (Overlay) --- */
@@ -241,32 +261,37 @@ body {
     left: 0;
     width: 100vw;
     height: 100vh;
-    background-color: rgba(0, 0, 0, 0.4); /* Nền tối mờ phía sau */
-    z-index: 100; /* Nằm trên tất cả */
+    z-index: 99;
     display: flex;
     justify-content: center;
     align-items: center;
+
+    /* setup cho animation */
+    transform: translateX(-60px);
     opacity: 0;
     visibility: hidden;
-    transition: opacity 0.3s ease, visibility 0.3s;
+    transition: transform 0.4s ease, opacity 0.3s ease, visibility 0.3s ease;
 }
 
 /* Class để hiện popup */
 .overlay.visible {
+    transform: translateX(0px);
     opacity: 1;
     visibility: visible;
 }
 
 .server-list-container {
-    width: 500px;
-    height: 400px;
-    background-color: #F2AF58; /* Màu cam giống menu */
+    width: 600px;
+    height: 500px;
+    background-color: var(--nav-bg); /* Màu cam giống menu */
     border-radius: 12px;
     box-shadow: 0 10px 30px rgba(0,0,0,0.3);
     display: flex;
     flex-direction: column;
     padding: 20px;
     font-family: 'Inter', sans-serif;
+    transform: translateX(-350px);
+    margin-top: 60px;
     color: #14234C;
 }
 
@@ -288,7 +313,6 @@ body {
 .header-actions {
     display: flex;
     gap: 10px;
-    /* align-items: center; */
 }
 
 .icon-btn {
@@ -355,13 +379,10 @@ body {
     height: 32px;
 }
 
-
 .nav-btn:disabled {
     cursor: not-allowed;
     pointer-events: none; /* Không cho click */
 }
-
-
 
 /* =========================================
    7. RESPONSIVE DESIGN (MOBILE/TABLET)

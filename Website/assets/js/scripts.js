@@ -1,17 +1,30 @@
+// 
+// const connectBtn = document.querySelector('.btn-connect');
+// const wire = document.querySelector('.wire'); // SVG dây
+
+// // Khi chuột vào nút -> Dây sáng
+// connectBtn.addEventListener('mouseenter', () => {
+//     // if (connectionLine) connectionLine.classList.add('active');
+// });
+
+// // Khi chuột ra khỏi nút -> Dây về màu gốc
+// connectBtn.addEventListener('mouseleave', () => {
+//     // if (connectionLine) connectionLine.classList.remove('active');
+// });
+
 // --- 1. Xử lý hiệu ứng dây nối (Line Effect) ---
 const connectBtn = document.querySelector('.btn-connect');
-const connectionLine = document.querySelector('.connection-line'); // Thẻ SVG dây
+const wire = document.querySelector('.wire');
 
-// Khi chuột vào nút -> Dây chuyển xanh
-connectBtn.addEventListener('mouseenter', () => {
-    if(connectionLine) connectionLine.classList.add('line-active');
+connectBtn.addEventListener('click', () => {
+    if (wire) {
+        wire.classList.remove('off');
+        void wire.offsetWidth;
+        wire.classList.add('active');
+    }
+    // chỉ hiển thị sau khi hết animation
+    setTimeout(openServerList, 500);
 });
-
-// Khi chuột ra khỏi nút -> Dây về màu gốc
-connectBtn.addEventListener('mouseleave', () => {
-    if(connectionLine) connectionLine.classList.remove('line-active');
-});
-
 
 // --- 2. Xử lý Popup Server List ---
 const serverOverlay = document.getElementById('server-list-overlay');
@@ -30,12 +43,15 @@ function openServerList() {
 function closeServerList() {
     serverOverlay.classList.remove('visible');
     setTimeout(() => {
-        serverOverlay.classList.add('hidden'); // Ẩn hẳn sau khi hết animation
-    }, 300);
+        serverOverlay.classList.add('hidden');
+        if (wire) {
+            wire.classList.remove('active');
+            void wire.offsetWidth;
+            wire.classList.add('off');
+        }
+            
+    }, 300); // Ẩn hẳn sau khi hết animation
 }
-
-// Gán sự kiện click cho nút Connect
-connectBtn.addEventListener('click', openServerList);
 
 // --- 3. Logic Render dữ liệu & Phân trang ---
 

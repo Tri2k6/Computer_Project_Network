@@ -29,9 +29,9 @@ export class AgentManager {
             Logger.info(`[AgentManager] Loaded ${this.connectionHistory.length}`);
         } catch (error) {
             if (typeof(error as any).code === 'string' && (error as any).code === 'ENOENT') {
-                Logger.warn(`[ClientManager] Cache file not found. Starting fresh.`);
+                Logger.warn(`[AgentManager] History file not found. Starting fresh.`);
             } else {
-                Logger.error(`[ClientManager] Failed to load cache: ${error}`);
+                Logger.error(`[AgentManager] Failed to load history: ${error}`);
             }
         }
     }
@@ -59,9 +59,6 @@ export class AgentManager {
             const oldWs = this.agents.get(conn.id);
             oldWs?.close()
         }
-
-        this.agents.set(conn.id, conn);
-        Logger.info(`Agent added: ${conn.id}. Total agents: ${this.agents.size}`);
 
         this.agents.set(conn.id, conn);
         Logger.info(`Agent added: ${conn.id}. Total agents: ${this.agents.size}`);

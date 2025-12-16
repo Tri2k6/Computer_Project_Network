@@ -16,8 +16,8 @@ try {
     const keyPath = path.join(__dirname, '../server.key');
 
     if (!fs.existsSync(certPath) || !fs.existsSync(keyPath)) {
-        console.error("Khong tim thay file 'server.cert' hoac 'server.key'!");
-        console.error("Vui long copy 2 file nay vao cung thu muc voi file exe.");
+        Logger.error("Khong tim thay file 'server.cert' hoac 'server.key'!");
+        Logger.error("Vui long copy 2 file nay vao cung thu muc voi file exe.");
         process.exit(1);
     }
 
@@ -33,7 +33,7 @@ try {
     httpsServer.listen(Config.PORT, '0.0.0.0', () => {
         Logger.info(`Gateway WSS Server listening on port ${Config.PORT}`);
         Logger.info(`Local:   https://localhost:${Config.PORT}`);
-        Logger.info(`Network: https://10.148.31.96:${Config.PORT}`); // Hoặc IP LAN của bạn
+        // Note: Use your actual network IP address for network access
     });
     
     gateway.start();

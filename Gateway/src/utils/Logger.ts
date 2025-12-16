@@ -4,7 +4,7 @@ export class Logger {
     }
 
     public static warn(msg: string, ...args: any[]) {
-        console.warn(`[${new Date().toISOString()}] [ERROR] ${msg}`, ...args);
+        console.warn(`[${new Date().toISOString()}] [WARN] ${msg}`, ...args);
     }
 
     public static error(msg: string, ...args: any[]) {

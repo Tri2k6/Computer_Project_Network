@@ -1,9 +1,10 @@
 import dotenv from 'dotenv'
+import { Logger } from './utils/Logger';
 
 dotenv.config();
 
 if (!process.env.AUTH_SECRET) {
-    console.error("AUTH_SECRET not found");
+    Logger.error("AUTH_SECRET not found in environment variables");
     process.exit(1);
 }
 

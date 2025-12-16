@@ -50,7 +50,7 @@ export class GatewayServer {
     }
 
     private async shutdown() {
-        Logger.info("Received shutdown signal. Starting gracful shutdown...");
+        Logger.info("Received shutdown signal. Starting graceful shutdown...");
         this.wss.close();
         const clientSave = this.clientManager.saveCache();
         const agentSave = this.agentManager.saveHistory();

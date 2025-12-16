@@ -11,7 +11,9 @@
     "rootDir": "./src",
     "resolveJsonModule": true,
     "allowImportingTsExtensions": true,
-    "noEmit": true
+    "noEmit": true,
+    "lib": ["ES2022"],
+    "types": ["node"]
   },
   "include": ["src/**/*"]
 }

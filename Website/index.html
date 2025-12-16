@@ -3,26 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Com.net - Default Page</title>
+    <title>Com.net - Main Page</title>
     <link rel="stylesheet" href="assets/css/style.css">
-    
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap" rel="stylesheet">
 </head>
-<body>
 
+<body>
     <div class="app-container">
-        <header class="navbar">
+        <header class="nav-bar">
             <div class="logo-container">
-                <img src="./assets/images/logo.png" alt="Logo" class="MyLogo">
+                <img src="./assets/images/logo.png" alt="Logo" class="MyLogo" />
             </div>
 
             <nav class="nav-links">
-                <a href="./assets/components/AvailableServer.html" class="nav-item">More</a>
+                <a href="./AvailableServer.html" class="nav-item">More</a>
                 <a href="#" class="nav-item">Settings</a>
-                <a href="#" class="nav-item">Home</a>
-                <a href="#" class="nav-item btn-about">About</a>            
+                <a href="./index.html" class="nav-item">Home</a>
+                <a href="#" class="nav-item btn-about">About</a>
             </nav>
         </header>
 
@@ -34,7 +33,7 @@
                         <span class="word-1">This is </span><span class="word-2">Com</span><span class="word-3">.n</span><span class="word-4">et</span>
                     </h1>
                     <p class="description">
-                        100% được tạo ra với lý do học tập và không phải để hack
+                        Giải pháp tối ưu nhất để điều khiển một máy tính trong cùng LAN!
                     </p>
                     
                     <div class="action-area">
@@ -51,7 +50,6 @@
                         fill="none" 
                         xmlns="http://www.w3.org/2000/svg"
                     >
-
                         <path 
                             class="wire-active"
                             d="M764.346 60.4243C687.759 73.1198 643.75 60.7326 607.694 44.5776C571.68 
@@ -73,7 +71,6 @@
                             26.9719 21.558 22.1967 15.6671 22.1967C9.77613 22.1967 5.00022 26.9719 5 32.8628C5 
                             38.7538 9.77599 43.5297 15.6671 43.5297C16.8478 43.5297 17.9824 43.3341 19.0441 42.9799" 
                         />
-
                     </svg>
                 </div>
 
@@ -90,11 +87,11 @@
             <div class="list-header">
                 <h2>Available servers</h2>
                 <div class="header-actions">
-                    <button class="icon-btn refresh-btn">
-                        <img src="./assets/images/Reload.png" alt="" class = "reload_img">
+                    <button id="reload-btn" class="btn-temp" onclick="reloadServers()">
+                        <img src="./assets/images/reload.png" alt="Reload" />
                     </button>
-                    <button class="icon-btn back-btn" onclick="closeServerList()">
-                        <img src="./assets//images/return.png" alt="" class = "return_img">
+                    <button id="return-btn" class="btn-temp" onclick="closeServerList()">
+                        <img src="./assets/images/return.png" alt="Return" />
                     </button>
                 </div>
             </div>
@@ -105,17 +102,18 @@
                 </ul>
             </div>
 
-            <div class="list-footer">
+            <div class="change_page">
                 <button class="nav-btn prev-btn">
-                    <
-                    <!-- <img src="" alt=""> -->
+                    <img src="./assets/images/left.png" alt="" class="left_img">
                 </button>
+
                 <span id="page-indicator">Page 1/1</span>
+
                 <button class="nav-btn next-btn">
-                    <!-- <img src="" alt=""> -->
-                    >
+                    <img src="./assets/images/right.png" alt="" class="right_img">
                 </button>
             </div>
+
         </div>
     </div>
 

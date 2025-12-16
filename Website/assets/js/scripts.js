@@ -1,17 +1,3 @@
-// 
-// const connectBtn = document.querySelector('.btn-connect');
-// const wire = document.querySelector('.wire'); // SVG dây
-
-// // Khi chuột vào nút -> Dây sáng
-// connectBtn.addEventListener('mouseenter', () => {
-//     // if (connectionLine) connectionLine.classList.add('active');
-// });
-
-// // Khi chuột ra khỏi nút -> Dây về màu gốc
-// connectBtn.addEventListener('mouseleave', () => {
-//     // if (connectionLine) connectionLine.classList.remove('active');
-// });
-
 // --- 1. Xử lý hiệu ứng dây nối (Line Effect) ---
 const connectBtn = document.querySelector('.btn-connect');
 const wire = document.querySelector('.wire');
@@ -48,8 +34,7 @@ function closeServerList() {
             wire.classList.remove('active');
             void wire.offsetWidth;
             wire.classList.add('off');
-        }
-            
+        }  
     }, 300); // Ẩn hẳn sau khi hết animation
 }
 
@@ -78,59 +63,79 @@ const mockServerData = [
 ];
 
 // Hàm chính: Tính toán và Render theo trang
-function fetchAndRenderServers() {
-    // 1. Tính toán vị trí cắt dữ liệu
-    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-    const endIndex = startIndex + ITEMS_PER_PAGE;
-    
-    // Lấy danh sách server thuộc trang hiện tại
-    const currentServers = mockServerData.slice(startIndex, endIndex);
-    
-    // 2. Render ra màn hình
-    renderList(currentServers);
-
-    // 3. Cập nhật trạng thái nút và số trang
-    updateFooterUI();
+function reloadServers() {
+    currentPage = 1;
+    fetchAndRenderServers();
 }
 
-function renderList(servers) {
-    serverListContent.innerHTML = ''; 
+function delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
 
-    if (servers.length === 0) {
+async function fetchAndRenderServers() {
+    serverListContent.innerHTML = ''; // Xóa list hiện tại ngay khi bắt đầu fetch
+
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    const endIndex = startIndex + ITEMS_PER_PAGE;
+
+    const currentServers = mockServerData.slice(startIndex, endIndex);
+
+    if (currentServers.length === 0) {
         serverListContent.innerHTML = '<li class="server-item">No servers found.</li>';
+        updateFooterUI();
         return;
     }
 
-    servers.forEach((server, index) => {
-        const li = document.createElement('li');
-        li.className = 'server-item';
+    // Thêm từng item với delay 0.5s
+    for (const server of currentServers) {
+        const item = createServerItem(server);
+        serverListContent.appendChild(item);
+        await delay(50);
+    }
 
-        // 1. Cấu hình Flexbox cho dòng (Lưu ý: Bỏ justify-content: space-between)
-        li.style.display = 'flex';
-        li.style.alignItems = 'center'; // Căn giữa theo chiều dọc
-        li.style.padding = '12px 5px';
-        
-        // Thêm đường gạch dưới (code cũ)
-        if (index < servers.length - 1) {
-            li.style.borderBottom = '1px solid rgba(0, 0, 0, 0.1)';
-        }
+    updateFooterUI();
+}
 
-        li.innerHTML = `
-            <span class="server-ip" style="flex: 0 0 55%; font-weight: 500;">
-                IP: ${server.ip}
-            </span>
+// Tạo từng phần tử server theo style bạn có
+function createServerItem(server) {
+    const item = document.createElement('li');  // Thay vì <item>, dùng <li> hợp chuẩn hơn
+    item.className = 'server-item';
 
-            <span class="server-port" style="flex: 0 0 30%; color: #555;">
-                Port: ${server.port}
-            </span>
+    item.style.display = 'flex';
+    item.style.alignItems = 'center';
+    item.style.padding = '12px 5px';
+    item.style.borderTop = '1px solid rgba(0, 0, 0, 0.1)';
+    item.style.borderBottom = '1px solid rgba(0, 0, 0, 0.1)';
 
-            <button class="link-icon" style="margin-left: auto; border: none; background: transparent; cursor: pointer; padding: 0;">
-                <img src="./assets/images/link.png" width="20px" height="20px" style="display: block;">
-            </button>
-        `;
-        
-        serverListContent.appendChild(li);
-    });
+    item.innerHTML = `
+    <span class="server-ip" style="flex: 0 0 55%; font-weight: 500;">
+        IP: ${server.ip}
+    </span>
+
+    <span class="server-port" style="flex: 0 0 30%; color: #555;">
+        Port: ${server.port}
+    </span>
+
+    <button class="link-icon"
+        onclick="connectToServer('${server.ip}', ${server.port})"
+        style="
+            background: none;
+            border: none;
+            padding: 0;
+            margin-left: auto;
+            cursor: pointer;
+            appearance: none;
+            -webkit-appearance: none;
+            outline: none;">
+        <img src="./assets/images/link.png" width="34px" height="34px" style="display: block;">
+    </button>
+    `;
+    return item;
+}
+
+function connectToServer(ip, port) {
+    // viết logic để kết nối tới server ở đây
+    window.location.href = 'menu.html';
 }
 
 // Hàm phụ: Cập nhật Footer (Số trang, ẩn hiện nút Next/Prev)
@@ -178,6 +183,13 @@ nextBtn.addEventListener('click', () => {
     }
 });
 
-// Reset về trang 1 khi mở popup (Optional)
-// Bạn thêm dòng này vào bên trong hàm openServerList() ở phần 2:
-// currentPage = 1;
+// --- 5. Sự kiện mở menu ---
+
+document.addEventListener('DOMContentLoaded', () => {
+    const goMenuBtn = document.getElementById('link-icon');
+    if (goMenuBtn) {
+        goMenuBtn.addEventListener('click', () => {
+            window.location.href = 'menu.html';
+        });
+    }
+});

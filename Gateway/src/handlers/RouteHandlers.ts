@@ -3,17 +3,28 @@ import { Message, createMessage } from '../types/Message'
 import { CommandType } from '../types/Protocols'
 import { AgentManager } from '../managers/AgentManager'
 import { ClientManager } from '../managers/ClientManager'
+import { ConnectionRegistry } from '../managers/ConnectionRegistry'
+import { DatabaseManager } from '../managers/DatabaseManager'
+import { ActivityLogger } from '../managers/ActivityLogger'
 import { AuthHandler } from './AuthHandler'
+import { TokenManager } from '../utils/TokenManager'
 import { Logger } from '../utils/Logger'
+import { Connection } from '../core/Connection'
 
 export class RouteHandler {
     private authHandler: AuthHandler;
+    private tokenManager: TokenManager;
+    private activityLogger: ActivityLogger;
 
     constructor (
         private agentManager: AgentManager,
-        private clientManager: ClientManager
+        private clientManager: ClientManager,
+        private connectionRegistry: ConnectionRegistry,
+        private dbManager: DatabaseManager
     ) {
-        this.authHandler = new AuthHandler(agentManager, clientManager);
+        this.authHandler = new AuthHandler(agentManager, clientManager, connectionRegistry, dbManager);
+        this.tokenManager = new TokenManager();
+        this.activityLogger = new ActivityLogger(dbManager);
     }
 
     public handle(ws: WebSocket, msg: Message) {
@@ -23,24 +34,147 @@ export class RouteHandler {
         }
         
         if (!ws.id) {
+            if (msg.data?.token) {
+                const payload = this.tokenManager.verifyToken(msg.data.token);
+                if (payload) {
+                    const conn = this.connectionRegistry.getConnection(payload.sessionId);
+                    if (conn && conn.machineId === payload.machineId) {
+                        ws.id = payload.sessionId;
+                        ws.role = payload.role;
+                    } else {
+                        ws.send(JSON.stringify(createMessage(
+                            CommandType.ERROR, {
+                                msg: "Token does not match active session. Please re-authenticate."
+                            }
+                        )));
+                        return;
+                    }
+                } else {
+                    ws.send(JSON.stringify(createMessage(
+                        CommandType.ERROR, {
+                            msg: "Invalid or expired token. Please re-authenticate."
+                        }
+                    )));
+                    return;
+                }
+            } else {
             ws.send(JSON.stringify(createMessage(
                 CommandType.ERROR, {
                     msg: "Please login first"
                 }
             )));
+                return;
+            }
+        }
 
+        const conn = this.connectionRegistry.getConnection(ws.id!);
+        if (!conn) {
+            ws.send(JSON.stringify(createMessage(
+                CommandType.ERROR,
+                { msg: "Connection not found. Please re-authenticate." }
+            )));
             return;
         }
 
+        if (conn.role === 'AGENT') {
+            if (msg.type !== CommandType.PONG && 
+                msg.type !== CommandType.ECHO && 
+                msg.type !== CommandType.ERROR &&
+                !msg.from) {
+                this.activityLogger.logActivity(conn, 'unauthorized_command_from_agent', {
+                    commandType: msg.type,
+                    success: false
+                });
+                ws.send(JSON.stringify(createMessage(
+                    CommandType.ERROR,
+                    { msg: "AGENT role can only receive commands, not send them." }
+                )));
+                return;
+            }
+        }
+
+        const isControlCommand = msg.to || msg.to === 'ALL' || 
+            [CommandType.APP_LIST, CommandType.APP_START, CommandType.APP_KILL,
+             CommandType.PROC_LIST, CommandType.PROC_START, CommandType.PROC_KILL,
+             CommandType.CAM_RECORD, CommandType.SCREENSHOT, CommandType.START_KEYLOG,
+             CommandType.STOP_KEYLOG, CommandType.SHUTDOWN, CommandType.RESTART,
+             CommandType.CONNECT_AGENT, CommandType.GET_AGENTS,
+             CommandType.ADD_AGENT_TAG, CommandType.REMOVE_AGENT_TAG, CommandType.GET_AGENTS_BY_TAG,
+             CommandType.GET_AGENT_TAGS, CommandType.GET_ALL_TAGS,
+             CommandType.FILE_LIST].includes(msg.type as CommandType);
+
+        if (isControlCommand && conn.role !== 'CLIENT') {
+            this.activityLogger.logActivity(conn, 'unauthorized_control_attempt', {
+                commandType: msg.type,
+                success: false
+            });
+            ws.send(JSON.stringify(createMessage(
+                CommandType.ERROR,
+                { msg: "Only CLIENT role can control agents. AGENT role is console-only." }
+            )));
+            return;
+        }
+
+        // Handle GET_AGENTS
         if (msg.type === CommandType.GET_AGENTS) {
             const list = this.agentManager.getAgentListDetails();
+            
             const response = createMessage(
                 CommandType.GET_AGENTS,
                 list
             );
 
             ws.send(JSON.stringify(response));
-            Logger.info(`[Router] Sent agent list to ${ws.id}`)
+            this.activityLogger.logAgentListRequest(conn);
+            Logger.info(`[Router] Sent agent list to ${conn.name} (${conn.id})`)
+            return;
+        }
+
+        // Handle Activity History
+        if (msg.type === CommandType.GET_ACTIVITY_HISTORY) {
+            const query = msg.data || {};
+            const activities = this.activityLogger.getActivityHistory({
+                clientId: query.clientId || conn.id,
+                action: query.action,
+                targetAgentId: query.targetAgentId,
+                startTime: query.startTime,
+                endTime: query.endTime,
+                limit: query.limit || 100,
+                offset: query.offset || 0
+            });
+
+            ws.send(JSON.stringify(createMessage(
+                CommandType.GET_ACTIVITY_HISTORY,
+                { activities, count: activities.length }
+            )));
+            this.activityLogger.logActivity(conn, 'get_activity_history', { success: true });
+            return;
+        }
+
+
+
+        if (msg.type === CommandType.FILE_LIST) {
+            const { agentId, path } = msg.data || {};
+            if (!agentId || !path) {
+                ws.send(JSON.stringify(createMessage(CommandType.ERROR, { msg: "Missing 'agentId' or 'path'" })));
+                return;
+            }
+            
+            const agent = this.connectionRegistry.getConnection(agentId);
+            if (!agent || agent.role !== 'AGENT') {
+                ws.send(JSON.stringify(createMessage(CommandType.ERROR, { msg: `Agent ${agentId} not found or offline` })));
+                return;
+            }
+
+            msg.to = agentId;
+            msg.from = conn.id;
+            agent.send(msg);
+            
+            this.activityLogger.logActivity(conn, 'file_list', {
+                targetAgentId: agentId,
+                commandData: { path },
+                success: true
+            });
             return;
         }
 
@@ -64,17 +198,39 @@ export class RouteHandler {
 
     private forwardMessage(sender: WebSocket, msg: Message) {
         const targetId = msg.to!;
-        let targetAgent = this.agentManager.getAgentSocket(targetId);
+        const senderConn = this.connectionRegistry.getConnection(sender.id!);
+        if (!senderConn) return;
 
-        if (!targetAgent) {
-            targetAgent = this.clientManager.getClientSocket(targetId);
+        let targetAgent: Connection | null = this.connectionRegistry.getConnection(targetId);
+
+        if (!targetAgent || targetAgent.role !== 'AGENT') {
+            const client = this.clientManager.getClientSocket(targetId);
+            targetAgent = client || null;
         }
 
         if (targetAgent && targetAgent.isAlive) {
             msg.from = sender.id;
             targetAgent.send(msg);
-            Logger.info(`[Router] Forwarded ${msg.type} from ${sender.id} to ${targetId}`);
+            const senderName = senderConn.name || sender.id;
+            const targetName = targetAgent.name || targetId;
+            
+            // Log the command
+            this.activityLogger.logCommand(
+                senderConn,
+                msg,
+                targetAgent,
+                true
+            );
+            
+            Logger.info(`[Router] Forwarded ${msg.type} from ${senderName} (${sender.id}) to ${targetName} (${targetId})`);
         } else {
+            this.activityLogger.logCommand(
+                senderConn,
+                msg,
+                null,
+                false,
+                { error: `Target ${targetId} not found or offline` }
+            );
             sender.send(JSON.stringify(createMessage(
                 CommandType.ERROR, 
                 { msg: `Target ${targetId} not found or offline` }
@@ -83,7 +239,10 @@ export class RouteHandler {
     }
 
     private broadcastToAgents(sender: WebSocket, msg: Message) {
-        const agents = this.agentManager.getAllSockets();
+        const senderConn = this.connectionRegistry.getConnection(sender.id!);
+        if (!senderConn) return;
+
+        const agents = this.connectionRegistry.getConnectionsByRole('AGENT');
         let count = 0;
         msg.from = sender.id;
         agents.forEach(agent =>{
@@ -93,7 +252,11 @@ export class RouteHandler {
             }
         });
 
-        Logger.info(`[Router] Broadcast ${msg.type} from ${sender.id} to ${count} agents.`);
+        // Log broadcast activity
+        this.activityLogger.logBroadcast(senderConn, msg, count);
+
+        const senderName = senderConn.name || sender.id;
+        Logger.info(`[Router] Broadcast ${msg.type} from ${senderName} (${sender.id}) to ${count} agents.`);
         sender.send(JSON.stringify(createMessage(
             CommandType.ECHO, 
             { msg: `Broadcasted to ${count} agents` }

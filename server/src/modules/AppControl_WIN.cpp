@@ -2,7 +2,6 @@
 
 #include "AppControl_WIN.h"
 #include "Converter.h"
-#include <shellapi.h>
 
 
 // đọc tên path và trả về đường dẫn exe có thể chạy được

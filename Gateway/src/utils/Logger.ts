@@ -10,4 +10,10 @@ export class Logger {
     public static error(msg: string, ...args: any[]) {
         console.error(`[${new Date().toISOString()}] [ERROR] ${msg}`, ...args);
     }
+
+    public static debug(msg: string, ...args: any[]) {
+        if (process.env.NODE_ENV === 'development' || process.env.DEBUG === 'true') {
+            console.log(`[${new Date().toISOString()}] [DEBUG] ${msg}`, ...args);
+        }
+    }
 }

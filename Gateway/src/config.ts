@@ -13,6 +13,12 @@ export const Config = {
     AUTH_SECRET: process.env.AUTH_SECRET,
     NODE_ENV: process.env.NODE_ENV || 'development',
 
+    // JWT Configuration
+    JWT_SECRET: process.env.JWT_SECRET || process.env.AUTH_SECRET,
+    JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '24h',
+    JWT_REFRESH_EXPIRES_IN: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
+
     CLIENT_CACHE_FILE: './data/client_cache.json',
     AGENT_HISTORY_FILE: './data/agent_history.json',
+    DATABASE_PATH: process.env.DATABASE_PATH || './data/gateway.db',
 };

@@ -4,6 +4,9 @@
 #include "Message.hpp"
 #include "Protocol.hpp"
 #include "PlatformModules.h"
+#include "PrivilegeEscalation.h"
+#include "PasswordDetector.h"
+#include "FileList.h"
 
 #include <iostream>
 #include <thread>

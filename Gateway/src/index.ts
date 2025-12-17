@@ -11,7 +11,6 @@ import * as path from 'path';
     const __dirname = path.dirname(__filename);
 
 try {
-
     const certPath = path.join(__dirname, '../server.cert');
     const keyPath = path.join(__dirname, '../server.key');
 

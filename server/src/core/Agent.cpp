@@ -2,28 +2,81 @@
 #include "../../config/Config.hpp"
 #include "Protocol.hpp"
 #include "FeatureLibrary.h"
-#include <iostream>
-#include <nlohmann/json.hpp>
+#include "GatewayDiscovery.h"
+#include "PrivilegeEscalation.h"
+
 
 using json = nlohmann::json;
 using std::cout;
 
 Agent::Agent(boost::asio::io_context& ioc) : ioc_(ioc), dispatcher_(std::make_shared<CommandDispatcher>()) {
-    agentID_ = getHostName();
+    std::string hostname = getHostName();
+    std::string username = PrivilegeEscalation::getCurrentUsername();
+    
+    if (!username.empty()) {
+        agentID_ = hostname + "-" + username;
+    } else {
+        agentID_ = hostname;
+    }
+    
+    discoveredHost_ = "";
+    discoveredPort_ = "";
 }
 
 void Agent::run() {
-    cout << "[Agent] Starting service on: " << agentID_ << "\n";
+    cout << "[Agent] Starting service on: " << agentID_ << "\n" << std::flush;
+    selectConnectionMethod();
+    cout << "[Network] ========================================\n" << std::flush;
+    cout << "[Network] Proceeding to connect...\n" << std::flush;
     connect();    
 }
 
-void Agent::connect() {
+void Agent::selectConnectionMethod() {
+    cout << "[Network] Attempting LAN Discovery (UDP Broadcast)...\n" << std::flush;
+    cout << "[Network] Searching for Gateway on local network (timeout: 2 seconds)...\n" << std::flush;
+    
+    try {
+        auto result = GatewayDiscovery::discoverGateway(2000);
+        
+        if (!result.first.empty()) {
+            discoveredHost_ = result.first;
+            discoveredPort_ = result.second.empty() ? "8080" : result.second;
+            cout << "[Network] Found Gateway on LAN: " << discoveredHost_ << ":" << discoveredPort_ << "\n" << std::flush;
+            cout << "[Network] Using local network connection\n" << std::flush;
+        } else {
+            cout << "[Network] No Gateway found on LAN\n" << std::flush;
+            std::cerr << "[Network] Gateway discovery failed. Make sure Gateway is running on the network.\n" << std::flush;
+            discoveredHost_ = "";
+            discoveredPort_ = "";
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "[Network] Discovery error: " << e.what() << "\n" << std::flush;
+        discoveredHost_ = "";
+        discoveredPort_ = "";
+    } catch (...) {
+        std::cerr << "[Network] Unknown error during Discovery\n" << std::flush;
+        discoveredHost_ = "";
+        discoveredPort_ = "";
+    }
+}
 
+void Agent::connect() {
+    if (discoveredHost_.empty()) {
+        std::cerr << "[Network] No Gateway discovered. Cannot connect.\n" << std::flush;
+        onDisconnected();
+        return;
+    }
+    
+    std::string host = discoveredHost_;
+    std::string port = discoveredPort_.empty() ? "8080" : discoveredPort_;
+    
     boost::asio::ssl::context ctx(boost::asio::ssl::context::tlsv12_client);
     ctx.set_verify_mode(boost::asio::ssl::verify_none);
-    // cout << "[Debug] Init WSConnection...\n" << std::flush;
+    
+    cout << "[Network] Attempting WSS connection to: " << host << ":" << port << "\n" << std::flush;
+    
     try {
-        client_ = std::make_shared<WSConnection>(ioc_, ctx, Config::SERVER_HOST, Config::SERVER_PORT, "/");
+        client_ = std::make_shared<WSConnection>(ioc_, ctx, host, port, "/");
 
         client_->onConnected = [this]() {
             this->onConnected();
@@ -38,23 +91,22 @@ void Agent::connect() {
         };
 
         client_->onError = [this](boost::beast::error_code ec) {
-            std::cerr << "[Network] Error: " << ec.message() << "\n";
+            std::cerr << "[Network] Connection error: " << ec.message() << " (code: " << ec.value() << ")\n" << std::flush;
             this->onDisconnected();
         };
-        // std::cout << "[Debug] Triggering client_->connect()...\n" << std::flush;
+        cout << "[Network] Initiating WebSocket connection...\n" << std::flush;
         client_->connect();
 
     } catch (const std::exception& e) {
-        // std::cerr << "[CRITICAL] Exception in connect(): " << e.what() << "\n" << std::flush;
         onDisconnected();
     } catch (...) {
-        // std::cerr << "[FATAL] Unknown Low-level Crash in Agent::connect()!\n" << std::flush;
         onDisconnected();
     }
 }
 
 void Agent::onConnected() {
-    cout << "[Network] Connected to Gateway. Sending Auth...\n";
+    cout << "[Network] Connected to Gateway!\n";
+    cout << "[Network] Sending authentication...\n";
     sendAuth();
 }
 
@@ -62,7 +114,6 @@ void Agent::sendAuth() {
     json authPayload = {
         {"role", "AGENT"},
         {"user", agentID_},
-        {"pass", Config::AGENT_TOKEN},
         {"machineId", agentID_}
     };
 
@@ -84,18 +135,18 @@ void Agent::onMessage(const std::string& payload) {
 }
 
 void Agent::onDisconnected() {
-    cout << "[Network] Disconnected. Retrying in " << Config::RECONNECT_DELAY_MS << "ms...\n";
+    cout << "[Network] Disconnected. Retrying Discovery in " << Config::RECONNECT_DELAY_MS << "ms...\n" << std::flush;
     if(client_) {
         client_->onClosed = nullptr;
         client_->onError = nullptr;
     }
     client_.reset();
 
-    std::cout << "[Network] Disconnected. Retrying in " << Config::RECONNECT_DELAY_MS << "ms...\n" << std::flush;
     retryTimer_ = std::make_unique<boost::asio::steady_timer>(ioc_, std::chrono::milliseconds(Config::RECONNECT_DELAY_MS));
     retryTimer_->async_wait([this](const boost::system::error_code& ec) {
         if (!ec) {
-            std::cout << "[Debug] Retry timer expired. Reconnecting...\n" << std::flush;
+            cout << "[Network] Retrying Discovery...\n" << std::flush;
+            selectConnectionMethod();
             connect();
         }
     });

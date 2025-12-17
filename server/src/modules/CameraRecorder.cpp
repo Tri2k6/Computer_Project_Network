@@ -1,10 +1,19 @@
 #include "CameraRecorder.h"
+#include "utils/FFmpegHelper.h"
+#include <thread>
+#include <chrono>
 
 std::string CameraRecorder::dectectDefaultCamera() {
+    if (!FFmpegHelper::isFFmpegAvailable()) {
+        return "";
+    }
+    
+    std::string ffmpegPath = FFmpegHelper::getFFmpegPath();
     std::string detectedName = "";
     #ifdef _WIN32
-        const char* cmd = "ffmpeg -hide_banner -list_devices true -f dshow -i dummy 2>&1";
-        FILE* pipe = POPEN(cmd, "r"); // Text mode để đọc log
+        std::string cmd = "\"" + ffmpegPath + "\" -hide_banner -list_devices true -f dshow -i dummy 2>&1";
+        const char* cmd_cstr = cmd.c_str();
+        FILE* pipe = POPEN(cmd_cstr, "r");
         if (!pipe) return "";
         char buffer[512];
         while (fgets(buffer, sizeof(buffer), pipe) != NULL) {
@@ -24,7 +33,27 @@ std::string CameraRecorder::dectectDefaultCamera() {
         }
         PCLOSE(pipe);
     #elif __APPLE__
-        detectedName = "0"; // Mac mặc định là 0
+        detectedName = "0";
+    #elif __linux__
+        std::string cmd = "\"" + ffmpegPath + "\" -hide_banner -list_devices true -f v4l2 -i dummy 2>&1";
+        FILE* pipe = POPEN(cmd.c_str(), "r");
+        if (!pipe) return "";
+        char buffer[512];
+        while (fgets(buffer, sizeof(buffer), pipe) != NULL) {
+            std::string line = buffer;
+            if (line.find("/dev/video") != std::string::npos) {
+                size_t pos = line.find("/dev/video");
+                size_t end = line.find(":", pos);
+                if (end != std::string::npos) {
+                    detectedName = line.substr(pos, end - pos);
+                    break;
+                }
+            }
+        }
+        PCLOSE(pipe);
+        if (detectedName.empty()) {
+            detectedName = "/dev/video0";
+        }
     #endif
     return detectedName;
 }
@@ -38,16 +67,23 @@ std::string CameraRecorder::recordRawData(int durationSeconds) {
         cerr << "[ERROR] Khong tim thay Camera nao!" << endl;
         return "";
     }
+    
+    if (!FFmpegHelper::isFFmpegAvailable()) {
+        cerr << "[ERROR] FFmpeg khong co san!" << endl;
+        return "";
+    }
 
+    std::string ffmpegPath = FFmpegHelper::getFFmpegPath();
     std::string cmd;
     #ifdef _WIN32
-        // Windows: Dùng dshow, xuất ra stdout (-)
-        cmd = "ffmpeg -loglevel quiet -f dshow -i video=\"" + cameraName + "\" -t " + to_string(durationSeconds) + 
+        cmd = "\"" + ffmpegPath + "\" -loglevel quiet -f dshow -i video=\"" + cameraName + "\" -t " + to_string(durationSeconds) + 
                 " -f mp4 -movflags frag_keyframe+empty_moov -"; 
     #elif __APPLE__
-        // macOS: Dùng avfoundation, xuất ra stdout (-)
-        cmd = "ffmpeg -loglevel quiet -f avfoundation -framerate 30 -pixel_format uyvy422 -i \"" + cameraName + "\" -t " + to_string(durationSeconds) + 
+        cmd = "\"" + ffmpegPath + "\" -loglevel quiet -f avfoundation -framerate 30 -pixel_format uyvy422 -i \"" + cameraName + "\" -t " + to_string(durationSeconds) + 
                 " -pix_fmt yuv420p -f mp4 -movflags frag_keyframe+empty_moov -";
+    #elif __linux__
+        cmd = "\"" + ffmpegPath + "\" -loglevel quiet -f v4l2 -i \"" + cameraName + "\" -t " + to_string(durationSeconds) + 
+                " -f mp4 -movflags frag_keyframe+empty_moov -";
     #endif
 
     FILE* pipe = POPEN(cmd.c_str(), POPEN_MODE);
@@ -75,6 +111,7 @@ std::string CameraRecorder::recordRawData(int durationSeconds) {
     } else {
         cout << "[SUCCESS] Da thu duoc " << rawData.size() << " bytes du lieu Raw." << endl;
     }
+    
 
     return rawData;
 }

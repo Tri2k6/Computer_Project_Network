@@ -1,0 +1,21 @@
+{
+  "name": "agent-client",
+  "version": "1.0.0",
+  "description": "Agent Client Application",
+  "dependencies": [
+    {
+      "name": "boost-system",
+      "version>=": "1.82.0"
+    },
+    {
+      "name": "openssl",
+      "version>=": "3.0.0"
+    },
+    {
+      "name": "nlohmann-json",
+      "version>=": "3.11.0"
+    }
+  ],
+  "builtin-baseline": "2024.01.12"
+}
+

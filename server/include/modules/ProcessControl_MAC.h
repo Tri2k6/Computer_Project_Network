@@ -2,11 +2,7 @@
 
 #ifdef __APPLE__
 
-#include <sys/sysctl.h>
-#include <libproc.h>
-#include <spawn.h>
-#include <signal.h>
-#include "utils/FeatureLibrary.h"
+#include "FeatureLibrary.h"
 
 extern char **environ;
 

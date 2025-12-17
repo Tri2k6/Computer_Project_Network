@@ -2,7 +2,26 @@
 
 #include <iostream>
 
+void WSConnection::startTimeout() {
+    timeout_timer_.expires_after(std::chrono::seconds(CONNECT_TIMEOUT_SECONDS));
+    timeout_timer_.async_wait([this](beast::error_code ec) {
+        if (!ec) {
+            std::cerr << "[WSConnection] Connection timeout after " << CONNECT_TIMEOUT_SECONDS << " seconds\n" << std::flush;
+            beast::get_lowest_layer(ws_).cancel();
+            if (onError) {
+                beast::error_code timeout_ec = beast::net::error::make_error_code(beast::net::error::timed_out);
+                onError(timeout_ec);
+            }
+        }
+    });
+}
+
+void WSConnection::cancelTimeout() {
+    timeout_timer_.cancel();
+}
+
 void WSConnection::connect() {
+    startTimeout();
     auto self = shared_from_this();
     resolver_.async_resolve(
         host_,
@@ -27,10 +46,13 @@ void WSConnection::doResolve() {
 void WSConnection::onResolve(beast::error_code ec,
                              tcp::resolver::results_type results) {
     if (ec) {
+        cancelTimeout();
+        std::cerr << "[WSConnection] DNS resolve error: " << ec.message() << "\n" << std::flush;
         if (onError) onError(ec);
         return;
     }
 
+    std::cout << "[WSConnection] DNS resolved, connecting to endpoint...\n" << std::flush;
     auto self = shared_from_this();
 
     beast::get_lowest_layer(ws_).async_connect(
@@ -43,11 +65,19 @@ void WSConnection::onResolve(beast::error_code ec,
 }
 
 void WSConnection::onConnect(beast::error_code ec, tcp::resolver::results_type::endpoint_type ep) {
-    if (ec) { if (onError) onError(ec); return; }
+    if (ec) {
+        cancelTimeout();
+        std::cerr << "[WSConnection] TCP connect error: " << ec.message() << "\n" << std::flush;
+        if (onError) onError(ec);
+        return;
+    }
 
+    std::cout << "[WSConnection] TCP connected, starting SSL handshake...\n" << std::flush;
     if(!SSL_set_tlsext_host_name(ws_.next_layer().native_handle(), host_.c_str())) {
         beast::error_code ec{static_cast<int>(::ERR_get_error()), beast::net::error::get_ssl_category()};
-        if (onError) onError(ec); return;
+        std::cerr << "[WSConnection] SSL SNI error\n" << std::flush;
+        if (onError) onError(ec);
+        return;
     }
 
     auto self = shared_from_this();
@@ -60,8 +90,14 @@ void WSConnection::onConnect(beast::error_code ec, tcp::resolver::results_type::
 }
 
 void WSConnection::onSslHandshake(beast::error_code ec) {
-    if (ec) { if (onError) onError(ec); return; }
+    if (ec) {
+        cancelTimeout();
+        std::cerr << "[WSConnection] SSL handshake error: " << ec.message() << "\n" << std::flush;
+        if (onError) onError(ec);
+        return;
+    }
 
+    std::cout << "[WSConnection] SSL handshake completed, starting WebSocket handshake...\n" << std::flush;
     auto self = shared_from_this();
     ws_.async_handshake(host_, target_, 
         [this, self](beast::error_code ec) {
@@ -71,11 +107,14 @@ void WSConnection::onSslHandshake(beast::error_code ec) {
 }
 
 void WSConnection::onHandshake(beast::error_code ec) {
+    cancelTimeout();
     if (ec) {
+        std::cerr << "[WSConnection] WebSocket handshake error: " << ec.message() << "\n" << std::flush;
         if (onError) onError(ec);
         return;
     }
 
+    std::cout << "[WSConnection] WebSocket handshake completed successfully!\n" << std::flush;
     if (onConnected) onConnected();
 
     doRead();

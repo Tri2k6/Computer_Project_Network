@@ -21,6 +21,8 @@ export class Gateway{
         this.isAuthenticated = false;
         this.machineId = this._getMachineId();
         this.targetId = 'ALL';
+        this._hasTriedInsecure = false;
+        this._lastCloseCode = null; // Track last close code to prevent reconnect loops
 
         this.ui = window.ui || { log: console.log, renderList: console.table };
 
@@ -42,30 +44,56 @@ export class Gateway{
     _getMachineId() {
         let id = localStorage.getItem(CONFIG.LOCAL_STORAGE_ID_KEY);
         if (!id) {
-            id = 'CLI-' + Math.random().toString(36).substring(2, 10).toUpperCase();
+            const hostname = window.location.hostname || 'localhost';
+            const userAgent = navigator.userAgent || 'unknown';
+            const platform = navigator.platform || 'unknown';
+            
+            const hash = this._simpleHash(hostname + userAgent + platform);
+            const shortHash = hash.toString(36).substring(0, 8).toUpperCase();
+            
+            id = `CLI-${hostname}-${shortHash}`;
+            id = id.replace(/[^a-zA-Z0-9\-_]/g, '-').substring(0, 50);
             localStorage.setItem(CONFIG.LOCAL_STORAGE_ID_KEY, id);
         }
-        //this.ui.log('System', `Machine Id:  ${id}`, 'info');
         return id;
     }
 
-    /**
-     * @param {string} ip 
-     * @param {number} port
-     */
+    _simpleHash(str) {
+        let hash = 0;
+        for (let i = 0; i < str.length; i++) {
+            const char = str.charCodeAt(i);
+            hash = ((hash << 5) - hash) + char;
+            hash = hash & hash;
+        }
+        return Math.abs(hash);
+    }
 
-    connect(ip, port = CONFIG.SERVER_PORT) {
+    connect(ip, port = CONFIG.SERVER_PORT, useSecure = true) {
         if (this.ws) {
+            console.log(`[Gateway] Closing existing connection before creating new one`);
             this.ws.close();
+            this.ws = null;
+        }
+        
+        // Auto-detect: port 8082 is HTTP/WS, port 8080 is HTTPS/WSS
+        if (port === CONFIG.SERVER_PORT + 2) {
+            useSecure = false;
+        }
+        
+        // Reset insecure flag for new connection attempt
+        if (useSecure) {
+            this._hasTriedInsecure = false;
         }
 
-        const url = `wss://${ip}:${port}`;
-        console.log(`[Gateway] Connecting to ${url}...`);
+        const protocol = useSecure ? 'wss' : 'ws';
+        const url = `${protocol}://${ip}:${port}`;
+        console.log(`[Gateway] Creating new connection to ${url}...`);
 
         this.ws = new WebSocket(url);
 
         this.ws.onopen = () => {
-            console.log(`[Network] Socket opened.`)
+            console.log(`[Network] Socket opened successfully to ${url}`)
+            console.log(`[Network] Sending AUTH message...`)
             this.send(
                 CONFIG.CMD.AUTH, {
                     pass: CONFIG.AUTH_HASH,
@@ -73,16 +101,67 @@ export class Gateway{
                     machineId: this.machineId
                 }
             );
+            console.log(`[Network] AUTH message sent`)
         };
 
         this.ws.onmessage = (event) => this._handleInternalMessage(event);
         
-        this.ws.onclose = () => {
+        this.ws.onclose = (event) => {
+            const wasAuthenticated = this.isAuthenticated;
+            const connectionId = this.clientConnectionId || 'none';
+            this._lastCloseCode = event.code;
             this.isAuthenticated = false;
-            if (this.callbacks.onDisconnected) this.callbacks.onDisconnected();
+            
+            console.log(`[Network] Socket closed. Code: ${event.code}, Reason: ${event.reason || 'Unknown'}`);
+            console.log(`[Network] Was authenticated: ${wasAuthenticated}, Connection ID: ${connectionId}`);
+            
+            // Code 1001 = Going Away (normal closure, e.g., page refresh, tab close)
+            // Code 1000 = Normal Closure
+            // Code 1006 = Abnormal Closure (no close frame)
+            // Code 1005 = No Status Received
+            
+            if (event.code === 1001) {
+                console.log(`[Network] Connection closed normally (Going Away). This usually means:`);
+                console.log(`  1. Page refresh or navigation`);
+                console.log(`  2. Tab/window closed`);
+                console.log(`  3. Browser initiated close`);
+                console.log(`[Network] Not triggering auto-reconnect for intentional close (code 1001)`);
+                // Don't trigger onDisconnected for intentional closes
+                return;
+            } else if (event.code === 1000) {
+                console.log(`[Network] Connection closed normally (code 1000). Intentional close.`);
+                console.log(`[Network] Not triggering auto-reconnect for intentional close (code 1000)`);
+                return;
+            } else if (event.code === 1006) {
+                console.error(`[Network] Connection failed abnormally. This usually means:`);
+                console.error(`  1. Gateway server is not running at ${ip}:${port}`);
+                console.error(`  2. SSL certificate is not trusted (self-signed)`);
+                console.error(`  3. Network interruption`);
+                console.error(`  → Fix: Open https://${ip}:${port} in browser first to accept certificate`);
+            } else if (event.code === 1005) {
+                console.warn(`[Network] Connection closed without status (code 1005). This may indicate:`);
+                console.warn(`  1. Connection was closed before authentication completed`);
+                console.warn(`  2. Network interruption`);
+                console.warn(`  3. Server closed connection unexpectedly`);
+            }
+            
+            // Only trigger onDisconnected if we were actually connected and it wasn't an intentional close
+            // This prevents auto-reconnect loops when connection was intentionally closed
+            if (wasAuthenticated && this.callbacks.onDisconnected) {
+                this.callbacks.onDisconnected();
+            } else if (!wasAuthenticated) {
+                console.log(`[Network] Connection closed before authentication - not triggering disconnect callback`);
+            }
         };
 
         this.ws.onerror = (err) => {
+            console.error(`[Network] WebSocket error:`, err);
+            console.error(`[Network] Cannot connect to ${url}`);
+            console.error(`[Network] Possible causes:`);
+            console.error(`  - Gateway server is not running`);
+            console.error(`  - SSL certificate is not trusted (self-signed certificate)`);
+            console.error(`  - Firewall blocking connection`);
+            console.error(`[Network] Solution: Open https://${ip}:${port} in browser first to accept the certificate`);
             if (this.callbacks.onError) {
                 this.callbacks.onError(err);
             }
@@ -94,40 +173,25 @@ export class Gateway{
     }
 
     authenticate() {
+        console.log(`[Gateway] Authenticating as CLIENT with machineId: ${this.machineId}`);
         this.send(CONFIG.CMD.AUTH, {
             pass: CONFIG.AUTH_HASH,
             role: 'CLIENT',
-            machineId: this.clientMachineId
-,        });
+            machineId: this.machineId
+        });
     }
-
-    /**
-     * @param {string} type 
-     * @param {any} data 
-     * @param {string|null} specificTarget // if null -> targetId
-     */
 
     send(type, data, specificTarget = null) {
         if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
             console.warn(`[Gateway] Cannot send: Socket not open.`);
             return;
         }
-        //const from = this.clientConnectionId;
-        // if (type === CONFIG.CMD.AUTH) {
-        //     const packet = JSON.stringify({ type, data });
-        //     this.ws.send(packet);
-        // } else {
-        //     if (!from) {
-        //         console.error("[Gateway] Cannot send. Not authenticated (missing Session ID).");
-        //         return;
-        //     }
-
-        //     const packet = JSON.stringify({ type, data, to, from });
-        //     this.ws.send(packet);
-        // }
 
         if (type === CONFIG.CMD.AUTH) {
-            this.ws.send(JSON.stringify({type, data}));
+            const authMsg = JSON.stringify({type, data});
+            console.log(`[Gateway] Sending AUTH message: ${authMsg.substring(0, 100)}...`);
+            this.ws.send(authMsg);
+            console.log(`[Gateway] AUTH message sent successfully`);
             return;
         }
 
@@ -181,6 +245,11 @@ export class Gateway{
         this.send(CONFIG.CMD.APP_KILL, String(id));
     }
 
+    listFiles(path = "") {
+        const data = typeof path === 'string' ? path : JSON.stringify({ path });
+        this.send(CONFIG.CMD.FILE_LIST, data);
+    }
+
     _handleInternalMessage(event) {
         try {
             let msg;
@@ -193,12 +262,15 @@ export class Gateway{
                     if (msg.data && msg.data.status === 'ok') {
                         this.isAuthenticated = true;
                         this.clientConnectionId = msg.data.sessionId;
+                        console.log(`[Gateway] Authentication successful! Session: ${this.clientConnectionId}`);
                         this.ui.log('Auth', `Success! Connected as: ${this.clientConnectionId}`, 'info');
                         if (this.callbacks.onAuthSuccess) this.callbacks.onAuthSuccess();
                         this.refreshAgents();
-                    }
-                    else {
-                        console.error(`[Gateway] Auth Failed`);
+                    } else {
+                        console.error(`[Gateway] Auth Failed:`, msg.data);
+                        if (msg.data && msg.data.msg) {
+                            console.error(`[Gateway] Error message: ${msg.data.msg}`);
+                        }
                     }
                     break;
                 case CONFIG.CMD.GET_AGENTS:
@@ -206,7 +278,7 @@ export class Gateway{
                     console.table(this.agentsList);
 
                     if (this.callbacks.onAgentListUpdate) {
-                        this.callbacks.onAgentListUpdate(msg.data) // array [agent, agent]
+                        this.callbacks.onAgentListUpdate(msg.data);
                     } 
                     break;
                 case CONFIG.CMD.PROC_LIST:
@@ -214,6 +286,13 @@ export class Gateway{
                     break;
                 case CONFIG.CMD.APP_LIST:
                     this.ui.renderList('Application List', msg.data);
+                    break;
+                case CONFIG.CMD.FILE_LIST:
+                    if (msg.data && msg.data.status === 'ok' && msg.data.files) {
+                        this.ui.renderFileList(msg.data.path, msg.data.files, msg.data.count);
+                    } else {
+                        this.ui.log('Error', msg.data?.msg || 'Failed to list files');
+                    }
                     break;
                 case CONFIG.CMD.PROC_START:
                 case CONFIG.CMD.PROC_KILL:
@@ -247,8 +326,13 @@ export class Gateway{
                     }
                     break;
                 case CONFIG.CMD.ERROR:
-                    console.error("[Server Error]", msg.data);
-                    this.ui.log('Error', typeof msg.data === 'string' ? msg.data : msg.data.msg);
+                    console.error("[Gateway] Server Error:", msg.data);
+                    const errorMsg = typeof msg.data === 'string' ? msg.data : (msg.data?.msg || JSON.stringify(msg.data));
+                    this.ui.log('Error', errorMsg);
+                    if (errorMsg.includes('Authentication') || errorMsg.includes('password') || errorMsg.includes('login')) {
+                        console.error("[Gateway] Authentication failed - connection will be closed");
+                        console.error("[Gateway] Check AUTH_HASH in config.js matches AUTH_SECRET in Gateway");
+                    }
                     break;
                 default:
                     this.ui.log('Server', JSON.stringify(msg.data));

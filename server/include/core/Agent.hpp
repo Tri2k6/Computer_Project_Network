@@ -10,6 +10,7 @@ public:
     explicit Agent(boost::asio::io_context& ioc);
     void run();
 private:
+    void selectConnectionMethod();
     void connect();
     void onConnected();
     void onDisconnected();
@@ -22,4 +23,6 @@ private:
     std::unique_ptr<boost::asio::steady_timer> retryTimer_;
 
     std::string agentID_;
+    std::string discoveredHost_;
+    std::string discoveredPort_;
 };

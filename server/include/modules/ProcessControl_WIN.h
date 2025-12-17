@@ -6,8 +6,6 @@
 #define _UNICODE
 
 #include "FeatureLibrary.h"
-#include <tlhelp32.h>
-#include <codecvt>
 
 struct WinProcess {
     DWORD pid;

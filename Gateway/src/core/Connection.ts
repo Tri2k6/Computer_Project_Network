@@ -11,15 +11,17 @@ export class Connection {
     public readonly role: ConnectionRole;
     public readonly ip: string;
     public readonly machineId: string;
+    public name: string;
 
     public isAlive: boolean = true;
 
-    constructor(ws: WebSocket, id: string, role: ConnectionRole, ip: string, machineId: string) {
+    constructor(ws: WebSocket, id: string, role: ConnectionRole, ip: string, machineId: string, name: string = '') {
         this.ws = ws;
         this.id = id;
         this.role = role;
         this.ip = ip;
         this.machineId = machineId;
+        this.name = name;
     }
 
     public send(message: Message): boolean {

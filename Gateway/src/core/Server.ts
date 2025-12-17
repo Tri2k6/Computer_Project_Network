@@ -1,27 +1,51 @@
 import { WebSocket, WebSocketServer } from "ws";
 import { AgentManager } from "../managers/AgentManager";
 import { ClientManager } from "../managers/ClientManager";
+import { DatabaseManager } from "../managers/DatabaseManager";
+import { ConnectionRegistry } from "../managers/ConnectionRegistry";
 import { RouteHandler } from "../handlers/RouteHandlers";
-import { Logger } from "../utils/Logger";
-import { Message } from "../types/Message";
+import { Connection } from "./Connection";
+import { Message, createMessage } from "../types/Message";
 import { CommandType } from "../types/Protocols";
+import { Logger } from "../utils/Logger";
+import { DiscoveryListener } from "../utils/DiscoveryListener";
+import { BonjourService } from "../utils/BonjourService";
+import { Config } from "../config";
 import * as https from 'https'
+import * as http from 'http'
 
 export class GatewayServer {
     private wss: WebSocketServer;
+    private wssInsecure: WebSocketServer | null = null;
+    private httpServer: http.Server | null = null;
     private agentManager: AgentManager;
     private clientManager: ClientManager;
+    private dbManager: DatabaseManager;
+    private connectionRegistry: ConnectionRegistry;
     private router: RouteHandler;
     private heartbeatInterval: NodeJS.Timeout | null = null;
     private connectionCounter: number = 1;
+    private dashboardServer: http.Server | null = null;
+    private discoveryListener: DiscoveryListener;
+    private bonjourService: BonjourService;
 
     constructor(server: https.Server) {
-        this.agentManager = new AgentManager();
-        this.clientManager = new ClientManager();
-        this.router = new RouteHandler(this.agentManager, this.clientManager);
+        this.dbManager = new DatabaseManager();
+        this.connectionRegistry = new ConnectionRegistry(this.dbManager);
+        
+        this.agentManager = new AgentManager(this.dbManager, this.connectionRegistry);
+        this.clientManager = new ClientManager(this.dbManager, this.connectionRegistry);
+        this.router = new RouteHandler(
+            this.agentManager, 
+            this.clientManager,
+            this.connectionRegistry,
+            this.dbManager
+        );
         this.wss = new WebSocketServer({ server });
+        this.discoveryListener = new DiscoveryListener();
+        this.bonjourService = new BonjourService();
 
-        Logger.info(`GatewayServer initialized WSS mode`);
+        Logger.info(`GatewayServer initialized WSS mode with database and connection registry`);
     }
 
     public start() {
@@ -29,10 +53,20 @@ export class GatewayServer {
             const ip = req.socket.remoteAddress;
             const sessionId = `CONN-${this.connectionCounter++}`;
             ws.id = sessionId;
-            Logger.info(`New connection from IP: ${ip}`);
+            Logger.info(`New connection from IP: ${ip} (Session: ${sessionId})`);
 
             ws.isAlive = true;
-            ws.on('message', (data) => this.handleMessage(ws, data));
+            
+            const autoAuthTimer = setTimeout(() => {
+                if (!ws.role) {
+                    this.autoAuthenticateAgent(ws, sessionId, ip || "unknown");
+                }
+            }, 1000);
+
+            ws.on('message', (data) => {
+                clearTimeout(autoAuthTimer);
+                this.handleMessage(ws, data);
+            });
 
             ws.on('pong', () => {
                 ws.isAlive = true;
@@ -40,22 +74,173 @@ export class GatewayServer {
 
             ws.on('error', (err) => Logger.error(`Socket error: ${err.message}`));
 
-            ws.on('close', () => this.handleClose(ws));
+            ws.on('close', (code, reason) => {
+                clearTimeout(autoAuthTimer);
+                const wasAuthenticated = ws.role ? 'authenticated' : 'unauthenticated';
+                const connectionInfo = ws.id ? `(ID: ${ws.id}, Machine: ${(ws as any).machineId || 'unknown'})` : '';
+                Logger.info(`[Server] SECURE connection ${sessionId} closed. Code: ${code}, Reason: ${reason?.toString() || 'none'}, Role: ${ws.role || 'unauthenticated'}, Status: ${wasAuthenticated} ${connectionInfo}`);
+                Logger.debug(`[Server] Connection state before close: readyState=${ws.readyState}, isAlive=${ws.isAlive}`);
+                this.handleClose(ws);
+            });
         });
 
         this.startHeartbeat();
+        this.startDashboard();
+        this.startInsecureServer();
+        this.discoveryListener.start();
+        this.bonjourService.start();
 
         process.on('SIGINT', this.shutdown.bind(this));
         process.on('SIGTERM', this.shutdown.bind(this));
     }
 
+    private startInsecureServer() {
+        try {
+            this.httpServer = http.createServer();
+            this.wssInsecure = new WebSocketServer({ server: this.httpServer });
+            
+            this.wssInsecure.on('connection', (ws: WebSocket, req) => {
+                const ip = req.socket.remoteAddress;
+                const sessionId = `CONN-${this.connectionCounter++}`;
+                ws.id = sessionId;
+                Logger.info(`New INSECURE connection from IP: ${ip} (Session: ${sessionId})`);
+
+                ws.isAlive = true;
+                
+                const autoAuthTimer = setTimeout(() => {
+                    if (!ws.role) {
+                        Logger.info(`[Server] Auto-authenticating INSECURE connection ${sessionId} as AGENT (no message received)`);
+                        this.autoAuthenticateAgent(ws, sessionId, ip || "unknown");
+                    }
+                }, 1000);
+
+                ws.on('message', (data) => {
+                    clearTimeout(autoAuthTimer);
+                    Logger.info(`[Server] Received message from INSECURE connection ${sessionId}, length: ${data.length}`);
+                    this.handleMessage(ws, data);
+                });
+
+                ws.on('pong', () => {
+                    ws.isAlive = true;
+                });
+
+                ws.on('error', (err) => Logger.error(`Socket error: ${err.message}`));
+
+                ws.on('close', (code, reason) => {
+                    clearTimeout(autoAuthTimer);
+                    const wasAuthenticated = ws.role ? 'authenticated' : 'unauthenticated';
+                    const connectionInfo = ws.id ? `(ID: ${ws.id}, Machine: ${(ws as any).machineId || 'unknown'})` : '';
+                    Logger.info(`[Server] INSECURE connection ${sessionId} closed. Code: ${code}, Reason: ${reason?.toString() || 'none'}, Role: ${ws.role || 'unauthenticated'}, Status: ${wasAuthenticated} ${connectionInfo}`);
+                    Logger.debug(`[Server] Connection state before close: readyState=${ws.readyState}, isAlive=${ws.isAlive}`);
+                    this.handleClose(ws);
+                });
+            });
+
+            const insecurePort = Config.PORT + 2;
+            this.httpServer.listen(insecurePort, '0.0.0.0', () => {
+                Logger.info(`Gateway WS (insecure) Server listening on port ${insecurePort}`);
+                Logger.info(`Local:   http://localhost:${insecurePort}`);
+            });
+        } catch (error) {
+            Logger.error(`Failed to start insecure HTTP server: ${error}`);
+        }
+    }
+
+    private startDashboard() {
+        const dashboardPort = parseInt(process.env.DASHBOARD_PORT || '8081');
+        this.dashboardServer = http.createServer((req, res) => {
+            const url = new URL(req.url || '/', `http://${req.headers.host}`);
+            
+            if (url.pathname === '/health') {
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({
+                    status: 'ok',
+                    uptime: process.uptime(),
+                    connections: {
+                        agents: this.connectionRegistry.getConnectionCount('AGENT'),
+                        clients: this.connectionRegistry.getConnectionCount('CLIENT')
+                    },
+                    memory: process.memoryUsage(),
+                    timestamp: Date.now()
+                }));
+                return;
+            }
+
+            if (url.pathname === '/stats') {
+                res.writeHead(200, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({
+                    connections: {
+                        total: this.connectionRegistry.getConnectionCount(),
+                        agents: this.connectionRegistry.getConnectionCount('AGENT'),
+                        clients: this.connectionRegistry.getConnectionCount('CLIENT')
+                    }
+                }));
+                return;
+            }
+
+            if (url.pathname === '/api/discover' && req.method === 'GET') {
+                const gatewayIP = this.discoveryListener ? this.discoveryListener.getGatewayIP() : '';
+                const gatewayPort = Config.PORT;
+                
+                res.writeHead(200, { 
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*',
+                    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+                    'Access-Control-Allow-Headers': 'Content-Type'
+                });
+                res.end(JSON.stringify({
+                    success: true,
+                    gateway: {
+                        ip: gatewayIP,
+                        port: gatewayPort
+                    }
+                }));
+                return;
+            }
+
+            if (req.method === 'OPTIONS') {
+                res.writeHead(200, {
+                    'Access-Control-Allow-Origin': '*',
+                    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+                    'Access-Control-Allow-Headers': 'Content-Type'
+                });
+                res.end();
+                return;
+            }
+
+            res.writeHead(404);
+            res.end('Not Found');
+        });
+
+        this.dashboardServer.listen(dashboardPort, '0.0.0.0', () => {
+            Logger.info(`[Dashboard] HTTP server listening on port ${dashboardPort}`);
+            Logger.info(`[Dashboard] Health check: http://localhost:${dashboardPort}/health`);
+            Logger.info(`[Dashboard] Stats: http://localhost:${dashboardPort}/stats`);
+        });
+    }
+
     private async shutdown() {
         Logger.info("Received shutdown signal. Starting graceful shutdown...");
+        this.discoveryListener.stop();
+        this.bonjourService.stop();
+        
+        if (this.dashboardServer) {
+            this.dashboardServer.close();
+        }
+        
+        if (this.httpServer) {
+            this.httpServer.close();
+        }
+        
         this.wss.close();
-        const clientSave = this.clientManager.saveCache();
-        const agentSave = this.agentManager.saveHistory();
-
-        await Promise.all([clientSave, agentSave]);
+        
+        try {
+            this.dbManager.close();
+            Logger.info("Database closed successfully.");
+        } catch (error) {
+            Logger.error(`Error closing database: ${error}`);
+        }
+        
         Logger.info("All data saved. Gateway process terminated.");
         process.exit(0);
     }
@@ -65,9 +250,11 @@ export class GatewayServer {
             const rawString = data.toString();
             const message:  Message = JSON.parse(rawString);
 
+            Logger.debug(`[Server] Received message from ${ws.id}: type=${message.type}, role=${ws.role || 'unauthenticated'}`);
             this.router.handle(ws, message);
         } catch (error) {
-            Logger.error(`Invalid Message format: ${(error as Error).message}`);
+            Logger.error(`[Server] Invalid Message format from ${ws.id}: ${(error as Error).message}`);
+            Logger.error(`[Server] Raw data: ${data.toString().substring(0, 100)}`);
 
             if (ws.readyState === WebSocket.OPEN) {
                 ws.send(JSON.stringify({
@@ -80,28 +267,117 @@ export class GatewayServer {
 
     private handleClose(ws: WebSocket) {
         if (ws.id) {
-            if (ws.role === 'AGENT') {
-                this.agentManager.removeAgent(ws.id);
-            } else if (ws.role === 'CLIENT') {
-                this.clientManager.removeClient(ws.id);
+            const conn = this.connectionRegistry.getConnection(ws.id);
+            if (conn) {
+                if (ws.role === 'AGENT') {
+                    this.agentManager.removeAgent(ws.id);
+                } else if (ws.role === 'CLIENT') {
+                    this.clientManager.removeClient(ws.id);
+                }
+                this.connectionRegistry.unregisterConnection(ws.id);
             }
         } else {
             Logger.info("Anonymous connection closed.");
         }
     }
 
+    private autoAuthenticateAgent(ws: WebSocket, sessionId: string, ip: string) {
+        const machineId = `AGENT-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+        const name = `Agent-${machineId.substring(machineId.length - 6)}`;
+
+        Logger.info(`[Server] Auto-authenticating as AGENT: ${name} (${sessionId}) - Machine: ${machineId}`);
+
+        const newConnection = new Connection(ws, sessionId, 'AGENT', ip, machineId, name);
+
+        const registrationResult = this.connectionRegistry.registerConnection(newConnection);
+        
+        if (!registrationResult.success) {
+            if (registrationResult.existingConnection) {
+                Logger.warn(`[Server] Closing duplicate connection: ${registrationResult.reason}`);
+                registrationResult.existingConnection.close();
+                const retryResult = this.connectionRegistry.registerConnection(newConnection);
+                if (!retryResult.success) {
+                    Logger.error(`[Server] Failed to register agent: ${retryResult.reason}`);
+                    ws.close();
+                    return;
+                }
+            } else {
+                Logger.error(`[Server] Failed to register agent: ${registrationResult.reason}`);
+                ws.close();
+                return;
+            }
+        }
+
+        const now = Date.now();
+        this.dbManager.addConnection({
+            id: sessionId,
+            name: name,
+            role: 'AGENT',
+            machineId: machineId,
+            ip: ip,
+            connectedAt: now,
+            lastSeen: now
+        });
+
+        this.dbManager.logAuthAttempt(ip, machineId, 'AGENT', true, "Auto-authenticated");
+        this.agentManager.addAgent(newConnection);
+
+        ws.id = sessionId;
+        ws.role = 'AGENT';
+
+        const successMsg = createMessage(
+            CommandType.AUTH,
+            {
+                status: "ok",
+                msg: "Auto-authenticated as AGENT",
+                sessionId: sessionId,
+                machineId: machineId,
+                agentId: machineId,
+                name: name
+            }
+        );
+
+        ws.send(JSON.stringify(successMsg));
+        Logger.info(`[Server] AGENT authenticated: ${name} (${sessionId}) - Agent ID: ${machineId}`);
+    }
+
     private startHeartbeat() {
-        // every 30s
         this.heartbeatInterval = setInterval(() => {
+            // Heartbeat for secure connections (WSS)
             this.wss.clients.forEach((ws : WebSocket) => {
                 if (ws.isAlive === false) {
-                    Logger.warn(`Terminating inactive connection: ${ws.id || 'Anon'}`);
+                    const conn = ws.id ? this.connectionRegistry.getConnection(ws.id) : null;
+                    const name = conn?.name || ws.id || 'Anon';
+                    Logger.warn(`[Heartbeat] Terminating inactive SECURE connection: ${name} (${ws.id || 'Anon'})`);
                     return ws.terminate();
                 }
 
                 ws.isAlive = false;
                 ws.ping();
-            })
+                
+                if (ws.id) {
+                    this.dbManager.updateConnectionLastSeen(ws.id);
+                }
+            });
+
+            // Heartbeat for insecure connections (WS)
+            if (this.wssInsecure) {
+                this.wssInsecure.clients.forEach((ws : WebSocket) => {
+                    if (ws.isAlive === false) {
+                        const conn = ws.id ? this.connectionRegistry.getConnection(ws.id) : null;
+                        const name = conn?.name || ws.id || 'Anon';
+                        Logger.warn(`[Heartbeat] Terminating inactive INSECURE connection: ${name} (${ws.id || 'Anon'})`);
+                        return ws.terminate();
+                    }
+
+                    ws.isAlive = false;
+                    ws.ping();
+                    
+                    if (ws.id) {
+                        this.dbManager.updateConnectionLastSeen(ws.id);
+                    }
+                });
+            }
         }, 30000);
     }
 }

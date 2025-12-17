@@ -1,10 +1,10 @@
 import { WebSocket } from 'ws'
 import { Logger } from '../utils/Logger'
 import { Connection } from '../core/Connection';
+import { DatabaseManager } from './DatabaseManager';
+import { ConnectionRegistry } from './ConnectionRegistry';
 import * as fs from 'fs/promises';
-import { execSync } from 'node:child_process';
 import { Config } from '../config';
-import { parse } from 'node:path';
 
 export interface ClientCache {
     lastConnectedIp: string
@@ -15,78 +15,64 @@ export interface ClientCache {
 
 export class ClientManager {
     private clients: Map<string, Connection> = new Map();
-    private clientCache: Map<string, ClientCache> = new Map();
 
-    constructor() {
-        this.loadCache();
+    constructor(
+        private dbManager: DatabaseManager,
+        private connectionRegistry: ConnectionRegistry
+    ) {
+        this.loadActiveClients();
     }
 
-    private async loadCache() {
+    private loadActiveClients() {
         try {
-            const data = await fs.readFile(Config.CLIENT_CACHE_FILE, 'utf-8');
-            const parsed = JSON.parse(data);
-            this.clientCache = new Map(Object.entries(parsed));
-            Logger.info(`[ClientManager] Loaded ${this.clientCache.size} client caches.`);
+            const activeConnections = this.dbManager.getAllActiveConnections('CLIENT');
+            Logger.info(`[ClientManager] Found ${activeConnections.length} active clients in database`);
         } catch (error) {
-            if (typeof(error as any).code === 'string' && (error as any).code === 'ENOENT') {
-                Logger.warn(`[ClientManager] Cache file not found. Starting fresh.`);
-            } else {
-                Logger.error(`[ClientManager] Failed to load cache: ${error}`);
-            }
-        }
-    }
-
-    public async saveCache() {
-        try {
-            const cacheObject = Object.fromEntries(this.clientCache);
-            await fs.writeFile(Config.CLIENT_CACHE_FILE, JSON.stringify(cacheObject, null, 2), 'utf-8');
-            Logger.info(`[ClientManager] Saved ${this.clientCache.size} client caches to file.`);
-            return true;
-        } catch (error) {
-            Logger.error(`[ClientManager] Failed to save cache: ${error}`);
-            return false;
+            Logger.error(`[ClientManager] Failed to load active clients: ${error}`);
         }
     }
 
     public addClients(conn: Connection) {
         if (this.clients.has(conn.id)) {
-            Logger.warn(`Client ${conn.id} reconnecting...closing old session.`);
+            Logger.warn(`[ClientManager] Client ${conn.name || conn.id} (${conn.id}) reconnecting...closing old session.`);
             const oldConn = this.clients.get(conn.id);
             oldConn?.close();
         }
 
         this.clients.set(conn.id, conn);
-        Logger.info(`Client connected: ${conn.id}. Total clients ${this.clients.size}`);
-        this.updateClientCache(conn.id, conn.ip, conn.machineId);
+        Logger.info(`[ClientManager] Client connected: ${conn.name || 'Unknown'} (${conn.id}) - Machine: ${conn.machineId}. Total clients: ${this.clients.size}`);
     }
 
     public removeClient(id: string) {
         const conn = this.clients.get(id);
         if (conn) {
-            this.updateClientCache(id, conn.ip, conn.machineId);
+            this.clients.delete(id);
+            
+            this.dbManager.removeConnection(
+                id,
+                conn.name || id,
+                'CLIENT',
+                conn.machineId,
+                conn.ip
+            );
+
+            Logger.info(`[ClientManager] Client disconnected: ${conn.name || 'Unknown'} (${id})`);
         }
-
-        this.clients.delete(id);
-        Logger.info(`Client disconnected: ${id}`);
-    }
-
-    private updateClientCache(id: string, ip: string, machineId: string) {
-        const existingCache = this.clientCache.get(id) || {customData : {}};
-        this.clientCache.set(
-            id, {
-                ...existingCache,
-                lastConnectedIp: ip,
-                lastSeen: Date.now(),
-                machineId: machineId
-            }
-        );
     }
 
     public getClientSocket(id: string): Connection | undefined {
-        return this.clients.get(id);
+        return this.clients.get(id) || this.connectionRegistry.getConnection(id) || undefined;
     }
 
     public getClientCache(id: string): ClientCache | undefined {
-        return this.clientCache.get(id);
+        const record = this.dbManager.getConnectionById(id);
+        if (record) {
+            return {
+                lastConnectedIp: record.ip,
+                lastSeen: record.lastSeen,
+                machineId: record.machineId
+            };
+        }
+        return undefined;
     }
 }

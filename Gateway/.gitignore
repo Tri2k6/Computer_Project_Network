@@ -1,0 +1,43 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Build output
+dist/
+*.js.map
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# SSL Certificates (should not be committed)
+*.key
+*.pem
+*.cert
+server.cert
+server.key
+
+# Data files
+data/*.json
+data/*.db
+!data/.gitkeep
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# TypeScript
+*.tsbuildinfo
+

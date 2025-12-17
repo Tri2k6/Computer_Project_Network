@@ -20,9 +20,9 @@ public:
                 ws_(asio::make_strand(ioc), ctx),
                 host_(url),
                 port_(port),
-                target_(target)
+                target_(target),
+                timeout_timer_(asio::make_strand(ioc))
   {
-      //std::cout << "[DEBUG] WSConnection Constructor entered success!" << std::endl;
   } catch (...) {
       std::cerr << "[CRITICAL] Crash inside WSConnection Init List!" << std::endl;
   }
@@ -40,6 +40,7 @@ private:
     tcp::resolver resolver_;
     websocket::stream<beast::ssl_stream<beast::tcp_stream>> ws_;
     beast::flat_buffer buffer_;
+    asio::steady_timer timeout_timer_;
 
     std::string host_;
     std::string port_;
@@ -47,6 +48,11 @@ private:
 
     std::queue <std::string> writeQueue_;
     bool writing_ = false;
+    
+    static constexpr int CONNECT_TIMEOUT_SECONDS = 10;
+    
+    void startTimeout();
+    void cancelTimeout();
 private:
     void doResolve();
     void onResolve(beast::error_code, tcp::resolver::results_type);

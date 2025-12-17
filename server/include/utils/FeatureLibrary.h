@@ -3,39 +3,43 @@
 #ifndef FEATURE_LIBRARY_H
 #define FEATURE_LIBRARY_H
 
-// Các thư viện chuẩn C++ dùng chung cho toàn bộ dự án
-#include <iostream>
-#include <string>
-#include <vector>
-#include <memory>
-#include <thread>
+#include <algorithm>
+#include <array>
+#include <atomic>
 #include <chrono>
+#include <codecvt>
+#include <cctype>
 #include <filesystem>
 #include <fstream>
-#include <sstream>
 #include <functional>
-#include <array>
-#include <stdexcept>
-#include <cstdio>
-#include <cstdlib>      // Cho hàm system()
-#include <filesystem>   // Cho việc xử lý file/folder (C++17)
-#include <locale> // for std::string::wstring_convert
-#include <codecvt> // for std::codecvt_utf8
+#include <iostream>
+#include <locale>
+#include <memory>
+#include <mutex>
 #include <queue>
+#include <sstream>
+#include <stdexcept>
+#include <string>
+#include <thread>
+#include <vector>
+#include <cstdio>
+#include <cstdlib>
 
-// OS detection
 #ifdef _WIN32
     #define OS_TYPE "Windows"
 
-    #ifdef WIN32_LEAN_AND_MEAN
+    #ifndef WIN32_LEAN_AND_MEAN
     #define WIN32_LEAN_AND_MEAN
     #endif
 
     #include <Winsock2.h>
     #include <Windows.h>
-    #include <io.h>
     #include <fcntl.h>
+    #include <io.h>
     #include <shellapi.h>
+    #include <shlobj.h>
+    #include <shobjidl.h>
+    #include <tlhelp32.h>
 
     #ifdef __APPLE__
         #undef __APPLE__
@@ -44,7 +48,7 @@
     #define PAUSE_CMD "pause"
     #define POPEN _popen
     #define PCLOSE _pclose
-    #define POPEN_MODE "rb" //pipe vid, pic
+    #define POPEN_MODE "rb"
 
     inline void setupConsole() {
         SetConsoleOutputCP(CP_UTF8);
@@ -57,17 +61,23 @@
         if (GetComputerNameA(buffer, &size)) {
             return std::string(buffer);
         }
-        return "Unkown_Win_PC";
+        return "Unknown_Win_PC";
     }
+
 #elif __APPLE__
     #define OS_TYPE "MacOS"
     #define PAUSE_CMD "read -n 1 -s -r -p 'Press any key to continue'"
 
-    #include <unistd.h>
-    #include <limits.h>
-    #include <sys/sysctl.h>
     #include <ApplicationServices/ApplicationServices.h>
     #include <Carbon/Carbon.h>
+    #include <libproc.h>
+    #include <limits.h>
+    #include <pwd.h>
+    #include <signal.h>
+    #include <spawn.h>
+    #include <sys/sysctl.h>
+    #include <sys/types.h>
+    #include <unistd.h>
 
     #define POPEN popen
     #define PCLOSE pclose
@@ -80,17 +90,23 @@
         if (gethostname(buffer, sizeof(buffer)) == 0) {
             return std::string(buffer);
         }
-
-        return "Unkown_Mac";
+        return "Unknown_Mac";
     }
 
 #elif __linux__
     #define OS_TYPE "Linux"
     #define PAUSE_CMD "read -n 1 -s -r -p 'Press any key to continue'"
 
-    #include <unistd.h>
+    #include <dirent.h>
     #include <limits.h>
-    
+    #include <pwd.h>
+    #include <signal.h>
+    #include <sys/types.h>
+    #include <unistd.h>
+    #include <X11/Xlib.h>
+    #include <X11/keysym.h>
+    #include <X11/extensions/XRecord.h>
+
     #define POPEN popen
     #define PCLOSE pclose
     #define POPEN_MODE "r"
@@ -99,19 +115,19 @@
 
     inline std::string getHostName() {
         char buffer[256];
-        if (getHostname(buffer, sizeof(buffer)) == 0) {
+        if (gethostname(buffer, sizeof(buffer)) == 0) {
             return std::string(buffer);
         }
-
-        return "Unkown_Linux";
+        return "Unknown_Linux";
     }
 
 #else
     #define OS_TYPE "Unknown"
+    #define PAUSE_CMD ""
     #define POPEN popen
     #define PCLOSE pclose
     #define POPEN_MODE "r"
-    #define PAUSE_CMD ""
+
     inline void setupConsole() {}
     inline std::string getHostName() { return "Unknown_Device"; }
 #endif

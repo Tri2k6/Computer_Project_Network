@@ -4,11 +4,6 @@
 
 #include "FeatureLibrary.h"
 
-#include <shlobj.h>
-#include <shobjidl.h>
-#include <tlhelp32.h>
-#include <codecvt>
-
 #define UNICODE
 #define _UNICODE
 

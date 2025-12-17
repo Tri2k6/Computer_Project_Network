@@ -46,6 +46,15 @@ namespace Protocol {
         static constexpr const char* WHOAMI = "whoami";
 
         static constexpr const char* STREAM_DATA = "stream_data";
+        
+        static constexpr const char* FILE_LIST = "file_list";
+        
+        // file transfer
+        static constexpr const char* FILE_UPLOAD = "file_upload";
+        static constexpr const char* FILE_DOWNLOAD = "file_download";
+        static constexpr const char* FILE_CHUNK = "file_chunk";
+        static constexpr const char* FILE_PROGRESS = "file_progress";
+        static constexpr const char* FILE_COMPLETE = "file_complete";
     }
 
     inline const std::unordered_set<std::string>& validCommands() {
@@ -72,7 +81,13 @@ namespace Protocol {
             TYPE::ECHO,
             TYPE::WHOAMI,
 
-            TYPE::STREAM_DATA
+            TYPE::STREAM_DATA,
+            TYPE::FILE_LIST,
+            TYPE::FILE_UPLOAD,
+            TYPE::FILE_DOWNLOAD,
+            TYPE::FILE_CHUNK,
+            TYPE::FILE_PROGRESS,
+            TYPE::FILE_COMPLETE
         };
         
         return types;

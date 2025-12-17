@@ -10,12 +10,13 @@
 .feature-section {
     flex-grow: 1;
     display: flex;
-    justify-content: center; /* Căn giữa ngang */
-    align-items: center;     /* Căn giữa dọc */
+    justify-content: center;
+    align-items: center;
     padding: 20px;
     background-color: var(--bg-color);
     overflow: hidden;
     position: relative;
+    transform: translateY(30px);
 }
 
 /* Container chính chứa 3 cột */
@@ -33,23 +34,23 @@
     display: flex;
     flex-direction: column;
     justify-content: center;
-    gap: 70px; /* Khoảng cách giữa các thanh hợp lý hơn */
-    flex: 1;   /* Chiếm không gian đều nhau */
+    gap: 50px;
+    flex: 1;
     z-index: 10;
 }
 
 .left-col {
-    align-items: flex-end; /* Căn các thanh về phía laptop (bên phải) */
+    align-items: flex-end;
 }
 
 .right-col {
-    align-items: flex-start; /* Căn các thanh về phía laptop (bên trái) */
+    align-items: flex-start;
 }
 
 /* --- THANH CHỨC NĂNG (ITEM) --- */
 .feature-item {
     position: relative;
-    width: 260px; /* Độ dài cố định để thẳng hàng */
+    width: 260px; 
     height: 50px;
     display: flex;
     align-items: center;
@@ -61,7 +62,7 @@
     gap: 15px;
     width: 100%;
     padding-bottom: 8px;
-    border-bottom: 2px solid rgba(20, 35, 76, 0.3); /* Đường kẻ chân mờ */
+    border-bottom: 2px solid var(--text-blue);
     transition: all 0.3s ease;
     cursor: pointer;
     white-space: nowrap;
@@ -86,7 +87,7 @@
 
 /* Text & Icon */
 .feature-text {
-    font-size: 16px;
+    font-size: 20px;
     font-weight: 700;
     color: var(--text-blue);
 }
@@ -119,19 +120,17 @@
     width: 100%;
     height: auto;
     display: block;
-    filter: drop-shadow(0 20px 30px rgba(0,0,0,0.2)); /* Bóng đổ cho laptop nổi lên */
+    filter: drop-shadow(0 30px 20px rgba(0,0,0,0.2));
 }
 
 /* Căn chữ vào giữa màn hình laptop */
 .screen-overlay {
     position: absolute;
-    /* Tinh chỉnh vị trí dựa trên ảnh laptop thật */
-    /* Thường màn hình nằm ở nửa trên, nên top khoảng 35-40% */
     top: 38%; 
     left: 50%;
     transform: translate(-50%, -50%); 
     
-    width: 60%; /* Giới hạn chiều rộng chữ để không tràn ra viền */
+    width: 60%;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -141,72 +140,14 @@
 .code-text {
     font-family: 'Courier Prime', monospace;
     font-size: 22px; 
-    color: #3A6DAF; /* Màu chữ xanh như thiết kế */
+    color: var(--text-blue);
     font-weight: 700;
-}
+    transform: translateY(10px);
 
-
-/* --- ĐƯỜNG KẺ NỐI (Connectors) --- */
-.connector-line {
-    position: absolute;
-    height: 2px;
-    background-color: var(--line-color);
-    width: 0; /* Độ dài ban đầu = 0 để chờ animation */
-    z-index: -1; /* Nằm dưới các layer khác */
-    bottom: -2px; /* QUAN TRỌNG: Căn dòng kẻ ngang bằng với gạch chân của chữ */
-    animation: drawLine 0.8s ease-out 0.8s forwards;
-}
-
-/* --- CẤU HÌNH CHO CỘT BÊN TRÁI --- */
-/* Đường kẻ sẽ xuất phát từ mép phải của ô chữ và hướng sang phải */
-.left-col .connector-line {
-    left: 100%; /* Bắt đầu ngay tại mép phải của khung chữ */
-    transform-origin: 0% 50%; /* Điểm xoay là đầu mút bên trái của đường kẻ (điểm nối với chữ) */
-}
-
-/* Chỉnh góc xoay cho từng mục bên trái */
-/* Mục 1 (Application): Hướng chéo xuống máy tính */
-.line-top-left { 
-    transform: rotate(20deg); 
-    width: 120px !important; /* Độ dài đường kẻ khi animation kết thúc */
-}
-
-/* Mục 2 (Process): Hướng hơi chéo xuống/ngang */
-.line-mid-left { 
-    transform: rotate(8deg);  
-    width: 100px !important;
-}
-
-/* Mục 3 (Keylog): Hướng chéo lên */
-.line-bot-left { 
-    transform: rotate(-20deg); 
-    width: 120px !important;
-}
-
-/* --- CẤU HÌNH CHO CỘT BÊN PHẢI --- */
-/* Đường kẻ sẽ xuất phát từ mép trái của ô chữ và hướng sang trái */
-.right-col .connector-line {
-    right: 100%; /* Bắt đầu ngay tại mép trái của khung chữ */
-    transform-origin: 100% 50%; /* Điểm xoay là đầu mút bên phải của đường kẻ */
-}
-
-/* Chỉnh góc xoay cho từng mục bên phải */
-/* Mục 1 (Screen): Hướng chéo xuống (ngược chiều kim đồng hồ) */
-.line-top-right { 
-    transform: rotate(-20deg); 
-    width: 120px !important;
-}
-
-/* Mục 2 (Webcam): Hướng hơi chéo xuống/ngang */
-.line-mid-right { 
-    transform: rotate(-8deg); 
-    width: 100px !important;
-}
-
-/* Mục 3 (Power): Hướng chéo lên */
-.line-bot-right { 
-    transform: rotate(20deg); 
-    width: 120px !important;
+    display: inline-block;
+    white-space: nowrap;
+    width: auto;
+    min-width: 0;
 }
 
 /* --- ANIMATIONS --- */
@@ -227,7 +168,7 @@
 
 @keyframes drawLine {
     from { width: 0; }
-    to { width: 90px; } /* Độ dài đường kẻ nối vào máy tính */
+    to { width: 90px; }
 }
 
 /* Typing Effect */
@@ -245,7 +186,7 @@
 @media (max-width: 1024px) {
     .feature-container { flex-direction: column; gap: 30px; }
     .side-column { flex-direction: row; flex-wrap: wrap; gap: 15px; }
-    .connector-line { display: none; } /* Ẩn dây nối trên mobile */
+    .connector-line { display: none; }
     .feature-item { width: auto; background: rgba(255,255,255,0.4); padding: 5px 15px; border-radius: 6px; }
     .center-column { order: -1; }
     .laptop-wrapper { width: 300px; }

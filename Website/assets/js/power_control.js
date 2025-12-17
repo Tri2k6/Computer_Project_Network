@@ -1,8 +1,8 @@
 // Danh sách định nghĩa: ID của nút -> Chữ sẽ hiện lên màn hình
 const HOVER_TEXTS = {
-    'btn-restart': 'Restarting',
-    'btn-shutdown': 'Shutting Down',
-    'btn-sleep': 'Going to Sleep'
+    'btn-restart': 'Restarting...',
+    'btn-shutdown': 'Shutting Down...',
+    'btn-sleep': 'Sleeping...'
 };
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -10,16 +10,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const buttons = document.querySelectorAll('.img-btn');
     const defaultText = "Goodbye!";
 
-    // Hàm đổi chữ trên màn hình
     function updateText(text) {
-        // 1. Làm mờ chữ cũ
-        screenTextElement.style.opacity = 0;
+        screenTextElement.classList.add('fade-out');
 
-        // 2. Đổi nội dung và hiện lại (tạo cảm giác mượt)
         setTimeout(() => {
             screenTextElement.textContent = text;
-            screenTextElement.style.opacity = 1;
-        }, 150);
+            screenTextElement.classList.remove('fade-out');
+        }, 250);
     }
 
     buttons.forEach(btn => {

@@ -1,0 +1,262 @@
+/* =========================================
+   KEYLOG PAGE STYLES - REFINED ALIGNMENT
+   ========================================= */
+
+:root {
+    --key-base-size: 45px;
+    /* Kích thước 1u */
+    --gap-size: 6px;
+    /* Khoảng cách phím */
+    --radius: 5px;
+}
+
+.keylog-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 30px 20px;
+    gap: 30px;
+    background-color: var(--bg-color);
+}
+
+/* --- 1. CONTROLS --- */
+.controls-container {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    max-width: 1250px;
+    /* Tăng nhẹ để vừa bàn phím */
+    gap: 20px;
+}
+
+.key-display {
+    flex-grow: 1;
+    height: 50px;
+    background-color: #E6E8EB;
+    border: 2px solid #14234C;
+    border-radius: 25px;
+    padding: 0 20px;
+    font-family: 'Inter', sans-serif;
+    font-size: 16px;
+    color: var(--text-dark);
+    outline: none;
+}
+
+.action-buttons {
+    display: flex;
+    gap: 10px;
+}
+
+.k-btn {
+    background-color: #EAB973;
+    color: var(--text-dark);
+    font-weight: 700;
+    padding: 0 20px;
+    height: 50px;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: 0.2s;
+    box-shadow: 0 4px 0 rgba(0, 0, 0, 0.1);
+    white-space: nowrap;
+}
+
+.k-btn:hover {
+    background-color: var(--text-orange);
+    color: #fff;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 10px rgba(229, 125, 54, 0.4);
+}
+
+.k-btn:active {
+    transform: translateY(0);
+    box-shadow: none;
+}
+
+/* --- 2. KEYBOARD CONTAINER --- */
+.keyboard-base {
+    background-color: var(--nav-bg);
+    padding: 20px;
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+
+    display: flex;
+    gap: 20px;
+    min-width: fit-content;
+
+    /* Align items flex-start để Numpad có thể dùng margin-top: auto */
+    align-items: flex-start;
+}
+
+/* --- KEY STYLES --- */
+.key {
+    background-color: #FDF6E8;
+    color: #E57D36;
+    font-weight: 700;
+    font-size: 12px;
+    border-radius: var(--radius);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 3px 0 #D4C5B0;
+    cursor: pointer;
+    user-select: none;
+    height: var(--key-base-size);
+}
+
+.key:active {
+    transform: translateY(3px);
+    box-shadow: none;
+    background-color: #E57D36;
+    color: white;
+}
+
+.key.transparent {
+    background: transparent;
+    box-shadow: none;
+    pointer-events: none;
+}
+
+/* =========================================
+   SECTION 1: MAIN KEYBOARD
+   ========================================= */
+.kb-section-main {
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap-size);
+    /* Tính toán tổng chiều rộng chuẩn: 15u + 14 khoảng trống */
+    width: calc(15 * var(--key-base-size) + 14 * var(--gap-size));
+}
+
+.key-row {
+    display: flex;
+    gap: var(--gap-size);
+    width: 100%;
+}
+
+/* Kích thước chuẩn (Công thức: size * unit + gap * (unit - 1)) */
+.k-1 {
+    width: var(--key-base-size);
+}
+
+.k-1-25 {
+    width: calc(var(--key-base-size) * 1.25 + var(--gap-size) * 0.25);
+}
+
+.k-1-5 {
+    width: calc(var(--key-base-size) * 1.5 + var(--gap-size) * 0.5);
+}
+
+.k-1-75 {
+    width: calc(var(--key-base-size) * 1.75 + var(--gap-size) * 0.75);
+}
+
+.k-2 {
+    width: calc(var(--key-base-size) * 2 + var(--gap-size) * 1);
+}
+
+.k-2-25 {
+    width: calc(var(--key-base-size) * 2.25 + var(--gap-size) * 1.25);
+}
+
+.k-2-75 {
+    width: calc(var(--key-base-size) * 2.75 + var(--gap-size) * 1.75);
+}
+
+/* --- ALIGNMENT FIXES (SỬA LỖI LỆCH HÀNG) --- */
+/* Nguyên nhân: Hàng ít phím hơn sẽ có ít khoảng trống (gap) hơn, làm tổng chiều dài ngắn đi.
+   Giải pháp: Cộng bù lượng gap còn thiếu vào phím cuối cùng hoặc phím Space. */
+
+/* Row 4 (Caps Lock Row): Thiếu 1 gap so với hàng chuẩn */
+.kb-section-main .key-row:nth-child(4) .key:last-child {
+    /* Enter cũ + 1 gap */
+    width: calc((var(--key-base-size) * 2.25 + var(--gap-size) * 1.25) + var(--gap-size));
+}
+
+/* Row 5 (Shift Row): Thiếu 2 gap */
+.kb-section-main .key-row:nth-child(5) .key:last-child {
+    /* Right Shift cũ + 2 gap */
+    width: calc((var(--key-base-size) * 2.75 + var(--gap-size) * 1.75) + 2 * var(--gap-size));
+}
+
+/* Row 6 (Ctrl Row): Thiếu 6 gap */
+.k-6-25 {
+    /* Spacebar cũ + 6 gap */
+    width: calc((var(--key-base-size) * 6.25 + var(--gap-size) * 5.25) + 6 * var(--gap-size));
+}
+
+/* Hàng F-Key */
+.f-row {
+    margin-bottom: 15px;
+}
+
+.gap-block {
+    width: calc(var(--key-base-size) * 0.5);
+}
+
+
+/* =========================================
+   SECTION 2: NAVIGATION
+   ========================================= */
+.kb-section-nav {
+    display: flex;
+    flex-direction: column;
+    width: calc(3 * var(--key-base-size) + 2 * var(--gap-size));
+
+    /* FIX QUAN TRỌNG: Ép cột này căng chiều cao bằng cột Main Keyboard */
+    align-self: stretch;
+}
+
+.nav-top {
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap-size);
+}
+
+.nav-arrows {
+    /* Đẩy cụm mũi tên xuống đáy container (lúc này container đã full chiều cao) */
+    margin-top: auto;
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap-size);
+}
+
+/* =========================================
+   SECTION 3: NUMPAD (GRID)
+   ========================================= */
+.kb-section-numpad {
+    display: grid;
+    grid-template-columns: repeat(4, var(--key-base-size));
+    grid-template-rows: repeat(5, var(--key-base-size));
+    gap: var(--gap-size);
+
+    /* QUAN TRỌNG: Đẩy Numpad xuống đáy để ngang hàng với Main & Arrows */
+    margin-top: auto;
+}
+
+/* Grid Spanning */
+.k-h-2 {
+    grid-row: span 2;
+    height: calc(var(--key-base-size) * 2 + var(--gap-size));
+}
+
+.k-w-2 {
+    grid-column: span 2;
+    width: calc(var(--key-base-size) * 2 + var(--gap-size));
+}
+
+/* Responsive */
+@media (max-width: 1300px) {
+    .keyboard-base {
+        transform: scale(0.85);
+        transform-origin: top left;
+    }
+}
+
+@media (max-width: 1024px) {
+    .keyboard-base {
+        overflow-x: auto;
+        padding-bottom: 40px;
+    }
+}

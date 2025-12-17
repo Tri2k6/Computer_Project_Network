@@ -1,13 +1,13 @@
 <!DOCTYPE html>
 <html lang="vi">
+
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Shutdown & Restart</title>
-    
+
     <link rel="stylesheet" href="assets/css/style.css" />
-    <link rel="stylesheet" href="assets/css/shutdown_restart.css" />
-    
+    <link rel="stylesheet" href="assets/css/power_control.css" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap" rel="stylesheet" />
@@ -28,25 +28,26 @@
 
     <main class="shutdown-page">
         <div class="content-container">
-            
+
             <div class="laptop-section" style="position: relative;">
                 <img src="./assets/images/laptop.png" alt="Goodbye Laptop" class="laptop-img" />
-                
+
                 <h2 id="screen-text" class="screen-text">Goodbye!</h2>
             </div>
 
             <div class="control-panel-wrapper">
-                <div class="control-panel-base">
+                <div class="control-panel-base"></div>
+                <div class="control-panel-outline">
                     <div class="control-panel-face">
-                        
+
                         <button id="btn-restart" class="img-btn sm-btn">
                             <img src="./assets/images/Restart.png" alt="Restart">
                         </button>
-                        
+
                         <button id="btn-shutdown" class="img-btn lg-btn">
                             <img src="./assets/images/Shutdown.png" alt="Shutdown">
                         </button>
-                        
+
                         <button id="btn-sleep" class="img-btn sm-btn">
                             <img src="./assets/images/Sleep.png" alt="Sleep">
                         </button>
@@ -57,6 +58,6 @@
 
         </div>
     </main>
-    
-    <script type="module" src="./assets/js/shutdown_restart.js"></script>
+
+    <script type="module" src="./assets/js/power_control.js"></script>
 </body>

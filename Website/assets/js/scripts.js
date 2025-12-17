@@ -135,7 +135,7 @@ function createServerItem(server) {
 
 function connectToServer(ip, port) {
     // viết logic để kết nối tới server ở đây
-    window.location.href = 'menu.html';
+    window.location.href = 'feature_menu.html';
 }
 
 // Hàm phụ: Cập nhật Footer (Số trang, ẩn hiện nút Next/Prev)

@@ -1,21 +1,19 @@
-#include "CameraRecorder.h"
+#include "CameraCapture.h"
 
-std::string CameraRecorder::dectectDefaultCamera() {
+std::string CameraCapture::detectDefaultCamera() {
     std::string detectedName = "";
     #ifdef _WIN32
         const char* cmd = "ffmpeg -hide_banner -list_devices true -f dshow -i dummy 2>&1";
-        FILE* pipe = POPEN(cmd, "r"); // Text mode để đọc log
+        FILE* pipe = POPEN(cmd, "r"); 
         if (!pipe) return "";
         char buffer[512];
         while (fgets(buffer, sizeof(buffer), pipe) != NULL) {
             std::string line = buffer;
-            // Tìm dòng có "(video)" và KHÔNG có "Alternative name"
             if (line.find("(video)") != std::string::npos && line.find("Alternative name") == std::string::npos) {
                 size_t firstQuote = line.find("\"");
                 size_t secondQuote = line.find("\"", firstQuote + 1);
                 if (firstQuote != std::string::npos && secondQuote != std::string::npos) {
                     std::string name = line.substr(firstQuote + 1, secondQuote - firstQuote - 1);
-                    // Bỏ qua OBS nếu cần
                     if (name.find("OBS") != std::string::npos) continue;
                     detectedName = name;
                     break;
@@ -24,16 +22,16 @@ std::string CameraRecorder::dectectDefaultCamera() {
         }
         PCLOSE(pipe);
     #elif __APPLE__
-        detectedName = "0"; // Mac mặc định là 0
+        detectedName = "0"; 
     #endif
     return detectedName;
 }
 
-CameraRecorder::CameraRecorder() {
-    cameraName = dectectDefaultCamera();
+CameraCapture::CameraCapture() {
+    cameraName = detectDefaultCamera();
 }
 
-std::string CameraRecorder::recordRawData(int durationSeconds) {
+std::string CameraCapture::captureRawData() {
     if (cameraName.empty()) {
         cerr << "[ERROR] Khong tim thay Camera nao!" << endl;
         return "";
@@ -41,25 +39,23 @@ std::string CameraRecorder::recordRawData(int durationSeconds) {
 
     std::string cmd;
     #ifdef _WIN32
-        // Windows: Dùng dshow, xuất ra stdout (-)
-        cmd = "ffmpeg -loglevel quiet -f dshow -i video=\"" + cameraName + "\" -t " + to_string(durationSeconds) + 
-                    " -c:v libx264 -pix_fmt yuv420p -f mp4 -movflags frag_keyframe+empty_moov+default_base_moof -";
+        // Windows: 
+        // -frames:v 1: Chỉ lấy 1 khung hình
+        // -f mjpeg: Xuất ra định dạng ảnh JPEG qua pipe
+        // -q:v 2: Chất lượng ảnh tốt (scale 1-31, 1 là tốt nhất)
+        cmd = "ffmpeg -loglevel quiet -f dshow -i video=\"" + cameraName + "\" -frames:v 1 -q:v 2 -f mjpeg -";
     #elif __APPLE__
-        // macOS: Dùng avfoundation, xuất ra stdout (-)
-        cmd = "ffmpeg -loglevel quiet -f avfoundation -framerate 30 -pixel_format uyvy422 -i \"" + cameraName + "\" -t " + to_string(durationSeconds) + 
-                " -pix_fmt yuv420p -f mp4 -movflags frag_keyframe+empty_moov -";
+        // macOS:
+        cmd = "ffmpeg -loglevel quiet -f avfoundation -framerate 30 -pixel_format uyvy422 -i \"" + cameraName + "\" -frames:v 1 -pix_fmt yuvj420p -q:v 2 -f mjpeg -";
     #endif
 
     FILE* pipe = POPEN(cmd.c_str(), POPEN_MODE);
     if (!pipe) {
-        // cerr << "[ERROR] Khong the mo Pipe FFmpeg!" << endl;
         return "";
     }
 
-    cout << "[INFO] Dang quay Webcam (" << cameraName << ") trong " << durationSeconds << "s..." << endl;
+    cout << "[INFO] Dang chup anh tu Webcam (" << cameraName << ")..." << endl;
 
-    // Đọc dữ liệu từ Pipe vào std::string
-    // std::string trong C++ chứa được cả ký tự null (\0) nên dùng làm buffer nhị phân tốt
     array<char, 4096> buffer;
     std::string rawData;
     size_t bytesRead;
@@ -71,15 +67,15 @@ std::string CameraRecorder::recordRawData(int durationSeconds) {
     PCLOSE(pipe);
     
     if (rawData.empty()) {
-        cerr << "[WARNING] Khong thu duoc du lieu video (co the Camera dang ban hoac sai ten)." << endl;
+        cerr << "[WARNING] Khong thu duoc du lieu anh." << endl;
     } else {
-        cout << "[SUCCESS] Da thu duoc " << rawData.size() << " bytes du lieu Raw." << endl;
+        cout << "[SUCCESS] Da chup anh thanh cong (" << rawData.size() << " bytes)." << endl;
     }
 
     return rawData;
 }
 
-std::string CameraRecorder::convertToBase64(const std::string &rawData) {
+std::string CameraCapture::convertToBase64(const std::string &rawData) {
     if (rawData.empty()) return "";
 
     std::string out;
@@ -98,7 +94,7 @@ std::string CameraRecorder::convertToBase64(const std::string &rawData) {
     return out;
 }
 
-std::string CameraRecorder::recordBase64(int durationSeconds) {
-    std::string res = recordRawData(durationSeconds);
+std::string CameraCapture::captureBase64() {
+    std::string res = captureRawData();
     return convertToBase64(res);
 }

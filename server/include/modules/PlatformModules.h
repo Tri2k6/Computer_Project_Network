@@ -16,3 +16,5 @@
 #include "CaptureScreen.h"
 #include "CameraRecorder.h"
 #include "KeyboardController.h"
+#include "CameraCapture.h"
+#include "ScreenRecorder.h"

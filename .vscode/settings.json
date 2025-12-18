@@ -1,3 +1,9 @@
 {
+    "cmake.configureArgs": [
+        "-DCMAKE_TOOLCHAIN_FILE=D:/vcpkg/scripts/buildsystems/vcpkg.cmake"
+    ],
+
+    "cmake.sourceDirectory": "D:/Study/Project Com.net/server",
+    "liveServer.settings.port": 5501
     "cmake.sourceDirectory": "/Users/admin/Documents/MMT/Computer_Project_Network-1/server"
 }

@@ -41,8 +41,7 @@ function closeAgentList() {
             wire.classList.remove('active');
             void wire.offsetWidth;
             wire.classList.add('off');
-        }
-            
+        }  
     }, 300); // Ẩn hẳn sau khi hết animation
 }
 
@@ -185,3 +184,14 @@ window.openAgentList = openAgentList;
 window.closeAgentList = closeAgentList;
 window.fetchAndRenderAgents = fetchAndRenderAgents;
 window.resetAgentListPage = resetToFirstPage;
+
+// --- 5. Sự kiện mở menu ---
+
+document.addEventListener('DOMContentLoaded', () => {
+    const goMenuBtn = document.getElementById('link-icon');
+    if (goMenuBtn) {
+        goMenuBtn.addEventListener('click', () => {
+            window.location.href = 'feature_menu.html';
+        });
+    }
+});

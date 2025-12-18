@@ -11,6 +11,7 @@
     --btn-green: #41D347;     /* Xanh lá */
     --disabled: #C7C7C7;      /* Xám */
     --btn-shadow: rgba(57, 182, 61, 0.3);
+    --panel-bg: #E0E0E0;
 }
 
 * {
@@ -33,9 +34,9 @@ body {
 /* =========================================
    2. NAVIGATION BAR
    ========================================= */
-.navbar {
+.nav-bar {
     background-color: var(--nav-bg);
-    height: 75px;
+    height: 60px;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -52,9 +53,10 @@ body {
 }
 
 .MyLogo {
-    width: 44px;
-    height: 54px;
+    width: 35px;
+    height: 42px;
     transform: rotate(-15deg);
+    transform: translateX(-60px);
     object-fit: contain;
 }
 
@@ -63,13 +65,14 @@ body {
     display: flex;
     align-items: center;
     gap: 40px;
+    transform: translateX(60px);
 }
 
 .nav-item {
     text-decoration: none;
     color: var(--text-dark);
     font-weight: 500;
-    font-size: 20px;
+    font-size: 15px;
     line-height: 1.5;
     transition: opacity 0.2s ease;
 }
@@ -81,7 +84,7 @@ body {
 .btn-about {
     background-color: var(--text-orange);
     color: var(--text-dark);
-    padding: 10px 28px;
+    padding: 8px 20px;
     border-radius: 6px;
     font-weight: 600;
     box-shadow: 0 2px 4px rgba(0,0,0,0.1);
@@ -90,6 +93,19 @@ body {
 /* =========================================
    3. HERO SECTION (MAIN LAYOUT)
    ========================================= */
+.page-content { 
+    opacity: 0;
+    transform: translateY(20px);
+    animation: pageFadeIn 0.3s ease-out forwards;
+} /* Fade in cả trang khi mở lên */
+
+@keyframes pageFadeIn {
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
 .hero-section {
     flex-grow: 1;
     display: flex;
@@ -143,7 +159,7 @@ body {
     margin-left: 50px;
     line-height: 1.5;
     font-weight: 400;
-    max-width: 500px; /* Giới hạn độ rộng để dễ đọc */
+    white-space: nowrap;
 }
 
 /* =========================================
@@ -181,6 +197,33 @@ body {
     transform: translate(50px, -48px);
     outline: none;
     box-shadow: none;
+}
+
+.btn-temp {
+    border: none;
+    padding: 0;
+    background: transparent;
+    cursor: pointer;
+    display: inline-block;
+}
+
+.btn-temp img {
+    display: block;
+    width: 100%;
+    height: auto;
+    transition: filter 0.3s ease;
+}
+
+.btn-temp img {
+    filter: brightness(100%);
+}
+
+.btn-temp:hover img:not(.active) {
+    filter: brightness(80%);
+}
+
+.btn-temp.active img {
+    filter: brightness(50%);
 }
 
 /* =========================================
@@ -265,6 +308,7 @@ body {
     display: flex;
     justify-content: center;
     align-items: center;
+    margin-left: 30px;
 
     /* setup cho animation */
     transform: translateX(-60px);
@@ -285,14 +329,14 @@ body {
     height: 500px;
     background-color: var(--nav-bg); /* Màu cam giống menu */
     border-radius: 12px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.3);
     display: flex;
     flex-direction: column;
     padding: 20px;
     font-family: 'Inter', sans-serif;
     transform: translateX(-350px);
     margin-top: 60px;
-    color: #14234C;
+    color: white;
 }
 
 .list-header {
@@ -305,8 +349,8 @@ body {
 }
 
 .list-header h2 {
-    margin: 0;
-    font-size: 18px;
+    margin-left: -220px;
+    font-size: 20px;
     font-weight: 700;
 }
 
@@ -316,18 +360,24 @@ body {
 }
 
 .icon-btn {
-    background: none;
-    border: none;
-    font-size: 20px;
-    cursor: pointer;
-    color: #14234C;
-    font-weight: bold;
+    width: 40px;
+    height: 40px;
+    flex-shrink: 0;
+    margin-bottom: 5px;
 }
+
+.icon-btn img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    display: block;
+}
+
 
 /* Khu vực chứa danh sách */
 .server-items-wrapper {
     flex-grow: 1;
-    background-color: #FDF6E8; /* Màu nền nhạt cho list */
+    background-color: var(--bg-color); /* Màu nền nhạt cho list */
     border-radius: 8px;
     padding: 10px;
     overflow-y: auto; /* Cho phép cuộn nếu danh sách dài */
@@ -346,6 +396,7 @@ body {
     justify-content: space-between;
     align-items: center;
     font-size: 14px;
+    color: var(--text-dark)
 }
 
 /* Link icon styling - màu cam và kích thước lớn hơn */
@@ -367,17 +418,21 @@ body {
 }
 
 /* Footer phân trang */
-.list-footer {
+.change_page {
     display: flex;
-    justify-content: center;
-    align-items: center;
-    margin-top: 15px;
-    gap: 15px;
-    font-size: 14px;
-    font-weight: 600;
+    align-items: center;      /* căn giữa theo chiều dọc */
+    justify-content: center;  /* căn giữa theo chiều ngang */
+    gap: 15px;                /* khoảng cách giữa các phần tử */
+    margin-top: 20px;
 }
 
 .nav-btn {
+    border: none;
+    display: flex;
+    justify-content: center; /* căn giữa ngang */
+    align-items: center;     /* căn giữa dọc */
+    width: 30px;
+    height: 30px;
     border: none !important;
     width: 20px;
     height: 20px;
@@ -385,6 +440,7 @@ body {
     border: 1px solid var(--text-orange);
     border-radius: 4px;
     cursor: pointer;
+    background-color: transparent;
     color: var(--text-dark);
     font-weight: bold;
 }
@@ -405,6 +461,32 @@ body {
     background-color: var(--disabled);
     border-color: var(--disabled);
     opacity: 0.5;
+}
+
+.nav-btn:focus {
+    outline: none;
+}
+
+.left_img {
+    width: 30px;
+    height: 30px;
+    transform: translateY(-2px);
+}
+
+.right_img {
+    width: 30px;
+    height: 30px;
+    transform: translateY(-2px);
+}
+
+#page-indicator {
+    flex-grow: 1;  
+    max-width: 100px;
+    text-align: center;
+    user-select: none;
+    white-space: nowrap;
+    font-weight: 600;
+    color: var(--text-dark);
 }
 
 /* =========================================
@@ -468,7 +550,7 @@ body {
     }
 
     /* Ẩn dây nối trên mobile vì bố cục thay đổi */
-    .line-container {
+    .wire {
         display: none; 
     }
 }

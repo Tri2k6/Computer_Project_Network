@@ -6,8 +6,8 @@ document.addEventListener("DOMContentLoaded", () => {
         "Application Control": "./App_Menu.html",
         "Process Control":     "./Proc_Menu.html",
         "Keylog Control":      "./keylog.html",
-        "Screen Control":      "./screen_webcam.html",
-        "Webcam Control":      "./screen_webcam.html",
+        "Screen Control":      "./screen_webcam.html?mode=screen",
+        "Webcam Control":      "./screen_webcam.html?mode=webcam",
         "Power Control":       "./power_control.html"
     };
 
@@ -51,8 +51,7 @@ document.addEventListener("DOMContentLoaded", () => {
        ========================================= */
     function typeEffect(text) {
         screenText.classList.add('typing-effect');
-        screenText.style.width = 'auto'; // hoặc bỏ dòng này đi
-
+        screenText.style.width = 'auto';
         clearInterval(typingInterval);
         screenText.textContent = "";
 

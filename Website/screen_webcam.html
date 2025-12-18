@@ -51,19 +51,12 @@
             <div class="controls-container">
                 <a href="./feature_menu.html" class="control-btn nav-back">Back to Menu</a>
 
-                <div class="control-group-capture">
-                    <button class="control-btn action-capture" onclick="handleScreenshot()">Screenshot</button>
-                    <button class="control-btn action-capture" onclick="handleCameraShot()">Camera Shot</button>
-                </div>
+                <button class="control-btn action-capture"
+                    onclick="capture()">Capture</button>
 
-                <div class="control-group-record duration-group">
-                    <span class="label">Record for duration (seconds)</span>
-                    <input type="number" id="duration-input" value="5" min="1" max="15" class="duration-input" />
-                </div>
-
-                <div class="control-group-record buttons-group">
-                    <button class="control-btn action-capture" onclick="handleScreenRecord()">Screen Record</button>
-                    <button class="control-btn action-capture" onclick="handleCameraRecord()">Camera Record</button>
+                <div class="control-group-record" onclick="record()">
+                    <span class="label">Record for duration</span>
+                    <input type="number" value="5" class="duration-input" />
                 </div>
 
                 <button class="control-btn action-save" onclick="handleSaveAction()">Save to device</button>

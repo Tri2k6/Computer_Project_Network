@@ -1,5 +1,17 @@
 // ===============================================
-// 0. HELPER: Initialize agent target
+// 0. STATE MANAGEMENT
+// ===============================================
+
+const screenWebcamState = {
+    isProcessing: false,
+    currentOperation: null,
+    timeoutId: null,
+    requestTimeout: 30000, // 30 seconds timeout
+    lastError: null
+};
+
+// ===============================================
+// 0.1 HELPER: Initialize agent target
 // ===============================================
 
 function initAgentTarget() {
@@ -100,10 +112,13 @@ function handleSaveAction() {
 // ===============================================
 
 function displayImagePreview(base64Data) {
+    stopProcessing(); // Stop loading when data received
+    
     const cameraFeed = document.getElementById('camera-feed');
     if (!cameraFeed) return;
 
-    // Remove placeholder text
+    // Remove loading indicator and placeholder
+    hideLoadingIndicator();
     const placeholder = cameraFeed.querySelector('.placeholder-text');
     if (placeholder) placeholder.remove();
 
@@ -115,6 +130,14 @@ function displayImagePreview(base64Data) {
     const existingImg = cameraFeed.querySelector('img');
     if (existingImg) {
         existingImg.src = "data:image/jpeg;base64," + base64Data;
+        existingImg.onload = () => {
+            if (window.ui && window.ui.log) {
+                window.ui.log('Screen/Webcam', 'Ảnh đã được tải thành công');
+            }
+        };
+        existingImg.onerror = () => {
+            showError('Không thể hiển thị ảnh. Dữ liệu có thể bị lỗi.');
+        };
         return;
     }
 
@@ -124,14 +147,25 @@ function displayImagePreview(base64Data) {
     img.style.width = '100%';
     img.style.height = '100%';
     img.style.objectFit = 'cover';
+    img.onload = () => {
+        if (window.ui && window.ui.log) {
+            window.ui.log('Screen/Webcam', 'Ảnh đã được tải thành công');
+        }
+    };
+    img.onerror = () => {
+        showError('Không thể hiển thị ảnh. Dữ liệu có thể bị lỗi.');
+    };
     cameraFeed.appendChild(img);
 }
 
 function displayVideoPreview(base64Data) {
+    stopProcessing(); // Stop loading when data received
+    
     const cameraFeed = document.getElementById('camera-feed');
     if (!cameraFeed) return;
 
-    // Remove placeholder text
+    // Remove loading indicator and placeholder
+    hideLoadingIndicator();
     const placeholder = cameraFeed.querySelector('.placeholder-text');
     if (placeholder) placeholder.remove();
 
@@ -144,6 +178,14 @@ function displayVideoPreview(base64Data) {
     if (existingVideo) {
         existingVideo.src = "data:video/mp4;base64," + base64Data;
         existingVideo.load();
+        existingVideo.onloadeddata = () => {
+            if (window.ui && window.ui.log) {
+                window.ui.log('Screen/Webcam', 'Video đã được tải thành công');
+            }
+        };
+        existingVideo.onerror = () => {
+            showError('Không thể phát video. Dữ liệu có thể bị lỗi.');
+        };
         return;
     }
 
@@ -155,6 +197,14 @@ function displayVideoPreview(base64Data) {
     video.style.height = '100%';
     video.style.objectFit = 'cover';
     video.autoplay = true;
+    video.onloadeddata = () => {
+        if (window.ui && window.ui.log) {
+            window.ui.log('Screen/Webcam', 'Video đã được tải thành công');
+        }
+    };
+    video.onerror = () => {
+        showError('Không thể phát video. Dữ liệu có thể bị lỗi.');
+    };
     cameraFeed.appendChild(video);
 }
 
@@ -164,9 +214,11 @@ function clearPreview() {
 
     const img = cameraFeed.querySelector('img');
     const video = cameraFeed.querySelector('video');
+    const loadingIndicator = cameraFeed.querySelector('.loading-indicator');
     
     if (img) img.remove();
     if (video) video.remove();
+    if (loadingIndicator) loadingIndicator.remove();
 
     // Restore placeholder
     if (!cameraFeed.querySelector('.placeholder-text')) {
@@ -177,7 +229,332 @@ function clearPreview() {
     }
 }
 
+function showLoadingIndicator(message = 'Đang xử lý...') {
+    const cameraFeed = document.getElementById('camera-feed');
+    if (!cameraFeed) return;
+
+    // Remove existing loading indicator
+    const existingLoader = cameraFeed.querySelector('.loading-indicator');
+    if (existingLoader) existingLoader.remove();
+
+    // Remove placeholder
+    const placeholder = cameraFeed.querySelector('.placeholder-text');
+    if (placeholder) placeholder.remove();
+
+    // Create loading indicator
+    const loader = document.createElement('div');
+    loader.className = 'loading-indicator';
+    loader.innerHTML = `
+        <div class="spinner"></div>
+        <p class="loading-text">${message}</p>
+    `;
+    loader.style.cssText = `
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        width: 100%;
+        height: 100%;
+        color: var(--text-dark);
+    `;
+    cameraFeed.appendChild(loader);
+}
+
+function hideLoadingIndicator() {
+    const cameraFeed = document.getElementById('camera-feed');
+    if (!cameraFeed) return;
+    
+    const loader = cameraFeed.querySelector('.loading-indicator');
+    if (loader) loader.remove();
+}
+
+function setButtonsEnabled(enabled) {
+    const buttons = document.querySelectorAll('.action-capture, .action-save');
+    buttons.forEach(btn => {
+        btn.disabled = !enabled;
+        btn.style.opacity = enabled ? '1' : '0.6';
+        btn.style.cursor = enabled ? 'pointer' : 'not-allowed';
+    });
+}
+
+function showError(message) {
+    screenWebcamState.lastError = message;
+    if (window.ui && window.ui.error) {
+        window.ui.error('Screen/Webcam', message);
+    } else {
+        alert('Lỗi: ' + message);
+    }
+    
+    // Show error in preview
+    const cameraFeed = document.getElementById('camera-feed');
+    if (cameraFeed) {
+        const errorDiv = document.createElement('div');
+        errorDiv.className = 'error-message';
+        errorDiv.innerHTML = `
+            <p style="color: #ff4444; font-weight: 600; margin: 10px 0;">⚠️ ${message}</p>
+        `;
+        errorDiv.style.cssText = `
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+            height: 100%;
+            padding: 20px;
+            text-align: center;
+        `;
+        clearPreview();
+        cameraFeed.appendChild(errorDiv);
+        
+        // Auto remove error after 5 seconds
+        setTimeout(() => {
+            if (errorDiv.parentNode) {
+                errorDiv.remove();
+                clearPreview();
+            }
+        }, 5000);
+    }
+}
+
+function startProcessing(operation) {
+    screenWebcamState.isProcessing = true;
+    screenWebcamState.currentOperation = operation;
+    setButtonsEnabled(false);
+    showLoadingIndicator(`Đang ${operation}...`);
+    
+    // Set timeout
+    if (screenWebcamState.timeoutId) {
+        clearTimeout(screenWebcamState.timeoutId);
+    }
+    
+    screenWebcamState.timeoutId = setTimeout(() => {
+        if (screenWebcamState.isProcessing) {
+            stopProcessing();
+            showError(`Timeout: Không nhận được phản hồi sau ${screenWebcamState.requestTimeout / 1000} giây`);
+        }
+    }, screenWebcamState.requestTimeout);
+}
+
+function stopProcessing() {
+    screenWebcamState.isProcessing = false;
+    screenWebcamState.currentOperation = null;
+    setButtonsEnabled(true);
+    hideLoadingIndicator();
+    
+    if (screenWebcamState.timeoutId) {
+        clearTimeout(screenWebcamState.timeoutId);
+        screenWebcamState.timeoutId = null;
+    }
+}
+
+// ===============================================
+// 4. BUTTON HANDLERS - SEND COMMANDS
+// ===============================================
+
+function handleScreenshot() {
+    // Check if already processing
+    if (screenWebcamState.isProcessing) {
+        if (window.ui && window.ui.warn) {
+            window.ui.warn('Screen/Webcam', 'Đang xử lý yêu cầu trước đó, vui lòng đợi...');
+        }
+        return;
+    }
+
+    // Check connection
+    if (!window.gateway || !window.gateway.isAuthenticated) {
+        showError('Chưa kết nối tới Gateway hoặc chưa đăng nhập!');
+        return;
+    }
+
+    console.log('[Screen_Webcam] Gửi lệnh Screenshot...');
+    
+    // Update file name to image format
+    const fileNameInput = document.getElementById('input-file-name');
+    if (fileNameInput && !fileNameInput.value.endsWith('.png') && !fileNameInput.value.endsWith('.jpg')) {
+        fileNameInput.value = 'screenshot_' + Date.now() + '.png';
+    }
+
+    // Clear previous preview and start processing
+    clearPreview();
+    startProcessing('chụp màn hình');
+
+    // Send command
+    try {
+        const cmd = window.CONFIG ? window.CONFIG.CMD.SCREENSHOT : 'SCRSHOT';
+        window.gateway.send(cmd, '');
+    } catch (error) {
+        stopProcessing();
+        showError('Lỗi khi gửi lệnh: ' + error.message);
+        console.error('[Screen_Webcam] Error sending screenshot command:', error);
+    }
+}
+
+function handleCameraShot() {
+    // Check if already processing
+    if (screenWebcamState.isProcessing) {
+        if (window.ui && window.ui.warn) {
+            window.ui.warn('Screen/Webcam', 'Đang xử lý yêu cầu trước đó, vui lòng đợi...');
+        }
+        return;
+    }
+
+    // Check connection
+    if (!window.gateway || !window.gateway.isAuthenticated) {
+        showError('Chưa kết nối tới Gateway hoặc chưa đăng nhập!');
+        return;
+    }
+
+    console.log('[Screen_Webcam] Gửi lệnh Camera Shot...');
+    
+    // Update file name to image format
+    const fileNameInput = document.getElementById('input-file-name');
+    if (fileNameInput && !fileNameInput.value.endsWith('.png') && !fileNameInput.value.endsWith('.jpg')) {
+        fileNameInput.value = 'camshot_' + Date.now() + '.png';
+    }
+
+    // Clear previous preview and start processing
+    clearPreview();
+    startProcessing('chụp ảnh webcam');
+
+    // Send command
+    try {
+        const cmd = window.CONFIG ? window.CONFIG.CMD.CAMSHOT : 'CAMSHOT';
+        window.gateway.send(cmd, '');
+    } catch (error) {
+        stopProcessing();
+        showError('Lỗi khi gửi lệnh: ' + error.message);
+        console.error('[Screen_Webcam] Error sending camera shot command:', error);
+    }
+}
+
+function handleScreenRecord() {
+    // Check if already processing
+    if (screenWebcamState.isProcessing) {
+        if (window.ui && window.ui.warn) {
+            window.ui.warn('Screen/Webcam', 'Đang xử lý yêu cầu trước đó, vui lòng đợi...');
+        }
+        return;
+    }
+
+    // Check connection
+    if (!window.gateway || !window.gateway.isAuthenticated) {
+        showError('Chưa kết nối tới Gateway hoặc chưa đăng nhập!');
+        return;
+    }
+
+    // Validate and get duration
+    const durationInput = document.getElementById('duration-input');
+    let duration = 5;
+    
+    if (durationInput) {
+        duration = parseInt(durationInput.value, 10);
+        if (isNaN(duration) || duration < 1) {
+            showError('Thời lượng không hợp lệ! Vui lòng nhập số từ 1-15 giây.');
+            durationInput.focus();
+            return;
+        }
+        if (duration > 15) {
+            showError('Thời lượng tối đa là 15 giây!');
+            durationInput.value = 15;
+            duration = 15;
+        }
+    }
+
+    console.log(`[Screen_Webcam] Gửi lệnh Screen Record với duration: ${duration} giây...`);
+    
+    // Update file name to video format
+    const fileNameInput = document.getElementById('input-file-name');
+    if (fileNameInput && !fileNameInput.value.endsWith('.mp4')) {
+        fileNameInput.value = 'screen_record_' + Date.now() + '.mp4';
+    }
+
+    // Clear previous preview and start processing
+    clearPreview();
+    startProcessing(`ghi màn hình (${duration}s)`);
+
+    // Send command with duration
+    try {
+        const cmd = window.CONFIG ? window.CONFIG.CMD.SCR_RECORD : 'SCR_RECORD';
+        window.gateway.send(cmd, String(duration));
+    } catch (error) {
+        stopProcessing();
+        showError('Lỗi khi gửi lệnh: ' + error.message);
+        console.error('[Screen_Webcam] Error sending screen record command:', error);
+    }
+}
+
+function handleCameraRecord() {
+    // Check if already processing
+    if (screenWebcamState.isProcessing) {
+        if (window.ui && window.ui.warn) {
+            window.ui.warn('Screen/Webcam', 'Đang xử lý yêu cầu trước đó, vui lòng đợi...');
+        }
+        return;
+    }
+
+    // Check connection
+    if (!window.gateway || !window.gateway.isAuthenticated) {
+        showError('Chưa kết nối tới Gateway hoặc chưa đăng nhập!');
+        return;
+    }
+
+    // Validate and get duration
+    const durationInput = document.getElementById('duration-input');
+    let duration = 5;
+    
+    if (durationInput) {
+        duration = parseInt(durationInput.value, 10);
+        if (isNaN(duration) || duration < 1) {
+            showError('Thời lượng không hợp lệ! Vui lòng nhập số từ 1-15 giây.');
+            durationInput.focus();
+            return;
+        }
+        if (duration > 15) {
+            showError('Thời lượng tối đa là 15 giây!');
+            durationInput.value = 15;
+            duration = 15;
+        }
+    }
+
+    console.log(`[Screen_Webcam] Gửi lệnh Camera Record với duration: ${duration} giây...`);
+    
+    // Update file name to video format
+    const fileNameInput = document.getElementById('input-file-name');
+    if (fileNameInput && !fileNameInput.value.endsWith('.mp4')) {
+        fileNameInput.value = 'cam_record_' + Date.now() + '.mp4';
+    }
+
+    // Clear previous preview and start processing
+    clearPreview();
+    startProcessing(`ghi video webcam (${duration}s)`);
+
+    // Send command with duration
+    try {
+        const cmd = window.CONFIG ? window.CONFIG.CMD.CAM_RECORD : 'cam_record';
+        window.gateway.send(cmd, String(duration));
+    } catch (error) {
+        stopProcessing();
+        showError('Lỗi khi gửi lệnh: ' + error.message);
+        console.error('[Screen_Webcam] Error sending camera record command:', error);
+    }
+}
+
+// ===============================================
+// 5. ERROR HANDLING - Handle failed responses
+// ===============================================
+
+function handleCaptureError(errorMessage) {
+    stopProcessing();
+    showError(errorMessage || 'Có lỗi xảy ra khi thực hiện yêu cầu');
+}
+
 // Export functions for use in main.js
 window.displayImagePreview = displayImagePreview;
 window.displayVideoPreview = displayVideoPreview;
 window.clearPreview = clearPreview;
+window.handleScreenshot = handleScreenshot;
+window.handleCameraShot = handleCameraShot;
+window.handleScreenRecord = handleScreenRecord;
+window.handleCameraRecord = handleCameraRecord;
+window.handleCaptureError = handleCaptureError;
+window.screenWebcamState = screenWebcamState;

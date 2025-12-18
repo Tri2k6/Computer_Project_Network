@@ -77,6 +77,18 @@ export class RouteHandler {
         }
 
         if (conn.role === 'AGENT') {
+            // Agent can send responses back to clients (messages with 'to' field)
+            // When agent responds, it sets 'to' = client ID and 'from' might be empty or agent ID
+            if (msg.to) {
+                // This is a response from agent to a client - forward it
+                // Set 'from' to agent ID if it's empty (for proper routing)
+                if (!msg.from) {
+                    msg.from = conn.id;
+                }
+                this.forwardResponseFromAgent(ws, msg);
+                return;
+            }
+            
             if (msg.type !== CommandType.PONG && 
                 msg.type !== CommandType.ECHO && 
                 msg.type !== CommandType.ERROR &&
@@ -235,6 +247,30 @@ export class RouteHandler {
                 CommandType.ERROR, 
                 { msg: `Target ${targetId} not found or offline` }
             )));
+        }
+    }
+
+    private forwardResponseFromAgent(agentWs: WebSocket, msg: Message) {
+        const targetClientId = msg.to!;
+        const agentConn = this.connectionRegistry.getConnection(agentWs.id!);
+        if (!agentConn) return;
+
+        const targetClient = this.connectionRegistry.getConnection(targetClientId);
+        
+        if (targetClient && targetClient.role === 'CLIENT' && targetClient.isAlive) {
+            // Forward response from agent to client
+            targetClient.send(msg);
+            const agentName = agentConn.name || agentWs.id;
+            const clientName = targetClient.name || targetClientId;
+            Logger.info(`[Router] Forwarded response ${msg.type} from agent ${agentName} (${agentWs.id}) to client ${clientName} (${targetClientId})`);
+            
+            // Log the response
+            this.activityLogger.logActivity(agentConn, `response_${msg.type}`, {
+                targetClientId: targetClientId,
+                success: true
+            });
+        } else {
+            Logger.warn(`[Router] Cannot forward response from agent ${agentWs.id} to client ${targetClientId}: client not found or offline`);
         }
     }
 

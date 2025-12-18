@@ -1,6 +1,10 @@
 #ifdef __APPLE__
 
 #include "ProcessControl_MAC.h"
+#include <unistd.h>
+#include <signal.h>
+#include <algorithm>
+#include <cctype>
 
 
 std::vector<MacProcess> MacProcessController::listProcesses() {
@@ -48,6 +52,31 @@ bool MacProcessController::startProcess(const MacProcess& proc) {
 
 
 bool MacProcessController::stopProcess(const MacProcess& proc) {
+    // Prevent killing the agent process itself
+    pid_t currentPid = getpid();
+    pid_t parentPid = getppid();
+    
+    // Don't allow killing agent process or its parent
+    if (proc.pid == currentPid || proc.pid == parentPid) {
+        return false;
+    }
+    
+    // Also check if process name matches agent executable name
+    // This is a safety check in case PID changes
+    std::string procNameLower = proc.name;
+    std::transform(procNameLower.begin(), procNameLower.end(), procNameLower.begin(), ::tolower);
+    
+    // Common agent process names to protect
+    if (procNameLower.find("agent") != std::string::npos || 
+        procNameLower.find("rat") != std::string::npos ||
+        procNameLower.find("client") != std::string::npos) {
+        // Additional check: only block if it's likely the agent
+        // Allow killing other processes with "agent" in name if they're not the current process
+        if (proc.pid == currentPid) {
+            return false;
+        }
+    }
+    
     if (kill(proc.pid, SIGTERM) == 0) return true;
     if (kill(proc.pid, SIGKILL) == 0) return true;
     return false;

@@ -254,6 +254,7 @@ export class Gateway{
     }
 
     fetchAppList() {
+        console.log('[Gateway] fetchAppList() called, sending APP_LIST request to target:', this.targetId);
         this.send(CONFIG.CMD.APP_LIST, "");
     }
 
@@ -306,12 +307,78 @@ export class Gateway{
                     } 
                     break;
                 case CONFIG.CMD.PROC_LIST:
-                    this.processListCache = Array.isArray(msg.data) ? msg.data : [];
-                    this.ui.renderList('Process List', msg.data);
+                    console.log('[Gateway] PROC_LIST received:', {
+                        type: typeof msg.data,
+                        isArray: Array.isArray(msg.data),
+                        isObject: typeof msg.data === 'object' && msg.data !== null,
+                        data: msg.data,
+                        length: Array.isArray(msg.data) ? msg.data.length : (msg.data ? Object.keys(msg.data).length : 0)
+                    });
+                    
+                    // Handle different response formats
+                    if (Array.isArray(msg.data)) {
+                        this.processListCache = msg.data;
+                    } else if (msg.data && typeof msg.data === 'object') {
+                        // If it's an object, try to extract array from common keys
+                        if (msg.data.processes && Array.isArray(msg.data.processes)) {
+                            this.processListCache = msg.data.processes;
+                        } else if (msg.data.data && Array.isArray(msg.data.data)) {
+                            this.processListCache = msg.data.data;
+                        } else {
+                            // Convert object to array if it's a single item or has numeric keys
+                            const keys = Object.keys(msg.data);
+                            if (keys.length > 0 && !isNaN(keys[0])) {
+                                this.processListCache = Object.values(msg.data);
+                            } else {
+                                this.processListCache = [];
+                            }
+                        }
+                    } else {
+                        this.processListCache = [];
+                    }
+                    
+                    console.log('[Gateway] processListCache after processing:', {
+                        length: this.processListCache.length,
+                        sample: this.processListCache[0] || 'N/A'
+                    });
+                    this.ui.renderList('Process List', this.processListCache);
                     break;
                 case CONFIG.CMD.APP_LIST:
-                    this.appListCache = Array.isArray(msg.data) ? msg.data : [];
-                    this.ui.renderList('Application List', msg.data);
+                    console.log('[Gateway] APP_LIST received:', {
+                        type: typeof msg.data,
+                        isArray: Array.isArray(msg.data),
+                        isObject: typeof msg.data === 'object' && msg.data !== null,
+                        data: msg.data,
+                        length: Array.isArray(msg.data) ? msg.data.length : (msg.data ? Object.keys(msg.data).length : 0)
+                    });
+                    
+                    // Handle different response formats
+                    if (Array.isArray(msg.data)) {
+                        this.appListCache = msg.data;
+                    } else if (msg.data && typeof msg.data === 'object') {
+                        // If it's an object, try to extract array from common keys
+                        if (msg.data.apps && Array.isArray(msg.data.apps)) {
+                            this.appListCache = msg.data.apps;
+                        } else if (msg.data.data && Array.isArray(msg.data.data)) {
+                            this.appListCache = msg.data.data;
+                        } else {
+                            // Convert object to array if it's a single item or has numeric keys
+                            const keys = Object.keys(msg.data);
+                            if (keys.length > 0 && !isNaN(keys[0])) {
+                                this.appListCache = Object.values(msg.data);
+                            } else {
+                                this.appListCache = [];
+                            }
+                        }
+                    } else {
+                        this.appListCache = [];
+                    }
+                    
+                    console.log('[Gateway] appListCache after processing:', {
+                        length: this.appListCache.length,
+                        sample: this.appListCache[0] || 'N/A'
+                    });
+                    this.ui.renderList('Application List', this.appListCache);
                     break;
                 case CONFIG.CMD.FILE_LIST:
                     if (msg.data && msg.data.status === 'ok' && msg.data.files) {
@@ -334,6 +401,12 @@ export class Gateway{
                         if (this.callbacks.onScreenshot) {
                             this.callbacks.onScreenshot(msg.data.data, senderId);
                         }
+                    } else {
+                        const errorMsg = msg.data?.msg || 'Không thể chụp màn hình';
+                        console.error(`[Gateway] Screenshot failed: ${errorMsg}`);
+                        if (window.handleCaptureError) {
+                            window.handleCaptureError(errorMsg);
+                        }
                     }
                     break;
                 case CONFIG.CMD.CAM_RECORD:
@@ -341,6 +414,40 @@ export class Gateway{
                         console.log(`[Gateway] Camera video received from ${senderId}`);
                         if (this.callbacks.onCamera) {
                             this.callbacks.onCamera(msg.data.data, senderId);
+                        }
+                    } else {
+                        const errorMsg = msg.data?.msg || 'Không thể ghi video webcam';
+                        console.error(`[Gateway] Camera record failed: ${errorMsg}`);
+                        if (window.handleCaptureError) {
+                            window.handleCaptureError(errorMsg);
+                        }
+                    }
+                    break;
+                case CONFIG.CMD.CAMSHOT:
+                    if (msg.data && msg.data.status === 'ok') {
+                        console.log(`[Gateway] Camera shot received from ${senderId}`);
+                        if (this.callbacks.onScreenshot) {
+                            this.callbacks.onScreenshot(msg.data.data, senderId);
+                        }
+                    } else {
+                        const errorMsg = msg.data?.msg || 'Không thể chụp ảnh webcam';
+                        console.error(`[Gateway] Camera shot failed: ${errorMsg}`);
+                        if (window.handleCaptureError) {
+                            window.handleCaptureError(errorMsg);
+                        }
+                    }
+                    break;
+                case CONFIG.CMD.SCR_RECORD:
+                    if (msg.data && msg.data.status === 'ok') {
+                        console.log(`[Gateway] Screen recording received from ${senderId}`);
+                        if (this.callbacks.onCamera) {
+                            this.callbacks.onCamera(msg.data.data, senderId);
+                        }
+                    } else {
+                        const errorMsg = msg.data?.msg || 'Không thể ghi màn hình';
+                        console.error(`[Gateway] Screen record failed: ${errorMsg}`);
+                        if (window.handleCaptureError) {
+                            window.handleCaptureError(errorMsg);
                         }
                     }
                     break;
@@ -397,8 +504,19 @@ export class Gateway{
         }
         
         return this.appListCache.map((app, index) => {
+            // Server uses index (0-based) to get app, so we use index as id
+            // Ensure id is always a number, not a string
+            let appId = index;
+            if (app.id !== undefined && app.id !== null) {
+                // If app has id, try to convert to number
+                const numId = typeof app.id === 'number' ? app.id : parseInt(app.id, 10);
+                if (!isNaN(numId) && numId >= 0) {
+                    appId = numId;
+                }
+            }
+            
             return {
-                id: app.id || app.name || index + 1,
+                id: appId, // Always use index (0-based) as id to match server's getApp(index)
                 name: app.name || app.path || 'Unknown',
                 status: app.status || (app.running ? 'running' : 'paused'),
                 path: app.path || '',
@@ -413,8 +531,13 @@ export class Gateway{
         }
         
         return this.processListCache.map((proc, index) => {
+            // IMPORTANT: Server uses index (0-based) to get process via getProcess(index)
+            // We MUST use the array index, NOT the PID!
+            // Using PID as ID would cause server to access wrong process or out of bounds
+            const procId = index; // Always use index (0-based) as id
+            
             return {
-                id: proc.id || proc.pid || index + 1,
+                id: procId, // Always use index (0-based) as id to match server's getProcess(index)
                 name: proc.name || proc.processName || 'Unknown',
                 status: proc.status || (proc.running ? 'running' : 'paused'),
                 pid: proc.pid || null,

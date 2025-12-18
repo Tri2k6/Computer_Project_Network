@@ -150,10 +150,10 @@
     min-width: 250px;
 }
 
-.control-btn,
-.control-group-record {
+.control-btn {
     display: flex;
     align-items: center;
+    justify-content: center;
     padding: 18px 25px;
     border-radius: 12px;
     font-family: 'Inter', sans-serif;
@@ -170,12 +170,67 @@
     transition: transform 0.3s ease, box-shadow 0.3s ease, background-color 0.3s ease;
 }
 
+.control-group-capture {
+    display: flex;
+    gap: 15px;
+}
+
+.control-group-capture .control-btn {
+    flex: 1;
+}
+
+.control-group-record {
+    display: flex;
+    align-items: center;
+    padding: 18px 25px;
+    border-radius: 12px;
+    font-family: 'Inter', sans-serif;
+    font-weight: 700;
+    font-size: 16px;
+    background-color: var(--nav-bg);
+    color: var(--text-dark);
+    box-shadow: 0 4px 6px rgba(0,0,0,0.15);
+    transition: transform 0.3s ease, box-shadow 0.3s ease, background-color 0.3s ease;
+}
+
+/* Box chứa duration input */
+.control-group-record.duration-group {
+    justify-content: space-between;
+    gap: 15px;
+    cursor: default;
+}
+
+.control-group-record.duration-group:hover {
+    background-color: var(--nav-bg);
+    transform: none;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.15);
+}
+
+/* Box chứa 2 nút record */
+.control-group-record.buttons-group {
+    gap: 15px;
+    cursor: default;
+}
+
+.control-group-record.buttons-group .control-btn {
+    flex: 1;
+}
+
+.control-group-record .label {
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
 .control-btn:hover,
-.control-group-record:hover {
+.control-group-record.buttons-group:hover {
     background-color: var(--text-orange);
     color: #fff;
     transform: translateY(-2px);
     box-shadow: 0 6px 12px rgba(0,0,0,0.2);
+}
+
+.control-group-record.buttons-group:hover .control-btn {
+    background-color: transparent;
 }
 
 .control-btn:active {
@@ -183,23 +238,89 @@
 }
 
 .duration-input {
-    width: 50px;
-    padding: 5px;
+    width: 60px;
+    padding: 8px;
     border-radius: 6px;
-    border: none;
+    border: 2px solid var(--text-blue);
     text-align: center;
     font-weight: 700;
     font-size: 16px;
     color: var(--text-dark);
     outline: none;
-    transform: translateX(105px);
-    background-color: rgba(255,255,255,0.6);
+    background-color: rgba(255,255,255,0.8);
+    flex-shrink: 0;
+}
+
+.duration-input:focus {
+    border-color: var(--text-orange);
+    background-color: #fff;
 }
 
 .duration-input::-webkit-inner-spin-button,
 .duration-input::-webkit-outer-spin-button {
     -webkit-appearance: none;
     margin: 0;
+}
+
+/* ================= LOADING & ERROR STATES ================= */
+
+.loading-indicator {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    color: var(--text-dark);
+}
+
+.spinner {
+    width: 50px;
+    height: 50px;
+    border: 4px solid rgba(0, 0, 0, 0.1);
+    border-top-color: var(--text-orange);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 15px;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.loading-text {
+    font-family: 'Inter', sans-serif;
+    font-weight: 600;
+    font-size: 16px;
+    color: var(--text-dark);
+    margin: 0;
+}
+
+.error-message {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    padding: 20px;
+    text-align: center;
+    color: #ff4444;
+    font-family: 'Inter', sans-serif;
+    font-weight: 600;
+}
+
+.error-message p {
+    margin: 10px 0;
+    font-size: 16px;
+}
+
+.control-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed !important;
+    pointer-events: none;
 }
 
 /* ================= RESPONSIVE ================= */

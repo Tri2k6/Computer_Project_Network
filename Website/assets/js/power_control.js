@@ -129,7 +129,50 @@ document.addEventListener("DOMContentLoaded", () => {
             pendingAction = () => {
                 console.log(`Confirmed action: ${btn.id}`);
 
-                // TODO: Viết code xử lý hành động sau khi xác nhận ở đây
+                // Kiểm tra gateway có sẵn và đã authenticated
+                if (!window.gateway) {
+                    console.error('[Power_Control] Gateway không khả dụng');
+                    alert('Lỗi: Không thể kết nối đến Gateway. Vui lòng kiểm tra kết nối.');
+                    return;
+                }
+
+                if (!window.gateway.ws || window.gateway.ws.readyState !== WebSocket.OPEN) {
+                    console.error('[Power_Control] WebSocket chưa kết nối');
+                    alert('Lỗi: Chưa kết nối đến Gateway. Vui lòng kiểm tra kết nối.');
+                    return;
+                }
+
+                if (!window.gateway.isAuthenticated) {
+                    console.error('[Power_Control] Chưa authenticated');
+                    alert('Lỗi: Chưa xác thực với Gateway. Vui lòng đợi...');
+                    return;
+                }
+
+                // Xử lý từng loại nút
+                const CMD = window.CONFIG ? window.CONFIG.CMD : {
+                    RESTART: 'restart',
+                    SHUTDOWN: 'shutdown'
+                };
+
+                switch (btn.id) {
+                    case 'btn-restart':
+                        console.log('[Power_Control] Gửi lệnh RESTART...');
+                        window.gateway.send(CMD.RESTART, "");
+                        break;
+
+                    case 'btn-shutdown':
+                        console.log('[Power_Control] Gửi lệnh SHUTDOWN...');
+                        window.gateway.send(CMD.SHUTDOWN, "");
+                        break;
+
+                    case 'btn-sleep':
+                        console.warn('[Power_Control] Lệnh SLEEP chưa được hỗ trợ trên server');
+                        alert('Lệnh Sleep chưa được hỗ trợ. Vui lòng sử dụng Shutdown hoặc Restart.');
+                        break;
+
+                    default:
+                        console.warn(`[Power_Control] Không xác định được hành động cho nút: ${btn.id}`);
+                }
             };
 
             openConfirm();

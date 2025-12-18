@@ -70,6 +70,14 @@ bool WinProcessController::startProcess(const WinProcess& proc) {
 
 
 bool WinProcessController::stopProcess(const WinProcess& proc) {
+    // Prevent killing the agent process itself
+    DWORD currentPid = GetCurrentProcessId();
+    
+    // Don't allow killing agent process
+    if (proc.pid == currentPid) {
+        return false;
+    }
+    
     HANDLE hProc = OpenProcess(PROCESS_TERMINATE, FALSE, proc.pid);
 
     if (!hProc) {

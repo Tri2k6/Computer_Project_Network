@@ -143,4 +143,67 @@ namespace fs = std::filesystem;
 using json = nlohmann::json;
 using namespace std;
 
+/**
+ * RAII wrapper for FILE* pipe to prevent resource leaks
+ * Automatically closes the pipe when going out of scope, even if an exception is thrown
+ */
+class PipeGuard {
+public:
+    explicit PipeGuard(FILE* pipe) : pipe_(pipe) {}
+    
+    // Non-copyable
+    PipeGuard(const PipeGuard&) = delete;
+    PipeGuard& operator=(const PipeGuard&) = delete;
+    
+    // Movable
+    PipeGuard(PipeGuard&& other) noexcept : pipe_(other.pipe_) {
+        other.pipe_ = nullptr;
+    }
+    
+    PipeGuard& operator=(PipeGuard&& other) noexcept {
+        if (this != &other) {
+            close();
+            pipe_ = other.pipe_;
+            other.pipe_ = nullptr;
+        }
+        return *this;
+    }
+    
+    ~PipeGuard() {
+        close();
+    }
+    
+    // Get the underlying FILE* pointer
+    FILE* get() const noexcept {
+        return pipe_;
+    }
+    
+    // Check if pipe is valid
+    bool isValid() const noexcept {
+        return pipe_ != nullptr;
+    }
+    
+    // Explicit conversion to FILE*
+    operator FILE*() const noexcept {
+        return pipe_;
+    }
+    
+    // Release ownership (caller is responsible for closing)
+    FILE* release() noexcept {
+        FILE* temp = pipe_;
+        pipe_ = nullptr;
+        return temp;
+    }
+    
+private:
+    void close() {
+        if (pipe_ != nullptr) {
+            PCLOSE(pipe_);
+            pipe_ = nullptr;
+        }
+    }
+    
+    FILE* pipe_;
+};
+
 #endif

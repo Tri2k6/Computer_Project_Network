@@ -244,8 +244,8 @@ export class GatewayServer {
                 // Final check and read file
                 fs.readFile(filePath, (err, data) => {
                     if (err) {
-                        res.writeHead(404);
-                        res.end('Not Found');
+            res.writeHead(404);
+            res.end('Not Found');
                         return;
                     }
 

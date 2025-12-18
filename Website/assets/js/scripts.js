@@ -117,7 +117,7 @@ function renderList(agents) {
         const linkBtn = li.querySelector('.link-icon');
         linkBtn.addEventListener('click', () => {
             if (agent.id) {
-                window.open('control.html?id=' + agent.id, '_blank');
+                window.location.href = './Feature_menu.html?id=' + agent.id;
             }
         });
         

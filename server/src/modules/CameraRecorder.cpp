@@ -13,8 +13,8 @@ std::string CameraRecorder::dectectDefaultCamera() {
     #ifdef _WIN32
         std::string cmd = "\"" + ffmpegPath + "\" -hide_banner -list_devices true -f dshow -i dummy 2>&1";
         const char* cmd_cstr = cmd.c_str();
-        FILE* pipe = POPEN(cmd_cstr, "r");
-        if (!pipe) return "";
+        PipeGuard pipe(POPEN(cmd_cstr, "r"));
+        if (!pipe.isValid()) return "";
         char buffer[512];
         while (fgets(buffer, sizeof(buffer), pipe) != NULL) {
             std::string line = buffer;
@@ -31,13 +31,12 @@ std::string CameraRecorder::dectectDefaultCamera() {
                 }
             }
         }
-        PCLOSE(pipe);
     #elif __APPLE__
         detectedName = "0";
     #elif __linux__
         std::string cmd = "\"" + ffmpegPath + "\" -hide_banner -list_devices true -f v4l2 -i dummy 2>&1";
-        FILE* pipe = POPEN(cmd.c_str(), "r");
-        if (!pipe) return "";
+        PipeGuard pipe(POPEN(cmd.c_str(), "r"));
+        if (!pipe.isValid()) return "";
         char buffer[512];
         while (fgets(buffer, sizeof(buffer), pipe) != NULL) {
             std::string line = buffer;
@@ -50,7 +49,6 @@ std::string CameraRecorder::dectectDefaultCamera() {
                 }
             }
         }
-        PCLOSE(pipe);
         if (detectedName.empty()) {
             detectedName = "/dev/video0";
         }
@@ -86,8 +84,8 @@ std::string CameraRecorder::recordRawData(int durationSeconds) {
                 " -f mp4 -movflags frag_keyframe+empty_moov -";
     #endif
 
-    FILE* pipe = POPEN(cmd.c_str(), POPEN_MODE);
-    if (!pipe) {
+    PipeGuard pipe(POPEN(cmd.c_str(), POPEN_MODE));
+    if (!pipe.isValid()) {
         // cerr << "[ERROR] Khong the mo Pipe FFmpeg!" << endl;
         return "";
     }
@@ -103,8 +101,6 @@ std::string CameraRecorder::recordRawData(int durationSeconds) {
     while ((bytesRead = fread(buffer.data(), 1, buffer.size(), pipe)) > 0) {
         rawData.append(buffer.data(), bytesRead);
     }
-
-    PCLOSE(pipe);
     
     if (rawData.empty()) {
         cerr << "[WARNING] Khong thu duoc du lieu video (co the Camera dang ban hoac sai ten)." << endl;

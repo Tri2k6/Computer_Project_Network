@@ -27,6 +27,8 @@ export class Gateway{
         this.ui = window.ui || { log: console.log, renderList: console.table };
 
         this.agentsList = [];
+        this.appListCache = [];
+        this.processListCache = [];
     }
 
     findAgentId(input) {
@@ -71,6 +73,9 @@ export class Gateway{
     connect(ip, port = CONFIG.SERVER_PORT, useSecure = true) {
         if (this.ws) {
             console.log(`[Gateway] Closing existing connection before creating new one`);
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/10c16e71-75ba-4efd-b6cb-47716d67b948',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'gateway.js:76',message:'Closing existing connection before creating new one',data:{readyState:this.ws.readyState,wasAuthenticated:this.isAuthenticated,connectionId:this.clientConnectionId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+            // #endregion
             this.ws.close();
             this.ws = null;
         }
@@ -92,6 +97,9 @@ export class Gateway{
         this.ws = new WebSocket(url);
 
         this.ws.onopen = () => {
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/10c16e71-75ba-4efd-b6cb-47716d67b948',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'gateway.js:96',message:'WebSocket onopen - connection opened',data:{url,readyState:this.ws.readyState,protocol:this.ws.protocol,extensions:this.ws.extensions},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+            // #endregion
             console.log(`[Network] Socket opened successfully to ${url}`)
             console.log(`[Network] Sending AUTH message...`)
             this.send(
@@ -111,6 +119,10 @@ export class Gateway{
             const connectionId = this.clientConnectionId || 'none';
             this._lastCloseCode = event.code;
             this.isAuthenticated = false;
+            
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/10c16e71-75ba-4efd-b6cb-47716d67b948',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'gateway.js:111',message:'WebSocket onclose triggered',data:{code:event.code,reason:event.reason||'Unknown',wasAuthenticated,connectionId,cleanClose:event.wasClean,targetId:this.targetId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+            // #endregion
             
             console.log(`[Network] Socket closed. Code: ${event.code}, Reason: ${event.reason || 'Unknown'}`);
             console.log(`[Network] Was authenticated: ${wasAuthenticated}, Connection ID: ${connectionId}`);
@@ -155,6 +167,9 @@ export class Gateway{
         };
 
         this.ws.onerror = (err) => {
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/10c16e71-75ba-4efd-b6cb-47716d67b948',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'gateway.js:159',message:'WebSocket onerror triggered',data:{error:err.toString(),wsReadyState:this.ws?.readyState,isAuthenticated:this.isAuthenticated,connectionId:this.clientConnectionId,url},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+            // #endregion
             console.error(`[Network] WebSocket error:`, err);
             console.error(`[Network] Cannot connect to ${url}`);
             console.error(`[Network] Possible causes:`);
@@ -169,7 +184,12 @@ export class Gateway{
     }
 
     disconnect() {
-        if (this.ws) this.ws.close();
+        if (this.ws) {
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/10c16e71-75ba-4efd-b6cb-47716d67b948',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'gateway.js:173',message:'disconnect() called',data:{readyState:this.ws.readyState,wasAuthenticated:this.isAuthenticated,connectionId:this.clientConnectionId,stackTrace:new Error().stack},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+            // #endregion
+            this.ws.close();
+        }
     }
 
     authenticate() {
@@ -256,6 +276,10 @@ export class Gateway{
             try { msg = JSON.parse(event.data); } 
             catch { msg = { type: 'raw', data: event.data }; }
             const senderId = msg.from;
+            
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/10c16e71-75ba-4efd-b6cb-47716d67b948',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'gateway.js:255',message:'Message received BEFORE handling',data:{msgType:msg.type,from:senderId,wsReadyState:this.ws?.readyState,isAuthenticated:this.isAuthenticated},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+            // #endregion
 
             switch (msg.type) {
                 case CONFIG.CMD.AUTH:
@@ -282,9 +306,11 @@ export class Gateway{
                     } 
                     break;
                 case CONFIG.CMD.PROC_LIST:
+                    this.processListCache = Array.isArray(msg.data) ? msg.data : [];
                     this.ui.renderList('Process List', msg.data);
                     break;
                 case CONFIG.CMD.APP_LIST:
+                    this.appListCache = Array.isArray(msg.data) ? msg.data : [];
                     this.ui.renderList('Application List', msg.data);
                     break;
                 case CONFIG.CMD.FILE_LIST:
@@ -343,6 +369,9 @@ export class Gateway{
 
         } catch (e) {
             console.error('[Gateway] Error handling message: ', e);
+            // #region agent log
+            fetch('http://127.0.0.1:7242/ingest/10c16e71-75ba-4efd-b6cb-47716d67b948',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'gateway.js:348',message:'Exception in _handleInternalMessage',data:{error:e.message,stack:e.stack,wsReadyState:this.ws?.readyState,isAuthenticated:this.isAuthenticated},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+            // #endregion
         }
     }
 
@@ -360,5 +389,38 @@ export class Gateway{
             console.warn(`[Failed] ${logMsg}`);
             this.ui.log('Error', data.msg);
         }
+    }
+
+    getFormattedAppList() {
+        if (!Array.isArray(this.appListCache)) {
+            return [];
+        }
+        
+        return this.appListCache.map((app, index) => {
+            return {
+                id: app.id || app.name || index + 1,
+                name: app.name || app.path || 'Unknown',
+                status: app.status || (app.running ? 'running' : 'paused'),
+                path: app.path || '',
+                pid: app.pid || null
+            };
+        });
+    }
+
+    getFormattedProcessList() {
+        if (!Array.isArray(this.processListCache)) {
+            return [];
+        }
+        
+        return this.processListCache.map((proc, index) => {
+            return {
+                id: proc.id || proc.pid || index + 1,
+                name: proc.name || proc.processName || 'Unknown',
+                status: proc.status || (proc.running ? 'running' : 'paused'),
+                pid: proc.pid || null,
+                cpu: proc.cpu || null,
+                memory: proc.memory || null
+            };
+        });
     }
 }

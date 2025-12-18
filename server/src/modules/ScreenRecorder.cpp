@@ -22,8 +22,8 @@ std::string ScreenRecorder::recordRawData(int durationSeconds) {
     #endif
 
     // Mở Pipe với chế độ đọc Binary (POPEN_MODE đã định nghĩa trong FeatureLibrary.h là "rb" hoặc "r")
-    FILE* pipe = POPEN(cmd.c_str(), POPEN_MODE);
-    if (!pipe) {
+    PipeGuard pipe(POPEN(cmd.c_str(), POPEN_MODE));
+    if (!pipe.isValid()) {
         // cerr << "[ERROR] Khong the mo Pipe FFmpeg Screen Recorder!" << endl;
         return "";
     }
@@ -38,8 +38,6 @@ std::string ScreenRecorder::recordRawData(int durationSeconds) {
     while ((bytesRead = fread(buffer.data(), 1, buffer.size(), pipe)) > 0) {
         rawData.append(buffer.data(), bytesRead);
     }
-
-    PCLOSE(pipe);
     
     if (rawData.empty()) {
         cerr << "[WARNING] Khong thu duoc du lieu man hinh." << endl;

@@ -1,5 +1,5 @@
 #include "CaptureScreen.h"
-#include "utils/FFmpegHelper.h"
+#include "FFmpegHelper.h"
 #include <thread>
 #include <chrono>
 
@@ -12,8 +12,8 @@ std::string CaptureScreen::buildCommand() {
     
     #ifdef __linux__
         std::string resolution = "1920x1080";
-        FILE* infoPipe = popen("xdpyinfo | awk '/dimensions/ {print $2}'", "r");
-        if (infoPipe) {
+        PipeGuard infoPipe(popen("xdpyinfo | awk '/dimensions/ {print $2}'", "r"));
+        if (infoPipe.isValid()) {
             char buffer[64];
             if (fgets(buffer, sizeof(buffer), infoPipe) != NULL) {
                 std::string res = buffer;
@@ -22,7 +22,6 @@ std::string CaptureScreen::buildCommand() {
                     resolution = res;
                 }
             }
-            pclose(infoPipe);
         }
         return "\"" + ffmpegPath + "\" -f x11grab -s " + resolution + " -i :0.0 -vframes 1 -f image2pipe -c:v mjpeg -q:v 2 -hide_banner -loglevel error -";
     #else
@@ -43,15 +42,15 @@ std::vector<unsigned char> CaptureScreen::captureRawBytes() {
     
     std::vector<unsigned char> imageData;
 
-    FILE* pipe = POPEN(cmd.c_str(),
+    PipeGuard pipe(POPEN(cmd.c_str(),
         #ifdef _WIN32
             "rb"
         #else
             "r"
         #endif
-    );
+    ));
 
-    if (!pipe) {
+    if (!pipe.isValid()) {
         throw std::runtime_error("CaptureScreen: Khong the mo pipe ffmpeg.");
     }
 
@@ -61,8 +60,6 @@ std::vector<unsigned char> CaptureScreen::captureRawBytes() {
     while ((bytesRead = fread(buffer.data(), 1, buffer.size(), pipe)) > 0) {
         imageData.insert(imageData.end(), buffer.begin(), buffer.begin() + bytesRead);
     }
-
-    int result = PCLOSE(pipe);
 
     if (imageData.empty()) {
         throw std::runtime_error("CaptureScreen: Ffmpeg chay xong nhung khong co du lieu anh.");
@@ -101,15 +98,15 @@ std::string CaptureScreen::captureRaw() {
     
     std::vector<unsigned char> imageData;
 
-    FILE* pipe = POPEN(cmd.c_str(),
+    PipeGuard pipe(POPEN(cmd.c_str(),
         #ifdef _WIN32
             "rb"
         #else
             "r"
         #endif
-    );
+    ));
 
-    if (!pipe) {
+    if (!pipe.isValid()) {
         throw std::runtime_error("CaptureScreen: Khong the mo pipe ffmpeg.");
     }
 
@@ -119,8 +116,6 @@ std::string CaptureScreen::captureRaw() {
     while ((bytesRead = fread(buffer.data(), 1, buffer.size(), pipe)) > 0) {
         imageData.insert(imageData.end(), buffer.begin(), buffer.begin() + bytesRead);
     }
-
-    int result = PCLOSE(pipe);
 
     if (imageData.empty()) {
         throw std::runtime_error("CaptureScreen: Ffmpeg chay xong nhung khong co du lieu anh.");

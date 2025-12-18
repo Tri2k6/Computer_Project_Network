@@ -7,6 +7,7 @@ export class ConnectionRegistry {
     private connections: Map<string, Connection> = new Map();
     private persistentIdToConnection: Map<string, Connection> = new Map();
     private ipPortToConnection: Map<string, Connection> = new Map();
+    private ipToClientConnection: Map<string, Connection> = new Map(); // Track CLIENT connections by IP only
     private machineIdToConnection: Map<string, Set<string>> = new Map(); 
     private roleConnections: Map<'AGENT' | 'CLIENT', Set<string>> = new Map([
         ['AGENT', new Set()],
@@ -30,6 +31,11 @@ export class ConnectionRegistry {
         return this.ipPortToConnection.get(key) || null;
     }
 
+    public findClientConnectionByIP(ip: string): Connection | null {
+        // Find CLIENT connection by IP only (regardless of port)
+        return this.ipToClientConnection.get(ip) || null;
+    }
+
     public registerConnection(conn: Connection): { success: boolean; reason?: string; existingConnection?: Connection } {
         const { id, machineId, role, ip, persistentId } = conn;
 
@@ -42,15 +48,23 @@ export class ConnectionRegistry {
             };
         }
 
-        // Check for duplicate by IP:PORT + machineId + role
+        // For both CLIENT and AGENT: Check for duplicate by IP:PORT only (same IP:PORT = same connection)
+        // This ensures that each IP:PORT can only have one active connection
         const existingByIPPort = this.findConnectionByIPPort(ip, conn.machineInfo?.port || 0);
-        if (existingByIPPort && existingByIPPort.machineId === machineId && existingByIPPort.role === role) {
-            Logger.warn(`[ConnectionRegistry] Duplicate connection detected: ${ip}:${conn.machineInfo?.port || 0} (${machineId} as ${role})`);
+        if (existingByIPPort && existingByIPPort.role === role && existingByIPPort.id !== id) {
+            Logger.warn(`[ConnectionRegistry] Duplicate ${role} connection detected from ${ip}:${conn.machineInfo?.port || 0} (existing: ${existingByIPPort.id}, new: ${id})`);
+            Logger.warn(`[ConnectionRegistry] Closing old ${role} connection: ${existingByIPPort.id} (IP: ${existingByIPPort.ip}:${existingByIPPort.machineInfo?.port || 0})`);
+            existingByIPPort.addConnectionEvent({
+                timestamp: Date.now(),
+                event: 'reconnect',
+                ip: ip,
+                port: conn.machineInfo?.port || 0
+            });
             existingByIPPort.close();
             this.unregisterConnection(existingByIPPort.id);
         }
 
-        // Check for existing persistent ID (reconnect)
+        // Check for existing persistent ID (reconnect from same IP)
         const existingByPersistentId = this.persistentIdToConnection.get(persistentId);
         if (existingByPersistentId && existingByPersistentId.id !== id) {
             Logger.info(`[ConnectionRegistry] Reconnect detected: ${persistentId} (old: ${existingByPersistentId.id}, new: ${id})`);
@@ -71,6 +85,11 @@ export class ConnectionRegistry {
         if (conn.machineInfo?.port) {
             const ipPortKey = `${ip}:${conn.machineInfo.port}`;
             this.ipPortToConnection.set(ipPortKey, conn);
+        }
+        
+        // Track CLIENT connections by IP only (for duplicate detection)
+        if (role === 'CLIENT') {
+            this.ipToClientConnection.set(ip, conn);
         }
         
         if (!this.machineIdToConnection.has(machineId)) {
@@ -193,6 +212,14 @@ export class ConnectionRegistry {
         if (conn.machineInfo?.port) {
             const ipPortKey = `${ip}:${conn.machineInfo.port}`;
             this.ipPortToConnection.delete(ipPortKey);
+        }
+        
+        // Remove from IP-to-CLIENT mapping if it's a CLIENT connection
+        if (role === 'CLIENT') {
+            const existingClient = this.ipToClientConnection.get(ip);
+            if (existingClient && existingClient.id === id) {
+                this.ipToClientConnection.delete(ip);
+            }
         }
         
         const machineConnections = this.machineIdToConnection.get(machineId);

@@ -96,14 +96,15 @@ export class AuthHandler {
 
         const port = (ws as any)._socket?.remotePort || 0;
 
-        // Check if there's an existing connection with the same machineId
-        const existingConnection = this.connectionRegistry.findConnectionByMachineId(machineId, 'AGENT');
+        // Check if there's an existing AGENT connection with the same IP:PORT
+        // Same IP:PORT = same agent (reconnect)
+        const existingConnection = this.connectionRegistry.findConnectionByIPPort(ip, port);
         let finalSessionId = sessionId;
         
-        if (existingConnection) {
-            // Reuse the existing connection ID for the same Agent
+        if (existingConnection && existingConnection.role === 'AGENT' && existingConnection.id !== sessionId) {
+            // Reuse the existing connection ID for the same IP:PORT (reconnect)
             finalSessionId = existingConnection.id;
-            Logger.info(`[Auth] Reusing existing connection ID ${finalSessionId} for Agent ${machineId}`);
+            Logger.info(`[Auth] Reusing existing connection ID ${finalSessionId} for AGENT from ${ip}:${port}`);
             existingConnection.close();
             this.connectionRegistry.unregisterConnection(existingConnection.id);
         }
@@ -167,7 +168,21 @@ export class AuthHandler {
         }
 
         const port = (ws as any)._socket?.remotePort || 0;
-        const newConnection = new Connection(ws, sessionId, 'CLIENT', ip, machineId, name, port);
+        
+        // Check if there's an existing CLIENT connection with the same IP:PORT
+        // Same IP:PORT = same client (reconnect)
+        const existingConnection = this.connectionRegistry.findConnectionByIPPort(ip, port);
+        let finalSessionId = sessionId;
+        
+        if (existingConnection && existingConnection.role === 'CLIENT' && existingConnection.id !== sessionId) {
+            // Reuse the existing connection ID for the same IP:PORT (reconnect)
+            finalSessionId = existingConnection.id;
+            Logger.info(`[Auth] Reusing existing connection ID ${finalSessionId} for CLIENT from ${ip}:${port}`);
+            existingConnection.close();
+            this.connectionRegistry.unregisterConnection(existingConnection.id);
+        }
+
+        const newConnection = new Connection(ws, finalSessionId, 'CLIENT', ip, machineId, name, port);
 
         const registrationResult = this.connectionRegistry.registerConnection(newConnection);
         
@@ -192,7 +207,7 @@ export class AuthHandler {
 
         const now = Date.now();
         this.dbManager.addConnection({
-            id: sessionId,
+            id: finalSessionId,
             name: name,
             role: 'CLIENT',
             machineId: machineId,
@@ -204,11 +219,11 @@ export class AuthHandler {
         this.dbManager.logAuthAttempt(ip, machineId, 'CLIENT', true, "Password auth");
         this.clientManager.addClients(newConnection);
 
-        ws.id = sessionId;
+        ws.id = finalSessionId;
         ws.role = 'CLIENT';
 
         const accessToken = this.tokenManager.generateAccessToken({
-            sessionId: sessionId,
+            sessionId: finalSessionId,
             machineId: machineId,
             role: 'CLIENT',
             name: name,
@@ -216,7 +231,7 @@ export class AuthHandler {
         });
 
         const refreshToken = this.tokenManager.generateRefreshToken({
-            sessionId: sessionId,
+            sessionId: finalSessionId,
             machineId: machineId,
             role: 'CLIENT',
             name: name,
@@ -228,7 +243,7 @@ export class AuthHandler {
             {
                 status: "ok",
                 msg: "Auth successful",
-                sessionId: sessionId,
+                sessionId: finalSessionId,
                 machineId: machineId,
                 name: name,
                 token: accessToken,
@@ -238,7 +253,7 @@ export class AuthHandler {
         );
 
         ws.send(JSON.stringify(successMsg));
-        Logger.info(`[Auth] CLIENT authenticated: ${name} (${sessionId}) - Machine: ${machineId} - IP: ${ip}`);
+        Logger.info(`[Auth] CLIENT authenticated: ${name} (${finalSessionId}) - Machine: ${machineId} - IP: ${ip}`);
     }
 
     private generateAgentId(ip: string): string {
@@ -321,26 +336,27 @@ export class AuthHandler {
             name = user;
         }
 
-        // Check for existing connection by persistent ID (reconnect)
+        // For both CLIENT and AGENT: Check for existing connection by IP:PORT (same IP:PORT = same connection)
+        let finalSessionId = sessionId;
+        const existingByIPPort = this.connectionRegistry.findConnectionByIPPort(ip, port);
+        
+        if (existingByIPPort && existingByIPPort.role === userRole && existingByIPPort.id !== sessionId) {
+            // Reuse the existing connection ID for the same IP:PORT (reconnect)
+            finalSessionId = existingByIPPort.id;
+            Logger.info(`[Auth] Reusing existing connection ID ${finalSessionId} for ${userRole} from ${ip}:${port}`);
+            existingByIPPort.close();
+            this.connectionRegistry.unregisterConnection(existingByIPPort.id);
+        }
+        
+        // Check for existing connection by persistent ID (reconnect from same IP)
         const persistentId = this.connectionRegistry.getPersistentId(machineId, userRole, ip);
         const existingByPersistentId = this.connectionRegistry.findConnectionByPersistentId(machineId, userRole, ip);
-        
-        let finalSessionId = sessionId;
-        if (existingByPersistentId) {
-            // Reuse old connection ID if reconnecting
+        if (existingByPersistentId && existingByPersistentId.id !== finalSessionId) {
+            // Reuse old connection ID if reconnecting from same IP
             finalSessionId = existingByPersistentId.id;
             Logger.info(`[Auth] Reconnect detected: ${persistentId} (reusing ID: ${finalSessionId})`);
             existingByPersistentId.close();
             this.connectionRegistry.unregisterConnection(existingByPersistentId.id);
-        } else if (userRole === 'AGENT') {
-            // For AGENT: also check by machineId
-            const existingConnection = this.connectionRegistry.findConnectionByMachineId(machineId, 'AGENT');
-            if (existingConnection) {
-                finalSessionId = existingConnection.id;
-                Logger.info(`[Auth] Reusing existing connection ID ${finalSessionId} for Agent ${machineId}`);
-                existingConnection.close();
-                this.connectionRegistry.unregisterConnection(existingConnection.id);
-            }
         }
 
         const newConnection = new Connection(ws, finalSessionId, userRole, ip, machineId, name, port);

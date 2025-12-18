@@ -21,7 +21,7 @@ export interface ConnectionHistory {
 
 export class Connection {
     private ws: WebSocket;
-    public readonly id: string;
+    public readonly id: string; 
     public readonly persistentId: string;
     public readonly role: ConnectionRole;
     public readonly ip: string;

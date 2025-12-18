@@ -318,14 +318,13 @@ namespace PrivilegeEscalation {
         if (isRoot()) {
             std::array<char, 128> buffer;
             std::string result;
-            FILE* pipe = POPEN(command.c_str(), "r");
-            if (!pipe) {
+            PipeGuard pipe(POPEN(command.c_str(), "r"));
+            if (!pipe.isValid()) {
                 return "";
             }
             while (fgets(buffer.data(), buffer.size(), pipe) != nullptr) {
                 result += buffer.data();
             }
-            PCLOSE(pipe);
             return result;
         }
 
@@ -338,14 +337,13 @@ namespace PrivilegeEscalation {
 
         std::array<char, 128> buffer;
         std::string result;
-        FILE* pipe = POPEN(sudoCommand.c_str(), "r");
-        if (!pipe) {
+        PipeGuard pipe(POPEN(sudoCommand.c_str(), "r"));
+        if (!pipe.isValid()) {
             return "";
         }
         while (fgets(buffer.data(), buffer.size(), pipe) != nullptr) {
             result += buffer.data();
         }
-        PCLOSE(pipe);
         return result;
     }
 #elif defined(__linux__)
@@ -353,14 +351,13 @@ namespace PrivilegeEscalation {
         if (isRoot()) {
             std::array<char, 128> buffer;
             std::string result;
-            FILE* pipe = POPEN(command.c_str(), "r");
-            if (!pipe) {
+            PipeGuard pipe(POPEN(command.c_str(), "r"));
+            if (!pipe.isValid()) {
                 return "";
             }
             while (fgets(buffer.data(), buffer.size(), pipe) != nullptr) {
                 result += buffer.data();
             }
-            PCLOSE(pipe);
             return result;
         }
 
@@ -383,14 +380,13 @@ namespace PrivilegeEscalation {
 
         std::array<char, 128> buffer;
         std::string result;
-        FILE* pipe = POPEN(sudoCommand.c_str(), "r");
-        if (!pipe) {
+        PipeGuard pipe(POPEN(sudoCommand.c_str(), "r"));
+        if (!pipe.isValid()) {
             return "";
         }
         while (fgets(buffer.data(), buffer.size(), pipe) != nullptr) {
             result += buffer.data();
         }
-        PCLOSE(pipe);
         return result;
     }
 #endif

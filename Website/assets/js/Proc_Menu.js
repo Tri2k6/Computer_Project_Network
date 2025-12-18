@@ -17,7 +17,8 @@ const mockProcessData = [
 // --- 2. Cấu hình ---
 const ITEMS_PER_PAGE = 6;
 let currentPage = 1;
-let currentData = [...mockProcessData];
+let currentData = [];
+let originalData = []; // Store original unfiltered data for search
 
 // --- 3. DOM Elements ---
 const listContainer = document.getElementById('process-list');
@@ -90,9 +91,10 @@ function updatePagination(totalPages) {
 // --- 6. Search Logic ---
 searchInput.addEventListener('input', (e) => {
     const keyword = e.target.value.toLowerCase();
-    currentData = mockProcessData.filter(item => 
+    // Filter from originalData, not currentData
+    currentData = originalData.filter(item => 
         item.name.toLowerCase().includes(keyword) || 
-        item.pid.toString().includes(keyword)
+        (item.pid && item.pid.toString().includes(keyword))
     );
     currentPage = 1;
     renderData();
@@ -100,24 +102,54 @@ searchInput.addEventListener('input', (e) => {
 
 function resetSearch() {
     searchInput.value = '';
-    currentData = [...mockProcessData];
+    // Reset về dữ liệu gốc
+    currentData = [...originalData];
     currentPage = 1;
     renderData();
 }
 
 // --- 7. Toggle Control ---
 function controlProcess(id, newStatus, procName) {
-    const index = mockProcessData.findIndex(p => p.id === id);
-    if (index !== -1 && mockProcessData[index].status !== newStatus) {
-        mockProcessData[index].status = newStatus;
-        
-        // Update mảng search nếu cần
-        const searchIndex = currentData.findIndex(p => p.id === id);
-        if (searchIndex !== -1) currentData[searchIndex].status = newStatus;
-
-        console.log(`[Message Sent] Target: ${procName} | Command: ${newStatus.toUpperCase()}`);
-        renderData();
+    if (!window.gateway || !window.gateway.ws || window.gateway.ws.readyState !== WebSocket.OPEN) {
+        console.warn('[Proc_Menu] Gateway not connected');
+        alert('Please connect to gateway first');
+        return;
     }
+
+    if (newStatus === 'running') {
+        window.gateway.startProcess(id);
+    } else {
+        window.gateway.killProcess(id);
+    }
+
+    console.log(`[Message Sent] Target: ${procName} | Command: ${newStatus.toUpperCase()}`);
+}
+
+// --- 10. Refresh Process List from Gateway ---
+function refreshProcessList() {
+    if (!window.gateway || !window.gateway.ws || window.gateway.ws.readyState !== WebSocket.OPEN) {
+        console.warn('[Proc_Menu] Gateway not connected, using mock data');
+        originalData = [...mockProcessData];
+        currentData = [...mockProcessData];
+        currentPage = 1;
+        renderData();
+        return;
+    }
+
+    window.gateway.fetchProcessList();
+    
+    setTimeout(() => {
+        const formattedProcs = window.gateway.getFormattedProcessList();
+        if (formattedProcs && formattedProcs.length > 0) {
+            originalData = formattedProcs;
+            currentData = [...formattedProcs];
+        } else {
+            originalData = [...mockProcessData];
+            currentData = [...mockProcessData];
+        }
+        currentPage = 1;
+        renderData();
+    }, 500);
 }
 
 // --- 8. Event Listeners ---
@@ -130,9 +162,41 @@ nextBtn.addEventListener('click', () => {
     if (currentPage < totalPages) { currentPage++; renderData(); }
 });
 
+// --- Helper function: Initialize agent target ---
+function initAgentTarget(onTargetSet) {
+    const urlParams = new URLSearchParams(window.location.search);
+    const agentId = urlParams.get('id');
+    
+    if (agentId) {
+        const checkAndSetTarget = () => {
+            if (window.gateway && window.gateway.isAuthenticated) {
+                // Đợi agents list được load trước
+                if (window.gateway.agentsList && window.gateway.agentsList.length > 0) {
+                    window.gateway.setTarget(agentId);
+                    console.log(`[Proc_Menu] Đã setTarget đến agent: ${agentId}`);
+                    // Gọi callback sau khi setTarget xong (để fetch list)
+                    if (onTargetSet && typeof onTargetSet === 'function') {
+                        onTargetSet();
+                    }
+                } else {
+                    // Nếu agents list chưa có, đợi thêm
+                    setTimeout(checkAndSetTarget, 500);
+                }
+            } else {
+                setTimeout(checkAndSetTarget, 500);
+            }
+        };
+        setTimeout(checkAndSetTarget, 1000);
+    } else if (onTargetSet && typeof onTargetSet === 'function') {
+        // Nếu không có agent ID, vẫn gọi callback để load list
+        onTargetSet();
+    }
+}
+
 // --- 9. Init & Typing Effect ---
 document.addEventListener('DOMContentLoaded', () => {
-    renderData();
+    // Initialize agent target and then refresh process list
+    initAgentTarget(refreshProcessList);
 
     // Typing Effect
     const textElement = document.querySelector('.code-text');
@@ -152,3 +216,6 @@ document.addEventListener('DOMContentLoaded', () => {
         setTimeout(typeWriter, 500);
     }
 });
+
+// Export for manual refresh
+window.refreshProcessList = refreshProcessList;

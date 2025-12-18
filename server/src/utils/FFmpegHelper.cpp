@@ -292,9 +292,8 @@ std::string FFmpegHelper::getFFmpegPath() {
         }
     #endif
     
-    FILE* testPipe = POPEN("ffmpeg -version 2>&1", "r");
-    if (testPipe) {
-        PCLOSE(testPipe);
+    PipeGuard testPipe(POPEN("ffmpeg -version 2>&1", "r"));
+    if (testPipe.isValid()) {
         cachedPath = "ffmpeg";
         return cachedPath;
     }

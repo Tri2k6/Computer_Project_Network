@@ -3,8 +3,8 @@ document.addEventListener("DOMContentLoaded", () => {
        1. CẤU HÌNH LIÊN KẾT (Bạn điền link vào đây)
        ========================================= */
     const urlMap = {
-        "Application Control": "./app_process.html",
-        "Process Control":     "./app_process.html",
+        "Application Control": "./App_Menu.html",
+        "Process Control":     "./Proc_Menu.html",
         "Keylog Control":      "./keylog.html",
         "Screen Control":      "./screen_webcam.html",
         "Webcam Control":      "./screen_webcam.html",
@@ -20,6 +20,31 @@ document.addEventListener("DOMContentLoaded", () => {
     let typingInterval;
 
     typeEffect(defaultText);
+
+    // Đọc agent ID từ URL và tự động setTarget
+    const urlParams = new URLSearchParams(window.location.search);
+    const agentId = urlParams.get('id');
+    if (agentId) {
+        // Đợi gateway sẵn sàng rồi setTarget
+        const checkAndSetTarget = () => {
+            if (window.gateway && window.gateway.isAuthenticated) {
+                // Đợi agents list được load trước
+                if (window.gateway.agentsList && window.gateway.agentsList.length > 0) {
+                    window.gateway.setTarget(agentId);
+                    console.log(`[Feature_menu] Đã setTarget đến agent: ${agentId}`);
+                } else {
+                    // Nếu agents list chưa có, đợi thêm
+                    setTimeout(checkAndSetTarget, 500);
+                }
+            } else {
+                // Nếu gateway chưa sẵn sàng, đợi thêm
+                setTimeout(checkAndSetTarget, 500);
+            }
+        };
+        
+        // Đợi một chút để main.js load xong
+        setTimeout(checkAndSetTarget, 1000);
+    }
 
     /* =========================================
        3. HÀM XỬ LÝ HIỆU ỨNG GÕ CHỮ (TYPING)
@@ -66,9 +91,13 @@ document.addEventListener("DOMContentLoaded", () => {
         // Sự kiện: Khi CLICK chuột
         item.addEventListener('click', () => {
             const targetUrl = urlMap[featureName] || '#';
+            const currentAgentId = new URLSearchParams(window.location.search).get('id');
             
             if(targetUrl !== '#') {
-                window.location.href = targetUrl;
+                const finalUrl = currentAgentId 
+                    ? `${targetUrl}?id=${currentAgentId}` 
+                    : targetUrl;
+                window.location.href = finalUrl;
             } else {
                 console.log(`Chưa cấu hình link cho: ${featureName}`);
                 alert(`Chức năng "${featureName}" đang được phát triển!`);
@@ -79,6 +108,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
 // 5. Ngắt kết nối với server
 function Disconnect() {
-    // thêm logic ngắt kết nối ở đây
+    if (window.gateway && window.gateway.disconnect) {
+        window.gateway.disconnect();
+    }
     window.location.href = 'index.html';
 }
+
+// Export Disconnect for HTML onclick
+window.Disconnect = Disconnect;

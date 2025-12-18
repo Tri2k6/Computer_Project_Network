@@ -198,25 +198,25 @@ std::pair<std::string, std::string> GatewayDiscovery::listenForResponse(int time
                             size_t ipStart = data.find_first_not_of(" \t", protocolPos + 3);
                             if (ipStart != std::string::npos) {
                                 data = data.substr(ipStart);
+                                }
                             }
-                        }
                         
                         // Parse IP:PORT
-                        size_t colon = data.find(':');
-                        if (colon != std::string::npos) {
-                            result.first = data.substr(0, colon);
-                            size_t portEnd = data.find_first_of(" \r\n\t", colon + 1);
-                            if (portEnd != std::string::npos) {
-                                result.second = data.substr(colon + 1, portEnd - colon - 1);
+                            size_t colon = data.find(':');
+                            if (colon != std::string::npos) {
+                                result.first = data.substr(0, colon);
+                                size_t portEnd = data.find_first_of(" \r\n\t", colon + 1);
+                                if (portEnd != std::string::npos) {
+                                    result.second = data.substr(colon + 1, portEnd - colon - 1);
+                                } else {
+                                    result.second = data.substr(colon + 1);
+                                }
                             } else {
-                                result.second = data.substr(colon + 1);
-                            }
-                        } else {
                             // No port specified, use sender IP and default port
-                            char ip[INET_ADDRSTRLEN];
-                            inet_ntop(AF_INET, &from.sin_addr, ip, INET_ADDRSTRLEN);
-                            result.first = ip;
-                            result.second = "8080";
+                                char ip[INET_ADDRSTRLEN];
+                                inet_ntop(AF_INET, &from.sin_addr, ip, INET_ADDRSTRLEN);
+                                result.first = ip;
+                                result.second = "8080";
                         }
                     }
                 }
@@ -276,25 +276,25 @@ std::pair<std::string, std::string> GatewayDiscovery::listenForResponse(int time
                             size_t ipStart = data.find_first_not_of(" \t", protocolPos + 3);
                             if (ipStart != std::string::npos) {
                                 data = data.substr(ipStart);
+                                }
                             }
-                        }
                         
                         // Parse IP:PORT
-                        size_t colon = data.find(':');
-                        if (colon != std::string::npos) {
-                            result.first = data.substr(0, colon);
-                            size_t portEnd = data.find_first_of(" \r\n\t", colon + 1);
-                            if (portEnd != std::string::npos) {
-                                result.second = data.substr(colon + 1, portEnd - colon - 1);
+                            size_t colon = data.find(':');
+                            if (colon != std::string::npos) {
+                                result.first = data.substr(0, colon);
+                                size_t portEnd = data.find_first_of(" \r\n\t", colon + 1);
+                                if (portEnd != std::string::npos) {
+                                    result.second = data.substr(colon + 1, portEnd - colon - 1);
+                                } else {
+                                    result.second = data.substr(colon + 1);
+                                }
                             } else {
-                                result.second = data.substr(colon + 1);
-                            }
-                        } else {
                             // No port specified, use sender IP and default port
-                            char ip[INET_ADDRSTRLEN];
-                            inet_ntop(AF_INET, &from.sin_addr, ip, INET_ADDRSTRLEN);
-                            result.first = ip;
-                            result.second = "8080";
+                                char ip[INET_ADDRSTRLEN];
+                                inet_ntop(AF_INET, &from.sin_addr, ip, INET_ADDRSTRLEN);
+                                result.first = ip;
+                                result.second = "8080";
                         }
                     }
                 }
@@ -399,25 +399,25 @@ std::pair<std::string, std::string> GatewayDiscovery::discoverGateway(int timeou
                             size_t ipStart = data.find_first_not_of(" \t", protocolPos + 3);
                             if (ipStart != std::string::npos) {
                                 data = data.substr(ipStart);
+                                }
                             }
-                        }
                         
                         // Parse IP:PORT
-                        size_t colon = data.find(':');
-                        if (colon != std::string::npos) {
-                            result.first = data.substr(0, colon);
-                            size_t portEnd = data.find_first_of(" \r\n\t", colon + 1);
-                            if (portEnd != std::string::npos) {
-                                result.second = data.substr(colon + 1, portEnd - colon - 1);
+                            size_t colon = data.find(':');
+                            if (colon != std::string::npos) {
+                                result.first = data.substr(0, colon);
+                                size_t portEnd = data.find_first_of(" \r\n\t", colon + 1);
+                                if (portEnd != std::string::npos) {
+                                    result.second = data.substr(colon + 1, portEnd - colon - 1);
+                                } else {
+                                    result.second = data.substr(colon + 1);
+                                }
                             } else {
-                                result.second = data.substr(colon + 1);
-                            }
-                        } else {
                             // No port specified, use sender IP and default port
-                            char ip[INET_ADDRSTRLEN];
-                            inet_ntop(AF_INET, &from.sin_addr, ip, INET_ADDRSTRLEN);
-                            result.first = ip;
-                            result.second = "8080";
+                                char ip[INET_ADDRSTRLEN];
+                                inet_ntop(AF_INET, &from.sin_addr, ip, INET_ADDRSTRLEN);
+                                result.first = ip;
+                                result.second = "8080";
                         }
                     }
                 }
@@ -500,25 +500,25 @@ std::pair<std::string, std::string> GatewayDiscovery::discoverGateway(int timeou
                             size_t ipStart = data.find_first_not_of(" \t", protocolPos + 3);
                             if (ipStart != std::string::npos) {
                                 data = data.substr(ipStart);
+                                }
                             }
-                        }
                         
                         // Parse IP:PORT
-                        size_t colon = data.find(':');
-                        if (colon != std::string::npos) {
-                            result.first = data.substr(0, colon);
-                            size_t portEnd = data.find_first_of(" \r\n\t", colon + 1);
-                            if (portEnd != std::string::npos) {
-                                result.second = data.substr(colon + 1, portEnd - colon - 1);
+                            size_t colon = data.find(':');
+                            if (colon != std::string::npos) {
+                                result.first = data.substr(0, colon);
+                                size_t portEnd = data.find_first_of(" \r\n\t", colon + 1);
+                                if (portEnd != std::string::npos) {
+                                    result.second = data.substr(colon + 1, portEnd - colon - 1);
+                                } else {
+                                    result.second = data.substr(colon + 1);
+                                }
                             } else {
-                                result.second = data.substr(colon + 1);
-                            }
-                        } else {
                             // No port specified, use sender IP and default port
-                            char ip[INET_ADDRSTRLEN];
-                            inet_ntop(AF_INET, &from.sin_addr, ip, INET_ADDRSTRLEN);
-                            result.first = ip;
-                            result.second = "8080";
+                                char ip[INET_ADDRSTRLEN];
+                                inet_ntop(AF_INET, &from.sin_addr, ip, INET_ADDRSTRLEN);
+                                result.first = ip;
+                                result.second = "8080";
                         }
                     }
                 }

@@ -1,11 +1,17 @@
 #include "CameraCapture.h"
+#include "utils/FFmpegHelper.h"
 
 std::string CameraCapture::detectDefaultCamera() {
+    if (!FFmpegHelper::isFFmpegAvailable()) {
+        return "";
+    }
+    
+    std::string ffmpegPath = FFmpegHelper::getFFmpegPath();
     std::string detectedName = "";
     #ifdef _WIN32
-        const char* cmd = "ffmpeg -hide_banner -list_devices true -f dshow -i dummy 2>&1";
-        FILE* pipe = POPEN(cmd, "r"); 
-        if (!pipe) return "";
+        std::string cmd = "\"" + ffmpegPath + "\" -hide_banner -list_devices true -f dshow -i dummy 2>&1";
+        PipeGuard pipe(POPEN(cmd.c_str(), "r")); 
+        if (!pipe.isValid()) return "";
         char buffer[512];
         while (fgets(buffer, sizeof(buffer), pipe) != NULL) {
             std::string line = buffer;
@@ -20,9 +26,27 @@ std::string CameraCapture::detectDefaultCamera() {
                 }
             }
         }
-        PCLOSE(pipe);
     #elif __APPLE__
-        detectedName = "0"; 
+        detectedName = "0";
+    #elif __linux__
+        std::string cmd = "\"" + ffmpegPath + "\" -hide_banner -list_devices true -f v4l2 -i dummy 2>&1";
+        PipeGuard pipe(POPEN(cmd.c_str(), "r"));
+        if (!pipe.isValid()) return "";
+        char buffer[512];
+        while (fgets(buffer, sizeof(buffer), pipe) != NULL) {
+            std::string line = buffer;
+            if (line.find("/dev/video") != std::string::npos) {
+                size_t pos = line.find("/dev/video");
+                size_t end = line.find(":", pos);
+                if (end != std::string::npos) {
+                    detectedName = line.substr(pos, end - pos);
+                    break;
+                }
+            }
+        }
+        if (detectedName.empty()) {
+            detectedName = "/dev/video0";
+        }
     #endif
     return detectedName;
 }
@@ -36,21 +60,30 @@ std::string CameraCapture::captureRawData() {
         cerr << "[ERROR] Khong tim thay Camera nao!" << endl;
         return "";
     }
+    
+    if (!FFmpegHelper::isFFmpegAvailable()) {
+        cerr << "[ERROR] FFmpeg khong co san!" << endl;
+        return "";
+    }
 
+    std::string ffmpegPath = FFmpegHelper::getFFmpegPath();
     std::string cmd;
     #ifdef _WIN32
         // Windows: 
         // -frames:v 1: Chỉ lấy 1 khung hình
         // -f mjpeg: Xuất ra định dạng ảnh JPEG qua pipe
         // -q:v 2: Chất lượng ảnh tốt (scale 1-31, 1 là tốt nhất)
-        cmd = "ffmpeg -loglevel quiet -f dshow -i video=\"" + cameraName + "\" -frames:v 1 -q:v 2 -f mjpeg -";
+        cmd = "\"" + ffmpegPath + "\" -loglevel quiet -f dshow -i video=\"" + cameraName + "\" -frames:v 1 -q:v 2 -f mjpeg -";
     #elif __APPLE__
         // macOS:
-        cmd = "ffmpeg -loglevel quiet -f avfoundation -framerate 30 -pixel_format uyvy422 -i \"" + cameraName + "\" -frames:v 1 -pix_fmt yuvj420p -q:v 2 -f mjpeg -";
+        cmd = "\"" + ffmpegPath + "\" -loglevel quiet -f avfoundation -framerate 30 -pixel_format uyvy422 -i \"" + cameraName + "\" -frames:v 1 -pix_fmt yuvj420p -q:v 2 -f mjpeg -";
+    #elif __linux__
+        // Linux:
+        cmd = "\"" + ffmpegPath + "\" -loglevel quiet -f v4l2 -i \"" + cameraName + "\" -frames:v 1 -pix_fmt yuvj420p -q:v 2 -f mjpeg -";
     #endif
 
-    FILE* pipe = POPEN(cmd.c_str(), POPEN_MODE);
-    if (!pipe) {
+    PipeGuard pipe(POPEN(cmd.c_str(), POPEN_MODE));
+    if (!pipe.isValid()) {
         return "";
     }
 
@@ -63,8 +96,6 @@ std::string CameraCapture::captureRawData() {
     while ((bytesRead = fread(buffer.data(), 1, buffer.size(), pipe)) > 0) {
         rawData.append(buffer.data(), bytesRead);
     }
-
-    PCLOSE(pipe);
     
     if (rawData.empty()) {
         cerr << "[WARNING] Khong thu duoc du lieu anh." << endl;

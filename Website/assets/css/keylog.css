@@ -3,11 +3,9 @@
    ========================================= */
 
 :root {
-    --key-base-size: 45px;
-    /* Kích thước 1u */
-    --gap-size: 6px;
-    /* Khoảng cách phím */
-    --radius: 5px;
+    --key-base-size: 45px; /* Kích thước 1u */
+    --gap-size: 6px;       /* Khoảng cách phím */
+    --radius: 5px;         
 }
 
 .keylog-section {
@@ -17,18 +15,6 @@
     padding: 30px 20px;
     gap: 30px;
     background-color: var(--bg-color);
-    margin-top: 60px;
- 
-    opacity: 0;
-    transform: translateY(20px);
-    animation: pageFadeIn 0.3s ease-out forwards;
-} /* Fade in cả trang khi mở lên */
-
-@keyframes pageFadeIn {
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
 }
 
 /* --- 1. CONTROLS --- */
@@ -37,16 +23,15 @@
     align-items: center;
     justify-content: space-between;
     width: 100%;
-    max-width: 1200px;
-    /* Tăng nhẹ để vừa bàn phím */
+    max-width: 1250px; /* Tăng nhẹ để vừa bàn phím */
     gap: 20px;
 }
 
 .key-display {
     flex-grow: 1;
     height: 50px;
-    background-color: var(--panel-bg);
-    border: 2px solid var(--text-blue);
+    background-color: #E6E8EB;
+    border: 2px solid #14234C;
     border-radius: 25px;
     padding: 0 20px;
     font-family: 'Inter', sans-serif;
@@ -61,7 +46,7 @@
 }
 
 .k-btn {
-    background-color: var(--nav-bg);
+    background-color: #EAB973; 
     color: var(--text-dark);
     font-weight: 700;
     padding: 0 20px;
@@ -70,7 +55,7 @@
     border-radius: 10px;
     cursor: pointer;
     transition: 0.2s;
-    box-shadow: 0 4px 0 rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 0 rgba(0,0,0,0.1);
     white-space: nowrap;
 }
 
@@ -91,20 +76,20 @@
     background-color: var(--nav-bg);
     padding: 20px;
     border-radius: 15px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
-
-    display: flex;
-    gap: 27px;
-    min-width: 1200px;
-
+    box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+    
+    display: flex; 
+    gap: 20px;
+    min-width: fit-content;
+    
     /* Align items flex-start để Numpad có thể dùng margin-top: auto */
-    align-items: flex-start;
+    align-items: flex-start; 
 }
 
 /* --- KEY STYLES --- */
 .key {
-    background-color: var(--bg-color);
-    color: var(--text-orange);
+    background-color: #FDF6E8;
+    color: #E57D36;
     font-weight: 700;
     font-size: 12px;
     border-radius: var(--radius);
@@ -120,8 +105,8 @@
 .key:active {
     transform: translateY(3px);
     box-shadow: none;
-    background-color: var(--text-orange);
-    color: var(--bg-color);
+    background-color: #E57D36;
+    color: white;
 }
 
 .key.transparent {
@@ -137,6 +122,7 @@
     display: flex;
     flex-direction: column;
     gap: var(--gap-size);
+    /* Tính toán tổng chiều rộng chuẩn: 15u + 14 khoảng trống */
     width: calc(15 * var(--key-base-size) + 14 * var(--gap-size));
 }
 
@@ -147,33 +133,13 @@
 }
 
 /* Kích thước chuẩn (Công thức: size * unit + gap * (unit - 1)) */
-.k-1 {
-    width: var(--key-base-size);
-}
-
-.k-1-25 {
-    width: calc(var(--key-base-size) * 1.25 + var(--gap-size) * 0.25);
-}
-
-.k-1-5 {
-    width: calc(var(--key-base-size) * 1.5 + var(--gap-size) * 0.5);
-}
-
-.k-1-75 {
-    width: calc(var(--key-base-size) * 1.75 + var(--gap-size) * 0.75);
-}
-
-.k-2 {
-    width: calc(var(--key-base-size) * 2 + var(--gap-size) * 1);
-}
-
-.k-2-25 {
-    width: calc(var(--key-base-size) * 2.25 + var(--gap-size) * 1.25);
-}
-
-.k-2-75 {
-    width: calc(var(--key-base-size) * 2.75 + var(--gap-size) * 1.75);
-}
+.k-1 { width: var(--key-base-size); }
+.k-1-25 { width: calc(var(--key-base-size) * 1.25 + var(--gap-size) * 0.25); }
+.k-1-5 { width: calc(var(--key-base-size) * 1.5 + var(--gap-size) * 0.5); }
+.k-1-75 { width: calc(var(--key-base-size) * 1.75 + var(--gap-size) * 0.75); }
+.k-2 { width: calc(var(--key-base-size) * 2 + var(--gap-size) * 1); }
+.k-2-25 { width: calc(var(--key-base-size) * 2.25 + var(--gap-size) * 1.25); }
+.k-2-75 { width: calc(var(--key-base-size) * 2.75 + var(--gap-size) * 1.75); }
 
 /* --- ALIGNMENT FIXES (SỬA LỖI LỆCH HÀNG) --- */
 /* Nguyên nhân: Hàng ít phím hơn sẽ có ít khoảng trống (gap) hơn, làm tổng chiều dài ngắn đi.
@@ -192,18 +158,14 @@
 }
 
 /* Row 6 (Ctrl Row): Thiếu 6 gap */
-.k-6-25 {
+.k-6-25 { 
+    /* Spacebar cũ + 6 gap */
     width: calc((var(--key-base-size) * 6.25 + var(--gap-size) * 5.25) + 6 * var(--gap-size));
 }
 
 /* Hàng F-Key */
-.f-row {
-    margin-bottom: 15px;
-}
-
-.gap-block {
-    width: calc(var(--key-base-size) * 0.5);
-}
+.f-row { margin-bottom: 15px; }
+.gap-block { width: calc(var(--key-base-size) * 0.5); }
 
 
 /* =========================================
@@ -213,9 +175,9 @@
     display: flex;
     flex-direction: column;
     width: calc(3 * var(--key-base-size) + 2 * var(--gap-size));
-
+    
     /* FIX QUAN TRỌNG: Ép cột này căng chiều cao bằng cột Main Keyboard */
-    align-self: stretch;
+    align-self: stretch; 
 }
 
 .nav-top {
@@ -226,7 +188,7 @@
 
 .nav-arrows {
     /* Đẩy cụm mũi tên xuống đáy container (lúc này container đã full chiều cao) */
-    margin-top: auto;
+    margin-top: auto; 
     display: flex;
     flex-direction: column;
     gap: var(--gap-size);
@@ -240,9 +202,9 @@
     grid-template-columns: repeat(4, var(--key-base-size));
     grid-template-rows: repeat(5, var(--key-base-size));
     gap: var(--gap-size);
-
+    
     /* QUAN TRỌNG: Đẩy Numpad xuống đáy để ngang hàng với Main & Arrows */
-    margin-top: auto;
+    margin-top: auto; 
 }
 
 /* Grid Spanning */

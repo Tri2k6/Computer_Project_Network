@@ -1,6 +1,7 @@
 import { Bonjour } from 'bonjour-service';
 import { Logger } from './Logger';
 import { Config } from '../config';
+import * as os from 'os';
 
 export class BonjourService {
     private bonjourInstance: Bonjour | null = null;
@@ -24,35 +25,43 @@ export class BonjourService {
             const serviceName = 'rat-gateway';
             const serviceType = '_http._tcp';
             const port = Config.PORT + 2;
+            
+            // Get hostname for better network discovery
+            const hostname = os.hostname().split('.')[0]; // Remove domain if present
+            const networkInterfaces = os.networkInterfaces();
+            
+            Logger.info(`[Bonjour] Publishing service: ${serviceName} (${serviceType}) on port ${port}`);
 
-            Logger.info(`[Bonjour] Attempting to publish HTTP service: ${serviceName} (type: ${serviceType}, port: ${port})`);
-
-            this.service = this.bonjourInstance.publish({
+            // Try publishing without host first (let Bonjour auto-detect)
+            // If that doesn't work, we can try with explicit host
+            const publishOptions: any = {
                 name: serviceName,
                 type: serviceType,
                 port: port,
                 txt: {
                     version: '1.0.0',
                     protocol: 'ws',
-                    port: port.toString()
+                    port: port.toString(),
+                    path: '/'
                 }
-            });
+            };
+            
+            // Only add host if we have a valid hostname
+            if (hostname && hostname !== 'localhost') {
+                publishOptions.host = hostname;
+            }
+            
+            this.service = this.bonjourInstance.publish(publishOptions);
 
             this.service.on('up', () => {
-                Logger.info(`[Bonjour] ✓ Service published successfully!`);
-                Logger.info(`[Bonjour] Service name: ${serviceName}.local`);
-                Logger.info(`[Bonjour] Service type: ${serviceType}`);
-                Logger.info(`[Bonjour] Port: ${port}`);
-                Logger.info(`[Bonjour] Clients can connect to: ws://${serviceName}.local:${port} (HTTP/WS)`);
-                Logger.info(`[Bonjour] Test with: ping ${serviceName}.local`);
+                Logger.info(`[Bonjour] Service published: ${serviceName}.local:${port}`);
             });
 
             this.service.on('error', (err: any) => {
-                Logger.error(`[Bonjour] ✗ Service error: ${err}`);
-                Logger.error(`[Bonjour] Service may not be discoverable. Check network settings and multicast DNS.`);
+                Logger.error(`[Bonjour] Service error: ${err}`);
             });
 
-            Logger.info(`[Bonjour] Service publishing initiated. Waiting for 'up' event...`);
+
         } catch (error) {
             Logger.error(`[Bonjour] ✗ Failed to publish service: ${error}`);
             Logger.error(`[Bonjour] Make sure bonjour-service package is installed and network allows multicast DNS.`);
@@ -63,13 +72,11 @@ export class BonjourService {
         if (this.service) {
             this.service.stop();
             this.service = null;
-            Logger.info('[Bonjour] Service stopped');
         }
 
         if (this.bonjourInstance) {
             this.bonjourInstance.destroy();
             this.bonjourInstance = null;
-            Logger.info('[Bonjour] Bonjour instance destroyed');
         }
     }
 

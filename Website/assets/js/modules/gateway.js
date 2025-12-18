@@ -19,29 +19,28 @@ export class Gateway{
         this.ws = null;
         this.callbacks = callbacks;
         this.isAuthenticated = false;
-        this.machineId = this._getMachineId();
+        this.machineId = null; // Will be set asynchronously
         this.targetId = 'ALL';
-        this._hasTriedInsecure = false;
         this._lastCloseCode = null; // Track last close code to prevent reconnect loops
 
         this.ui = window.ui || { log: console.log, renderList: console.table };
 
         this.agentsList = [];
-    }
-
-    findAgentId(input) {
-        if (input === 'ALL') return 'ALL';
+        this.appsList = [];
+        this.processesList = [];
+        this._rawAppsList = [];
+        this._rawProcessesList = [];
         
-        const agent = this.agentsList.find(a => 
-            a.id === input || 
-            a.ip === input || 
-            a.machineId === input
-        );
-
-        return agent ? agent.id : null;
+        // Initialize machineId asynchronously
+        this._getMachineId().then(id => {
+            this.machineId = id;
+        }).catch(() => {
+            // Fallback to sync method if async fails
+            this.machineId = this._getMachineIdSync();
+        });
     }
-
-    _getMachineId() {
+    
+    _getMachineIdSync() {
         let id = localStorage.getItem(CONFIG.LOCAL_STORAGE_ID_KEY);
         if (!id) {
             const hostname = window.location.hostname || 'localhost';
@@ -58,6 +57,77 @@ export class Gateway{
         return id;
     }
 
+    findAgentId(input) {
+        if (input === 'ALL') return 'ALL';
+        
+        const agent = this.agentsList.find(a => 
+            a.id === input || 
+            a.ip === input || 
+            a.machineId === input
+        );
+
+        return agent ? agent.id : null;
+    }
+
+    async _getMachineId() {
+        let id = localStorage.getItem(CONFIG.LOCAL_STORAGE_ID_KEY);
+        if (!id) {
+            // Try to get hardware-based unique ID
+            try {
+                // Use Web Crypto API to generate a persistent ID based on hardware
+                const hardwareInfo = await this._getHardwareFingerprint();
+                id = `CLI-${hardwareInfo}`;
+                id = id.replace(/[^a-zA-Z0-9\-_]/g, '-').substring(0, 50);
+                localStorage.setItem(CONFIG.LOCAL_STORAGE_ID_KEY, id);
+            } catch (error) {
+                // Fallback to hash-based method
+                const hostname = window.location.hostname || 'localhost';
+                const userAgent = navigator.userAgent || 'unknown';
+                const platform = navigator.platform || 'unknown';
+                const language = navigator.language || 'unknown';
+                const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'unknown';
+                
+                const hash = this._simpleHash(hostname + userAgent + platform + language + timezone);
+                const shortHash = hash.toString(36).substring(0, 12).toUpperCase();
+                
+                id = `CLI-${hostname}-${shortHash}`;
+                id = id.replace(/[^a-zA-Z0-9\-_]/g, '-').substring(0, 50);
+                localStorage.setItem(CONFIG.LOCAL_STORAGE_ID_KEY, id);
+            }
+        }
+        return id;
+    }
+
+    async _getHardwareFingerprint() {
+        // Collect hardware/software characteristics
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        ctx.textBaseline = 'top';
+        ctx.font = '14px Arial';
+        ctx.fillText('Hardware fingerprint', 2, 2);
+        
+        const canvasFingerprint = canvas.toDataURL();
+        const screenInfo = `${screen.width}x${screen.height}x${screen.colorDepth}`;
+        const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        const language = navigator.language;
+        const platform = navigator.platform;
+        const hardwareConcurrency = navigator.hardwareConcurrency || 'unknown';
+        const deviceMemory = navigator.deviceMemory || 'unknown';
+        
+        // Combine all hardware characteristics
+        const fingerprint = `${canvasFingerprint}-${screenInfo}-${timezone}-${language}-${platform}-${hardwareConcurrency}-${deviceMemory}`;
+        
+        // Create a hash using Web Crypto API
+        const encoder = new TextEncoder();
+        const data = encoder.encode(fingerprint);
+        const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+        
+        // Return first 24 characters (12 bytes) as hex string
+        return hashHex.substring(0, 24).toUpperCase();
+    }
+
     _simpleHash(str) {
         let hash = 0;
         for (let i = 0; i < str.length; i++) {
@@ -68,40 +138,34 @@ export class Gateway{
         return Math.abs(hash);
     }
 
-    connect(ip, port = CONFIG.SERVER_PORT, useSecure = true) {
+    connect(ip, port = CONFIG.SERVER_PORT, useSecure = false) {
         if (this.ws) {
-            console.log(`[Gateway] Closing existing connection before creating new one`);
             this.ws.close();
             this.ws = null;
         }
         
-        // Auto-detect: port 8082 is HTTP/WS, port 8080 is HTTPS/WSS
-        if (port === CONFIG.SERVER_PORT + 2) {
+        // Auto-detect: port 8082 = WS, port 8080 = WSS
+        if (port === 8080) {
+            useSecure = true;
+        } else if (port === 8082) {
             useSecure = false;
         }
         
-        // Reset insecure flag for new connection attempt
-        if (useSecure) {
-            this._hasTriedInsecure = false;
-        }
-
         const protocol = useSecure ? 'wss' : 'ws';
         const url = `${protocol}://${ip}:${port}`;
-        console.log(`[Gateway] Creating new connection to ${url}...`);
 
         this.ws = new WebSocket(url);
 
         this.ws.onopen = () => {
-            console.log(`[Network] Socket opened successfully to ${url}`)
-            console.log(`[Network] Sending AUTH message...`)
+            // Ensure machineId is ready before sending auth
+            const machineId = this.machineId || this._getMachineIdSync();
             this.send(
                 CONFIG.CMD.AUTH, {
                     pass: CONFIG.AUTH_HASH,
                     role: 'CLIENT',
-                    machineId: this.machineId
+                    machineId: machineId
                 }
             );
-            console.log(`[Network] AUTH message sent`)
         };
 
         this.ws.onmessage = (event) => this._handleInternalMessage(event);
@@ -112,45 +176,20 @@ export class Gateway{
             this._lastCloseCode = event.code;
             this.isAuthenticated = false;
             
-            console.log(`[Network] Socket closed. Code: ${event.code}, Reason: ${event.reason || 'Unknown'}`);
-            console.log(`[Network] Was authenticated: ${wasAuthenticated}, Connection ID: ${connectionId}`);
-            
             // Code 1001 = Going Away (normal closure, e.g., page refresh, tab close)
             // Code 1000 = Normal Closure
             // Code 1006 = Abnormal Closure (no close frame)
             // Code 1005 = No Status Received
             
-            if (event.code === 1001) {
-                console.log(`[Network] Connection closed normally (Going Away). This usually means:`);
-                console.log(`  1. Page refresh or navigation`);
-                console.log(`  2. Tab/window closed`);
-                console.log(`  3. Browser initiated close`);
-                console.log(`[Network] Not triggering auto-reconnect for intentional close (code 1001)`);
-                // Don't trigger onDisconnected for intentional closes
+            if (event.code === 1001 || event.code === 1000) {
+                // Intentional close - don't reconnect
                 return;
-            } else if (event.code === 1000) {
-                console.log(`[Network] Connection closed normally (code 1000). Intentional close.`);
-                console.log(`[Network] Not triggering auto-reconnect for intentional close (code 1000)`);
-                return;
-            } else if (event.code === 1006) {
-                console.error(`[Network] Connection failed abnormally. This usually means:`);
-                console.error(`  1. Gateway server is not running at ${ip}:${port}`);
-                console.error(`  2. SSL certificate is not trusted (self-signed)`);
-                console.error(`  3. Network interruption`);
-                console.error(`  → Fix: Open https://${ip}:${port} in browser first to accept certificate`);
-            } else if (event.code === 1005) {
-                console.warn(`[Network] Connection closed without status (code 1005). This may indicate:`);
-                console.warn(`  1. Connection was closed before authentication completed`);
-                console.warn(`  2. Network interruption`);
-                console.warn(`  3. Server closed connection unexpectedly`);
             }
             
-            // Only trigger onDisconnected if we were actually connected and it wasn't an intentional close
-            // This prevents auto-reconnect loops when connection was intentionally closed
+            // For other close codes, only trigger onDisconnected if we were authenticated
+            // This prevents reconnect loops when connection fails before authentication
             if (wasAuthenticated && this.callbacks.onDisconnected) {
                 this.callbacks.onDisconnected();
-            } else if (!wasAuthenticated) {
-                console.log(`[Network] Connection closed before authentication - not triggering disconnect callback`);
             }
         };
 
@@ -159,9 +198,11 @@ export class Gateway{
             console.error(`[Network] Cannot connect to ${url}`);
             console.error(`[Network] Possible causes:`);
             console.error(`  - Gateway server is not running`);
-            console.error(`  - SSL certificate is not trusted (self-signed certificate)`);
+            if (useSecure) {
+                console.error(`  - SSL certificate is not trusted (self-signed certificate)`);
+                console.error(`  - Solution: Open https://${ip}:${port} in browser first to accept the certificate`);
+            }
             console.error(`  - Firewall blocking connection`);
-            console.error(`[Network] Solution: Open https://${ip}:${port} in browser first to accept the certificate`);
             if (this.callbacks.onError) {
                 this.callbacks.onError(err);
             }
@@ -173,11 +214,12 @@ export class Gateway{
     }
 
     authenticate() {
-        console.log(`[Gateway] Authenticating as CLIENT with machineId: ${this.machineId}`);
+        const machineId = this.machineId || this._getMachineIdSync();
+        console.log(`[Gateway] Authenticating as CLIENT with machineId: ${machineId}`);
         this.send(CONFIG.CMD.AUTH, {
             pass: CONFIG.AUTH_HASH,
             role: 'CLIENT',
-            machineId: this.machineId
+            machineId: machineId
         });
     }
 
@@ -188,10 +230,7 @@ export class Gateway{
         }
 
         if (type === CONFIG.CMD.AUTH) {
-            const authMsg = JSON.stringify({type, data});
-            console.log(`[Gateway] Sending AUTH message: ${authMsg.substring(0, 100)}...`);
-            this.ws.send(authMsg);
-            console.log(`[Gateway] AUTH message sent successfully`);
+            this.ws.send(JSON.stringify({type, data}));
             return;
         }
 
@@ -274,18 +313,50 @@ export class Gateway{
                     }
                     break;
                 case CONFIG.CMD.GET_AGENTS:
-                    this.agentsList = msg.data; 
-                    console.table(this.agentsList);
-
+                    console.log('[Gateway] Received GET_AGENTS response:', msg.data);
+                    this.agentsList = msg.data;
                     if (this.callbacks.onAgentListUpdate) {
+                        console.log('[Gateway] Calling onAgentListUpdate callback');
                         this.callbacks.onAgentListUpdate(msg.data);
-                    } 
+                    } else {
+                        console.warn('[Gateway] onAgentListUpdate callback not defined');
+                    }
                     break;
                 case CONFIG.CMD.PROC_LIST:
-                    this.ui.renderList('Process List', msg.data);
+                    if (msg.data && msg.data.status === 'ok' && msg.data.processes) {
+                        // Format processes for display
+                        const formattedProcs = DataFormatter.formatProcessList(msg.data.processes);
+                        this.processesList = formattedProcs;
+                        this.ui.renderList("PROCESSES", formattedProcs);
+                        
+                        // Store raw data for search
+                        this._rawProcessesList = msg.data.processes;
+                        
+                        // Trigger callback if available
+                        if (this.callbacks.onProcessListUpdate) {
+                            this.callbacks.onProcessListUpdate(formattedProcs);
+                        }
+                    } else {
+                        this.ui.log('Error', msg.data?.msg || 'Failed to fetch processes');
+                    }
                     break;
                 case CONFIG.CMD.APP_LIST:
-                    this.ui.renderList('Application List', msg.data);
+                    if (msg.data && msg.data.status === 'ok' && msg.data.apps) {
+                        // Format apps for display
+                        const formattedApps = DataFormatter.formatAppList(msg.data.apps);
+                        this.appsList = formattedApps;
+                        this.ui.renderList("APPLICATIONS", formattedApps);
+                        
+                        // Store raw data for search
+                        this._rawAppsList = msg.data.apps;
+                        
+                        // Trigger callback if available
+                        if (this.callbacks.onAppListUpdate) {
+                            this.callbacks.onAppListUpdate(formattedApps);
+                        }
+                    } else {
+                        this.ui.log('Error', msg.data?.msg || 'Failed to fetch apps');
+                    }
                     break;
                 case CONFIG.CMD.FILE_LIST:
                     if (msg.data && msg.data.status === 'ok' && msg.data.files) {
@@ -304,17 +375,21 @@ export class Gateway{
                     break;
                 case CONFIG.CMD.SCREENSHOT:
                     if (msg.data && msg.data.status === 'ok') {
-                        console.log(`[Gateway] Screenshot received from ${senderId}`);
                         if (this.callbacks.onScreenshot) {
                             this.callbacks.onScreenshot(msg.data.data, senderId);
+                        }
+                        if (typeof MediaPreview !== 'undefined') {
+                            MediaPreview.showImagePreview(msg.data.data, `Screenshot from ${senderId}`);
                         }
                     }
                     break;
                 case CONFIG.CMD.CAM_RECORD:
                     if (msg.data && msg.data.status === 'ok') {
-                        console.log(`[Gateway] Camera video received from ${senderId}`);
                         if (this.callbacks.onCamera) {
                             this.callbacks.onCamera(msg.data.data, senderId);
+                        }
+                        if (typeof MediaPreview !== 'undefined') {
+                            MediaPreview.showVideoPreview(msg.data.data, `Camera Recording from ${senderId}`);
                         }
                     }
                     break;

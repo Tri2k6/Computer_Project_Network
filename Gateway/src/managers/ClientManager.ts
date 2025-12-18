@@ -34,13 +34,11 @@ export class ClientManager {
 
     public addClients(conn: Connection) {
         if (this.clients.has(conn.id)) {
-            Logger.warn(`[ClientManager] Client ${conn.name || conn.id} (${conn.id}) reconnecting...closing old session.`);
             const oldConn = this.clients.get(conn.id);
             oldConn?.close();
         }
 
         this.clients.set(conn.id, conn);
-        Logger.info(`[ClientManager] Client connected: ${conn.name || 'Unknown'} (${conn.id}) - Machine: ${conn.machineId}. Total clients: ${this.clients.size}`);
     }
 
     public removeClient(id: string) {

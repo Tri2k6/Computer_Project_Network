@@ -10,11 +10,10 @@ const DISCOVERY_RESPONSE_PREFIX = "I_AM_GATEWAY:";
 export class DiscoveryListener {
     private server: dgram.Socket | null = null;
     private gatewayIP: string = "";
-    private gatewayPort: string = "";
+    private readonly WSS_PORT = "8080"; // Secure WSS port for Agent connections
 
     constructor() {
         this.gatewayIP = this.getLocalIP();
-        this.gatewayPort = Config.PORT.toString();
     }
 
     private getLocalIP(): string {
@@ -35,35 +34,40 @@ export class DiscoveryListener {
     }
 
     public start(): void {
+        // Don't start if already running
+        if (this.server) {
+            return;
+        }
+        
         try {
             this.server = dgram.createSocket('udp4');
             
             this.server.on('message', (msg, rinfo) => {
                 const message = msg.toString();
-                Logger.info(`[Discovery] Received message from ${rinfo.address}:${rinfo.port} - "${message}"`);
                 
                 if (message === DISCOVERY_REQUEST) {
-                    const response = `${DISCOVERY_RESPONSE_PREFIX} ws://${this.gatewayIP}:${this.gatewayPort}`;
-                    
+                    const response = `${DISCOVERY_RESPONSE_PREFIX} wss://${this.gatewayIP}:${this.WSS_PORT}`;
+                    Logger.info(`[Discovery] Received discovery request from ${rinfo.address}:${rinfo.port}, responding with ${response}`);
                     this.server?.send(response, rinfo.port, rinfo.address, (err) => {
                         if (err) {
                             Logger.error(`[Discovery] Failed to send response: ${err.message}`);
                         } else {
-                            Logger.info(`[Discovery] Responded to ${rinfo.address}:${rinfo.port} - Gateway at ws://${this.gatewayIP}:${this.gatewayPort}`);
+                            Logger.info(`[Discovery] Sent discovery response to ${rinfo.address}:${rinfo.port}`);
                         }
                     });
-                } else {
-                    Logger.warn(`[Discovery] Received unknown message: "${message}"`);
                 }
             });
             
-            this.server.on('error', (err) => {
-                Logger.error(`[Discovery] UDP socket error: ${err.message}`);
+            this.server.on('error', (err: NodeJS.ErrnoException) => {
+                if (err.code === 'EADDRINUSE') {
+                    Logger.warn(`[Discovery] Port ${DISCOVERY_PORT} already in use. Discovery may already be running.`);
+                } else {
+                    Logger.error(`[Discovery] UDP socket error: ${err.message}`);
+                }
             });
             
             this.server.bind(DISCOVERY_PORT, () => {
                 Logger.info(`[Discovery] UDP listener started on port ${DISCOVERY_PORT}`);
-                Logger.info(`[Discovery] Gateway will respond with: ${this.gatewayIP}:${this.gatewayPort}`);
             });
             
         } catch (error) {
@@ -75,15 +79,14 @@ export class DiscoveryListener {
         if (this.server) {
             this.server.close();
             this.server = null;
-            Logger.info(`[Discovery] UDP listener stopped`);
         }
     }
 
     public getGatewayIP(): string {
         return this.gatewayIP;
     }
-
-    public getGatewayPort(): string {
-        return this.gatewayPort;
+    
+    public isRunning(): boolean {
+        return this.server !== null;
     }
 }

@@ -117,7 +117,38 @@ export class RouteHandler {
 
         // Handle GET_AGENTS
         if (msg.type === CommandType.GET_AGENTS) {
+            // Debug: Check ConnectionRegistry directly
+            const registryAgents = this.connectionRegistry.getConnectionsByRole('AGENT');
+            const totalConnections = this.connectionRegistry.getConnectionCount();
+            const agentCount = this.connectionRegistry.getConnectionCount('AGENT');
+            const clientCount = this.connectionRegistry.getConnectionCount('CLIENT');
+            
+            Logger.info(`[RouteHandler] GET_AGENTS: Registry - Total: ${totalConnections} (${agentCount} agents, ${clientCount} clients)`);
+            Logger.info(`[RouteHandler] GET_AGENTS: ConnectionRegistry.getConnectionsByRole('AGENT') returned ${registryAgents.length} agents`);
+            
+            // Log agent details for debugging
+            if (registryAgents.length > 0) {
+                registryAgents.forEach(agent => {
+                    const agentWs = agent.getRawSocket();
+                    const wsState = agentWs ? agentWs.readyState : 'unknown';
+                    Logger.info(`[RouteHandler] Agent: ${agent.id} (${agent.name}) - IP: ${agent.ip} - MachineId: ${agent.machineId} - WS State: ${wsState}`);
+                });
+            } else {
+                Logger.warn(`[RouteHandler] No agents found in ConnectionRegistry. Agents must be actively connected via WebSocket.`);
+                
+                // Debug: List all connections in registry
+                const allConnections = this.connectionRegistry.getAllConnections();
+                Logger.info(`[RouteHandler] All connections in registry: ${allConnections.length}`);
+                allConnections.forEach(c => {
+                    const cWs = c.getRawSocket();
+                    const cWsState = cWs ? cWs.readyState : 'unknown';
+                    Logger.info(`[RouteHandler]   - ${c.id} (${c.role}) - ${c.machineId} - WS State: ${cWsState}`);
+                });
+            }
+            
             const list = this.agentManager.getAgentListDetails();
+            Logger.info(`[RouteHandler] GET_AGENTS: AgentManager.getAgentListDetails() returned ${list.length} agents`);
+            Logger.info(`[RouteHandler] GET_AGENTS: Returning ${list.length} agents to client`);
             
             const response = createMessage(
                 CommandType.GET_AGENTS,
@@ -126,7 +157,6 @@ export class RouteHandler {
 
             ws.send(JSON.stringify(response));
             this.activityLogger.logAgentListRequest(conn);
-            Logger.info(`[Router] Sent agent list to ${conn.name} (${conn.id})`)
             return;
         }
 
@@ -222,7 +252,6 @@ export class RouteHandler {
                 true
             );
             
-            Logger.info(`[Router] Forwarded ${msg.type} from ${senderName} (${sender.id}) to ${targetName} (${targetId})`);
         } else {
             this.activityLogger.logCommand(
                 senderConn,
@@ -256,7 +285,6 @@ export class RouteHandler {
         this.activityLogger.logBroadcast(senderConn, msg, count);
 
         const senderName = senderConn.name || sender.id;
-        Logger.info(`[Router] Broadcast ${msg.type} from ${senderName} (${sender.id}) to ${count} agents.`);
         sender.send(JSON.stringify(createMessage(
             CommandType.ECHO, 
             { msg: `Broadcasted to ${count} agents` }

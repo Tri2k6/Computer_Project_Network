@@ -9,14 +9,13 @@ import { Message, createMessage } from "../types/Message";
 import { CommandType } from "../types/Protocols";
 import { Logger } from "../utils/Logger";
 import { DiscoveryListener } from "../utils/DiscoveryListener";
-import { BonjourService } from "../utils/BonjourService";
 import { Config } from "../config";
 import * as https from 'https'
 import * as http from 'http'
+import * as os from 'os'
 
 export class GatewayServer {
     private wss: WebSocketServer;
-    private wssInsecure: WebSocketServer | null = null;
     private httpServer: http.Server | null = null;
     private agentManager: AgentManager;
     private clientManager: ClientManager;
@@ -25,11 +24,14 @@ export class GatewayServer {
     private router: RouteHandler;
     private heartbeatInterval: NodeJS.Timeout | null = null;
     private connectionCounter: number = 1;
+    private static globalConnectionCounter: number = 1; // Shared counter across instances
     private dashboardServer: http.Server | null = null;
-    private discoveryListener: DiscoveryListener;
-    private bonjourService: BonjourService;
+    private discoveryListener: DiscoveryListener | null = null;
+    private static sharedDiscoveryListener: DiscoveryListener | null = null;
+    private static sharedDashboardServer: http.Server | null = null;
+    private static isDiscoveryStarted: boolean = false;
 
-    constructor(server: https.Server) {
+    constructor(server: http.Server | https.Server) {
         this.dbManager = new DatabaseManager();
         this.connectionRegistry = new ConnectionRegistry(this.dbManager);
         
@@ -42,19 +44,29 @@ export class GatewayServer {
             this.dbManager
         );
         this.wss = new WebSocketServer({ server });
-        this.discoveryListener = new DiscoveryListener();
-        this.bonjourService = new BonjourService();
+        
+        // Share DiscoveryListener and Dashboard across all GatewayServer instances
+        if (!GatewayServer.sharedDiscoveryListener) {
+            GatewayServer.sharedDiscoveryListener = new DiscoveryListener();
+        }
+        this.discoveryListener = GatewayServer.sharedDiscoveryListener;
 
-        Logger.info(`GatewayServer initialized WSS mode with database and connection registry`);
+        Logger.info(`GatewayServer initialized with database and connection registry`);
     }
 
     public start() {
         this.wss.on('connection', (ws: WebSocket, req) => {
             const ip = req.socket.remoteAddress;
-            const sessionId = `CONN-${this.connectionCounter++}`;
+            // Use global counter + timestamp to ensure unique IDs across all connections and server restarts
+            const counter = GatewayServer.globalConnectionCounter++;
+            const timestamp = Date.now();
+            const sessionId = `CONN-${counter}-${timestamp.toString(36)}`;
             ws.id = sessionId;
-            Logger.info(`New connection from IP: ${ip} (Session: ${sessionId})`);
+            
+            // Also update instance counter for backward compatibility
+            this.connectionCounter = counter + 1;
 
+            Logger.info(`[Server] New WebSocket connection from ${ip} (${sessionId}) - Counter: ${counter}`);
             ws.isAlive = true;
             
             const autoAuthTimer = setTimeout(() => {
@@ -65,6 +77,8 @@ export class GatewayServer {
 
             ws.on('message', (data) => {
                 clearTimeout(autoAuthTimer);
+                ws.isAlive = true; // Mark as alive when receiving messages
+                Logger.debug(`[Server] Received message from ${sessionId}`);
                 this.handleMessage(ws, data);
             });
 
@@ -72,81 +86,61 @@ export class GatewayServer {
                 ws.isAlive = true;
             });
 
-            ws.on('error', (err) => Logger.error(`Socket error: ${err.message}`));
+            ws.on('error', (err) => {
+                Logger.error(`[Server] Socket error for ${sessionId}: ${err.message}`);
+                // Check if connection is still in registry
+                if (ws.id) {
+                    const conn = this.connectionRegistry.getConnection(ws.id);
+                    if (conn) {
+                        Logger.warn(`[Server] Connection ${ws.id} has error but still in registry. Role: ${conn.role}`);
+                    }
+                }
+            });
 
             ws.on('close', (code, reason) => {
                 clearTimeout(autoAuthTimer);
-                const wasAuthenticated = ws.role ? 'authenticated' : 'unauthenticated';
-                const connectionInfo = ws.id ? `(ID: ${ws.id}, Machine: ${(ws as any).machineId || 'unknown'})` : '';
-                Logger.info(`[Server] SECURE connection ${sessionId} closed. Code: ${code}, Reason: ${reason?.toString() || 'none'}, Role: ${ws.role || 'unauthenticated'}, Status: ${wasAuthenticated} ${connectionInfo}`);
-                Logger.debug(`[Server] Connection state before close: readyState=${ws.readyState}, isAlive=${ws.isAlive}`);
+                const role = ws.role || 'unknown';
+                const conn = ws.id ? this.connectionRegistry.getConnection(ws.id) : null;
+                const machineId = conn?.machineId || 'unknown';
+                Logger.info(`[Server] WebSocket ${sessionId} closed. Code: ${code}, Reason: ${reason || 'none'}, Role: ${role}, MachineId: ${machineId}`);
                 this.handleClose(ws);
             });
         });
 
         this.startHeartbeat();
-        this.startDashboard();
-        this.startInsecureServer();
-        this.discoveryListener.start();
-        this.bonjourService.start();
+        
+        // Only start Dashboard and Discovery once (shared across instances)
+        if (!GatewayServer.sharedDashboardServer) {
+            this.startDashboard();
+            GatewayServer.sharedDashboardServer = this.dashboardServer;
+        } else {
+            this.dashboardServer = GatewayServer.sharedDashboardServer;
+        }
+        
+        if (this.discoveryListener && !GatewayServer.isDiscoveryStarted) {
+            this.discoveryListener.start();
+            GatewayServer.isDiscoveryStarted = true;
+        }
+        
+        this.startWebSocketServer();
 
         process.on('SIGINT', this.shutdown.bind(this));
         process.on('SIGTERM', this.shutdown.bind(this));
     }
 
-    private startInsecureServer() {
-        try {
-            this.httpServer = http.createServer();
-            this.wssInsecure = new WebSocketServer({ server: this.httpServer });
-            
-            this.wssInsecure.on('connection', (ws: WebSocket, req) => {
-                const ip = req.socket.remoteAddress;
-                const sessionId = `CONN-${this.connectionCounter++}`;
-                ws.id = sessionId;
-                Logger.info(`New INSECURE connection from IP: ${ip} (Session: ${sessionId})`);
-
-                ws.isAlive = true;
-                
-                const autoAuthTimer = setTimeout(() => {
-                    if (!ws.role) {
-                        Logger.info(`[Server] Auto-authenticating INSECURE connection ${sessionId} as AGENT (no message received)`);
-                        this.autoAuthenticateAgent(ws, sessionId, ip || "unknown");
-                    }
-                }, 1000);
-
-                ws.on('message', (data) => {
-                    clearTimeout(autoAuthTimer);
-                    Logger.info(`[Server] Received message from INSECURE connection ${sessionId}, length: ${data.length}`);
-                    this.handleMessage(ws, data);
-                });
-
-                ws.on('pong', () => {
-                    ws.isAlive = true;
-                });
-
-                ws.on('error', (err) => Logger.error(`Socket error: ${err.message}`));
-
-                ws.on('close', (code, reason) => {
-                    clearTimeout(autoAuthTimer);
-                    const wasAuthenticated = ws.role ? 'authenticated' : 'unauthenticated';
-                    const connectionInfo = ws.id ? `(ID: ${ws.id}, Machine: ${(ws as any).machineId || 'unknown'})` : '';
-                    Logger.info(`[Server] INSECURE connection ${sessionId} closed. Code: ${code}, Reason: ${reason?.toString() || 'none'}, Role: ${ws.role || 'unauthenticated'}, Status: ${wasAuthenticated} ${connectionInfo}`);
-                    Logger.debug(`[Server] Connection state before close: readyState=${ws.readyState}, isAlive=${ws.isAlive}`);
-                    this.handleClose(ws);
-                });
-            });
-
-            const insecurePort = Config.PORT + 2;
-            this.httpServer.listen(insecurePort, '0.0.0.0', () => {
-                Logger.info(`Gateway WS (insecure) Server listening on port ${insecurePort}`);
-                Logger.info(`Local:   http://localhost:${insecurePort}`);
-            });
-        } catch (error) {
-            Logger.error(`Failed to start insecure HTTP server: ${error}`);
-        }
+    private startWebSocketServer() {
+        // WebSocket server is already initialized in constructor
+        // This method is kept for consistency but does nothing
+        // The actual server is started in index.ts
     }
 
     private startDashboard() {
+        // Don't start if already running
+        if (GatewayServer.sharedDashboardServer) {
+            this.dashboardServer = GatewayServer.sharedDashboardServer;
+            return;
+        }
+        
         const dashboardPort = parseInt(process.env.DASHBOARD_PORT || '8081');
         this.dashboardServer = http.createServer((req, res) => {
             const url = new URL(req.url || '/', `http://${req.headers.host}`);
@@ -178,25 +172,6 @@ export class GatewayServer {
                 return;
             }
 
-            if (url.pathname === '/api/discover' && req.method === 'GET') {
-                const gatewayIP = this.discoveryListener ? this.discoveryListener.getGatewayIP() : '';
-                const gatewayPort = Config.PORT;
-                
-                res.writeHead(200, { 
-                    'Content-Type': 'application/json',
-                    'Access-Control-Allow-Origin': '*',
-                    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-                    'Access-Control-Allow-Headers': 'Content-Type'
-                });
-                res.end(JSON.stringify({
-                    success: true,
-                    gateway: {
-                        ip: gatewayIP,
-                        port: gatewayPort
-                    }
-                }));
-                return;
-            }
 
             if (req.method === 'OPTIONS') {
                 res.writeHead(200, {
@@ -214,18 +189,29 @@ export class GatewayServer {
 
         this.dashboardServer.listen(dashboardPort, '0.0.0.0', () => {
             Logger.info(`[Dashboard] HTTP server listening on port ${dashboardPort}`);
-            Logger.info(`[Dashboard] Health check: http://localhost:${dashboardPort}/health`);
-            Logger.info(`[Dashboard] Stats: http://localhost:${dashboardPort}/stats`);
+        }).on('error', (err: NodeJS.ErrnoException) => {
+            if (err.code === 'EADDRINUSE') {
+                Logger.warn(`[Dashboard] Port ${dashboardPort} already in use. Dashboard may already be running.`);
+            } else {
+                Logger.error(`[Dashboard] Failed to start: ${err.message}`);
+            }
         });
     }
 
     private async shutdown() {
         Logger.info("Received shutdown signal. Starting graceful shutdown...");
-        this.discoveryListener.stop();
-        this.bonjourService.stop();
         
-        if (this.dashboardServer) {
-            this.dashboardServer.close();
+        // Only stop shared services once
+        if (this.discoveryListener === GatewayServer.sharedDiscoveryListener) {
+            this.discoveryListener.stop();
+            GatewayServer.sharedDiscoveryListener = null;
+        }
+        
+        if (this.dashboardServer === GatewayServer.sharedDashboardServer) {
+            if (this.dashboardServer) {
+                this.dashboardServer.close();
+            }
+            GatewayServer.sharedDashboardServer = null;
         }
         
         if (this.httpServer) {
@@ -249,12 +235,9 @@ export class GatewayServer {
         try {
             const rawString = data.toString();
             const message:  Message = JSON.parse(rawString);
-
-            Logger.debug(`[Server] Received message from ${ws.id}: type=${message.type}, role=${ws.role || 'unauthenticated'}`);
             this.router.handle(ws, message);
         } catch (error) {
             Logger.error(`[Server] Invalid Message format from ${ws.id}: ${(error as Error).message}`);
-            Logger.error(`[Server] Raw data: ${data.toString().substring(0, 100)}`);
 
             if (ws.readyState === WebSocket.OPEN) {
                 ws.send(JSON.stringify({
@@ -269,15 +252,27 @@ export class GatewayServer {
         if (ws.id) {
             const conn = this.connectionRegistry.getConnection(ws.id);
             if (conn) {
+                Logger.info(`[Server] Connection closing: ${ws.id} (${conn.role}) - MachineId: ${conn.machineId}`);
+                const agentCountBefore = this.connectionRegistry.getConnectionCount('AGENT');
+                const clientCountBefore = this.connectionRegistry.getConnectionCount('CLIENT');
+                
                 if (ws.role === 'AGENT') {
+                    Logger.info(`[Server] Removing AGENT: ${ws.id} (${conn.machineId})`);
                     this.agentManager.removeAgent(ws.id);
                 } else if (ws.role === 'CLIENT') {
+                    Logger.info(`[Server] Removing CLIENT: ${ws.id} (${conn.machineId})`);
                     this.clientManager.removeClient(ws.id);
                 }
                 this.connectionRegistry.unregisterConnection(ws.id);
+                
+                const agentCountAfter = this.connectionRegistry.getConnectionCount('AGENT');
+                const clientCountAfter = this.connectionRegistry.getConnectionCount('CLIENT');
+                Logger.info(`[Server] After disconnect: ${agentCountAfter} agents (was ${agentCountBefore}), ${clientCountAfter} clients (was ${clientCountBefore})`);
+            } else {
+                Logger.warn(`[Server] Connection ${ws.id} closed but not found in registry`);
             }
         } else {
-            Logger.info("Anonymous connection closed.");
+            Logger.info("[Server] Anonymous connection closed.");
         }
     }
 
@@ -285,7 +280,6 @@ export class GatewayServer {
         const machineId = `AGENT-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
         const name = `Agent-${machineId.substring(machineId.length - 6)}`;
 
-        Logger.info(`[Server] Auto-authenticating as AGENT: ${name} (${sessionId}) - Machine: ${machineId}`);
 
         const newConnection = new Connection(ws, sessionId, 'AGENT', ip, machineId, name);
 
@@ -293,7 +287,6 @@ export class GatewayServer {
         
         if (!registrationResult.success) {
             if (registrationResult.existingConnection) {
-                Logger.warn(`[Server] Closing duplicate connection: ${registrationResult.reason}`);
                 registrationResult.existingConnection.close();
                 const retryResult = this.connectionRegistry.registerConnection(newConnection);
                 if (!retryResult.success) {
@@ -321,6 +314,8 @@ export class GatewayServer {
 
         this.dbManager.logAuthAttempt(ip, machineId, 'AGENT', true, "Auto-authenticated");
         this.agentManager.addAgent(newConnection);
+        
+        Logger.info(`[Server] Agent registered: ${sessionId} (${name}) - Total agents in registry: ${this.connectionRegistry.getConnectionCount('AGENT')}`);
 
         ws.id = sessionId;
         ws.role = 'AGENT';
@@ -337,18 +332,74 @@ export class GatewayServer {
             }
         );
 
-        ws.send(JSON.stringify(successMsg));
-        Logger.info(`[Server] AGENT authenticated: ${name} (${sessionId}) - Agent ID: ${machineId}`);
+        try {
+            ws.send(JSON.stringify(successMsg));
+            Logger.info(`[Server] Successfully sent AUTH response to auto-authenticated agent ${sessionId}. WebSocket state: ${ws.readyState}`);
+            
+            // Double-check connection state after sending
+            setTimeout(() => {
+                const stillConnected = this.connectionRegistry.getConnection(sessionId);
+                const wsState = ws.readyState;
+                if (!stillConnected) {
+                    Logger.warn(`[Server] Auto-authenticated agent ${sessionId} disappeared from registry shortly after registration!`);
+                } else if (wsState !== WebSocket.OPEN) {
+                    Logger.warn(`[Server] Auto-authenticated agent ${sessionId} WebSocket state changed to ${wsState} shortly after registration!`);
+                } else {
+                    Logger.info(`[Server] Auto-authenticated agent ${sessionId} connection verified stable. Registry: ${this.connectionRegistry.getConnectionCount('AGENT')} agents`);
+                }
+            }, 1000);
+        } catch (error) {
+            Logger.error(`[Server] Failed to send AUTH response to auto-authenticated agent ${sessionId}: ${error}`);
+            // Connection might be closed, cleanup
+            this.connectionRegistry.unregisterConnection(sessionId);
+            this.agentManager.removeAgent(sessionId);
+        }
     }
 
     private startHeartbeat() {
         this.heartbeatInterval = setInterval(() => {
-            // Heartbeat for secure connections (WSS)
+            // Heartbeat for all connections
+            const totalClients = this.wss.clients.size;
+            const registryAgents = this.connectionRegistry.getConnectionCount('AGENT');
+            const registryClients = this.connectionRegistry.getConnectionCount('CLIENT');
+            Logger.debug(`[Heartbeat] Checking ${totalClients} WebSocket connections (Registry: ${registryAgents} agents, ${registryClients} clients)`);
+            
+            // Check for orphaned connections (in registry but not in WebSocket clients)
+            const registryConnections = this.connectionRegistry.getAllConnections();
+            registryConnections.forEach(conn => {
+                const ws = conn.getRawSocket();
+                if (ws.readyState !== WebSocket.OPEN && ws.readyState !== WebSocket.CONNECTING) {
+                    Logger.warn(`[Heartbeat] Found orphaned connection in registry: ${conn.id} (${conn.role}) - WebSocket state: ${ws.readyState}`);
+                    if (conn.role === 'AGENT') {
+                        this.agentManager.removeAgent(conn.id);
+                    } else {
+                        this.clientManager.removeClient(conn.id);
+                    }
+                    this.connectionRegistry.unregisterConnection(conn.id);
+                }
+            });
+            
             this.wss.clients.forEach((ws : WebSocket) => {
+                // Check if connection is still valid
+                if (ws.readyState !== WebSocket.OPEN && ws.readyState !== WebSocket.CONNECTING) {
+                    Logger.warn(`[Heartbeat] WebSocket ${ws.id || 'unknown'} is not OPEN (state: ${ws.readyState}). Cleaning up.`);
+                    if (ws.id) {
+                        this.handleClose(ws);
+                    }
+                    return;
+                }
+                
                 if (ws.isAlive === false) {
                     const conn = ws.id ? this.connectionRegistry.getConnection(ws.id) : null;
                     const name = conn?.name || ws.id || 'Anon';
-                    Logger.warn(`[Heartbeat] Terminating inactive SECURE connection: ${name} (${ws.id || 'Anon'})`);
+                    const role = ws.role || conn?.role || 'unknown';
+                    Logger.warn(`[Heartbeat] Terminating inactive connection: ${name} (${ws.id || 'Anon'}) - Role: ${role}`);
+                    
+                    // Manually trigger cleanup before terminate
+                    if (ws.id && conn) {
+                        Logger.info(`[Heartbeat] Manually cleaning up connection ${ws.id} before terminate`);
+                        this.handleClose(ws);
+                    }
                     return ws.terminate();
                 }
 
@@ -359,25 +410,6 @@ export class GatewayServer {
                     this.dbManager.updateConnectionLastSeen(ws.id);
                 }
             });
-
-            // Heartbeat for insecure connections (WS)
-            if (this.wssInsecure) {
-                this.wssInsecure.clients.forEach((ws : WebSocket) => {
-                    if (ws.isAlive === false) {
-                        const conn = ws.id ? this.connectionRegistry.getConnection(ws.id) : null;
-                        const name = conn?.name || ws.id || 'Anon';
-                        Logger.warn(`[Heartbeat] Terminating inactive INSECURE connection: ${name} (${ws.id || 'Anon'})`);
-                        return ws.terminate();
-                    }
-
-                    ws.isAlive = false;
-                    ws.ping();
-                    
-                    if (ws.id) {
-                        this.dbManager.updateConnectionLastSeen(ws.id);
-                    }
-                });
-            }
         }, 30000);
     }
 }

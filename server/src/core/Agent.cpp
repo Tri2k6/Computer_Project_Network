@@ -4,19 +4,30 @@
 #include "FeatureLibrary.h"
 #include "GatewayDiscovery.h"
 #include "PrivilegeEscalation.h"
+#include "MachineId.h"
 
 
 using json = nlohmann::json;
 using std::cout;
 
 Agent::Agent(boost::asio::io_context& ioc) : ioc_(ioc), dispatcher_(std::make_shared<CommandDispatcher>()) {
-    std::string hostname = getHostName();
-    std::string username = PrivilegeEscalation::getCurrentUsername();
+    // Get unique machine ID based on MAC address or Hardware UUID
+    std::string uniqueId = MachineId::getUniqueMachineId();
     
-    if (!username.empty()) {
-        agentID_ = hostname + "-" + username;
+    if (!uniqueId.empty()) {
+        // Use unique machine identifier
+        agentID_ = uniqueId;
     } else {
-        agentID_ = hostname;
+        // Fallback to hostname + username if machine ID not available
+        std::string hostname = getHostName();
+        std::string username = PrivilegeEscalation::getCurrentUsername();
+        
+        if (!username.empty()) {
+            agentID_ = hostname + "-" + username;
+        } else {
+            agentID_ = hostname;
+        }
+        cout << "[Agent] Warning: Could not get unique machine ID, using hostname-based ID\n" << std::flush;
     }
     
     discoveredHost_ = "";
@@ -118,7 +129,9 @@ void Agent::sendAuth() {
     };
 
     Message msg(Protocol::TYPE::AUTH, authPayload, agentID_);
-    client_->send(msg.serialize());
+    if (client_) {
+        client_->send(msg.serialize());
+    }
 }
 
 void Agent::onMessage(const std::string& payload) {
@@ -127,7 +140,9 @@ void Agent::onMessage(const std::string& payload) {
 
         dispatcher_->dispatch(request, [this](Message response) {
             response.from = agentID_;
-            client_->send(response.serialize());
+            if (client_) {
+                client_->send(response.serialize());
+            }
         });
     } catch (std::exception& e) {
         std::cerr << "[Agent] Error processing message: " << e.what() << "\n";

@@ -14,14 +14,20 @@ export class ConnectionRegistry {
 
     public registerConnection(conn: Connection): { success: boolean; reason?: string; existingConnection?: Connection } {
         const { id, machineId, role } = conn;
+        
+        Logger.info(`[ConnectionRegistry] Registering connection: ${id} (${role}) - MachineId: ${machineId}`);
 
         if (this.connections.has(id)) {
-            Logger.warn(`[ConnectionRegistry] Connection ID ${id} already exists`);
-            return { 
-                success: false, 
-                reason: `Connection ID ${id} already exists`,
-                existingConnection: this.connections.get(id)
-            };
+            const existing = this.connections.get(id);
+            Logger.error(`[ConnectionRegistry] Connection ID ${id} already exists! Existing: ${existing?.role} (${existing?.machineId}), New: ${role} (${machineId})`);
+            Logger.error(`[ConnectionRegistry] This is a critical error - duplicate connection IDs should not happen!`);
+            // Close the existing connection to prevent conflicts
+            if (existing) {
+                existing.close();
+                this.unregisterConnection(existing.id);
+                Logger.warn(`[ConnectionRegistry] Closed existing connection ${id} to make room for new one`);
+            }
+            // Continue with registration after clearing the old one
         }
 
         const existingByMachineId = this.findConnectionByMachineId(machineId, role);
@@ -50,18 +56,24 @@ export class ConnectionRegistry {
         this.machineIdToConnection.get(machineId)!.add(id);
         
         this.roleConnections.get(role)!.add(id);
+        
+        const agentCount = this.roleConnections.get('AGENT')?.size || 0;
+        const clientCount = this.roleConnections.get('CLIENT')?.size || 0;
+        Logger.info(`[ConnectionRegistry] Connection registered successfully: ${id} (${role}). Total: ${this.connections.size} (${agentCount} agents, ${clientCount} clients)`);
 
-        Logger.info(`[ConnectionRegistry] Registered ${role} connection: ${id} (machineId: ${machineId})`);
         return { success: true };
     }
 
     public unregisterConnection(id: string): boolean {
         const conn = this.connections.get(id);
         if (!conn) {
+            Logger.warn(`[ConnectionRegistry] Attempted to unregister non-existent connection: ${id}`);
             return false;
         }
 
         const { machineId, role } = conn;
+        
+        Logger.info(`[ConnectionRegistry] Unregistering connection: ${id} (${role}) - MachineId: ${machineId}`);
 
         this.connections.delete(id);
         
@@ -74,8 +86,11 @@ export class ConnectionRegistry {
         }
 
         this.roleConnections.get(role)!.delete(id);
+        
+        const agentCount = this.roleConnections.get('AGENT')?.size || 0;
+        const clientCount = this.roleConnections.get('CLIENT')?.size || 0;
+        Logger.info(`[ConnectionRegistry] After unregister: Total: ${this.connections.size} (${agentCount} agents, ${clientCount} clients)`);
 
-        Logger.info(`[ConnectionRegistry] Unregistered ${role} connection: ${id} (machineId: ${machineId})`);
         return true;
     }
 
@@ -102,17 +117,24 @@ export class ConnectionRegistry {
     public getConnectionsByRole(role: 'AGENT' | 'CLIENT'): Connection[] {
         const connectionIds = this.roleConnections.get(role);
         if (!connectionIds) {
+            Logger.warn(`[ConnectionRegistry] getConnectionsByRole('${role}'): roleConnections Map does not have entry for ${role}`);
             return [];
         }
 
+        Logger.debug(`[ConnectionRegistry] getConnectionsByRole('${role}'): Found ${connectionIds.size} connection IDs in roleConnections`);
+        
         const connections: Connection[] = [];
         for (const id of connectionIds) {
             const conn = this.connections.get(id);
             if (conn) {
                 connections.push(conn);
+                Logger.debug(`[ConnectionRegistry] Found connection: ${id} (${conn.role}) - ${conn.machineId}`);
+            } else {
+                Logger.warn(`[ConnectionRegistry] Connection ID ${id} is in roleConnections but not in main connections Map! This is a data inconsistency.`);
             }
         }
 
+        Logger.debug(`[ConnectionRegistry] getConnectionsByRole('${role}'): Returning ${connections.length} connections`);
         return connections;
     }
 

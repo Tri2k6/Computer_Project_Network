@@ -185,8 +185,11 @@ std::pair<std::string, std::string> GatewayDiscovery::listenForResponse(int time
                     if (response.find(DISCOVERY_RESPONSE_PREFIX) == 0) {
                         std::string data = response.substr(strlen(DISCOVERY_RESPONSE_PREFIX));
                         size_t wsPos = data.find("ws://");
-                        if (wsPos != std::string::npos) {
-                            std::string url = data.substr(wsPos + 5);
+                        size_t wssPos = data.find("wss://");
+                        if (wsPos != std::string::npos || wssPos != std::string::npos) {
+                            size_t protocolPos = (wssPos != std::string::npos) ? wssPos : wsPos;
+                            size_t urlStart = (wssPos != std::string::npos) ? (wssPos + 6) : (wsPos + 5);
+                            std::string url = data.substr(urlStart);
                             size_t colon = url.find(':');
                             if (colon != std::string::npos) {
                                 result.first = url.substr(0, colon);
@@ -259,8 +262,11 @@ std::pair<std::string, std::string> GatewayDiscovery::listenForResponse(int time
                     if (response.find(DISCOVERY_RESPONSE_PREFIX) == 0) {
                         std::string data = response.substr(strlen(DISCOVERY_RESPONSE_PREFIX));
                         size_t wsPos = data.find("ws://");
-                        if (wsPos != std::string::npos) {
-                            std::string url = data.substr(wsPos + 5);
+                        size_t wssPos = data.find("wss://");
+                        if (wsPos != std::string::npos || wssPos != std::string::npos) {
+                            size_t protocolPos = (wssPos != std::string::npos) ? wssPos : wsPos;
+                            size_t urlStart = (wssPos != std::string::npos) ? (wssPos + 6) : (wsPos + 5);
+                            std::string url = data.substr(urlStart);
                             size_t colon = url.find(':');
                             if (colon != std::string::npos) {
                                 result.first = url.substr(0, colon);
@@ -378,8 +384,11 @@ std::pair<std::string, std::string> GatewayDiscovery::discoverGateway(int timeou
                     if (response.find(DISCOVERY_RESPONSE_PREFIX) == 0) {
                         std::string data = response.substr(strlen(DISCOVERY_RESPONSE_PREFIX));
                         size_t wsPos = data.find("ws://");
-                        if (wsPos != std::string::npos) {
-                            std::string url = data.substr(wsPos + 5);
+                        size_t wssPos = data.find("wss://");
+                        if (wsPos != std::string::npos || wssPos != std::string::npos) {
+                            size_t protocolPos = (wssPos != std::string::npos) ? wssPos : wsPos;
+                            size_t urlStart = (wssPos != std::string::npos) ? (wssPos + 6) : (wsPos + 5);
+                            std::string url = data.substr(urlStart);
                             size_t colon = url.find(':');
                             if (colon != std::string::npos) {
                                 result.first = url.substr(0, colon);
@@ -475,8 +484,11 @@ std::pair<std::string, std::string> GatewayDiscovery::discoverGateway(int timeou
                     if (response.find(DISCOVERY_RESPONSE_PREFIX) == 0) {
                         std::string data = response.substr(strlen(DISCOVERY_RESPONSE_PREFIX));
                         size_t wsPos = data.find("ws://");
-                        if (wsPos != std::string::npos) {
-                            std::string url = data.substr(wsPos + 5);
+                        size_t wssPos = data.find("wss://");
+                        if (wsPos != std::string::npos || wssPos != std::string::npos) {
+                            size_t protocolPos = (wssPos != std::string::npos) ? wssPos : wsPos;
+                            size_t urlStart = (wssPos != std::string::npos) ? (wssPos + 6) : (wsPos + 5);
+                            std::string url = data.substr(urlStart);
                             size_t colon = url.find(':');
                             if (colon != std::string::npos) {
                                 result.first = url.substr(0, colon);

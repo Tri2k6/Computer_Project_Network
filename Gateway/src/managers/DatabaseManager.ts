@@ -33,7 +33,7 @@ export class DatabaseManager {
 
     constructor() {
         try {
-            const dataDir = path.dirname(Config.DATABASE_PATH);
+        const dataDir = path.dirname(Config.DATABASE_PATH);
             const absoluteDataDir = path.isAbsolute(dataDir) ? dataDir : path.resolve(process.cwd(), dataDir);
             
             if (!fs.existsSync(absoluteDataDir)) {
@@ -46,8 +46,8 @@ export class DatabaseManager {
                 : path.resolve(process.cwd(), Config.DATABASE_PATH);
             
             Logger.info(`[DatabaseManager] Database path: ${this.dbPath}`);
-            this.db = new Database(this.dbPath);
-            this.initializeDatabase();
+        this.db = new Database(this.dbPath);
+        this.initializeDatabase();
             Logger.info(`[DatabaseManager] Database initialized successfully at ${this.dbPath}`);
         } catch (error) {
             Logger.error(`[DatabaseManager] Failed to initialize database: ${error}`);
@@ -135,13 +135,36 @@ export class DatabaseManager {
 
     public addConnection(record: Omit<ConnectionRecord, 'isActive'>): boolean {
         try {
-            const stmt = this.db.prepare(`
+            // Check if connection with same machineId and role already exists
+            const existing = this.db.prepare(`
+                SELECT id FROM connections 
+                WHERE machineId = ? AND role = ? AND isActive = 1
+            `).get(record.machineId, record.role) as { id: string } | undefined;
+
+            if (existing) {
+                // Mark old connection as inactive first
+                this.db.prepare(`UPDATE connections SET isActive = 0 WHERE id = ?`).run(existing.id);
+                
+                // Check if new ID already exists, if so mark it inactive too
+                const existingById = this.db.prepare(`SELECT id FROM connections WHERE id = ?`).get(record.id) as { id: string } | undefined;
+                if (existingById) {
+                    this.db.prepare(`UPDATE connections SET isActive = 0 WHERE id = ?`).run(record.id);
+                }
+            } else {
+                // Check if new ID already exists, if so mark it inactive first
+                const existingById = this.db.prepare(`SELECT id FROM connections WHERE id = ?`).get(record.id) as { id: string } | undefined;
+                if (existingById) {
+                    this.db.prepare(`UPDATE connections SET isActive = 0 WHERE id = ?`).run(record.id);
+                }
+            }
+
+            // Insert or replace connection with new ID
+            const insertStmt = this.db.prepare(`
                 INSERT OR REPLACE INTO connections 
                 (id, name, role, machineId, ip, connectedAt, lastSeen, isActive)
                 VALUES (?, ?, ?, ?, ?, ?, ?, 1)
             `);
-            
-            stmt.run(
+            insertStmt.run(
                 record.id,
                 record.name,
                 record.role,
@@ -393,8 +416,8 @@ export class DatabaseManager {
     public close(): void {
         try {
             if (this.db) {
-                this.db.close();
-                Logger.info('[DatabaseManager] Database connection closed');
+        this.db.close();
+        Logger.info('[DatabaseManager] Database connection closed');
             }
         } catch (error) {
             Logger.error(`[DatabaseManager] Error closing database: ${error}`);

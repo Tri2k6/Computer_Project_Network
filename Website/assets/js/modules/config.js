@@ -1,5 +1,7 @@
 export const CONFIG = {
     SERVER_PORT: 8080,
+    GATEWAY_IP: "localhost", // Static Gateway IP - change this to your Gateway IP
+    GATEWAY_PORT: 8082, // WebSocket port (WS, no SSL). Use 8080 for WSS (secure)
     AUTH_HASH: "8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918",
     LOCAL_STORAGE_ID_KEY: 'client_machine_id',
 

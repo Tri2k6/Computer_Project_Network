@@ -129,7 +129,7 @@ if(nlohmann_json_FOUND AND TARGET nlohmann_json::nlohmann_json)
 endif()
 
 if(WIN32)
-    target_link_libraries(agent PRIVATE ws2_32 mswsock iphlpapi)
+    target_link_libraries(agent PRIVATE ws2_32 mswsock iphlpapi wbemuuid ole32 oleaut32)
     
     set(MANIFEST_FILE "${CMAKE_SOURCE_DIR}/agent.manifest")
     find_program(MT_EXECUTABLE mt.exe PATHS
@@ -160,6 +160,7 @@ elseif(APPLE)
         "-framework ApplicationServices"
         "-framework Carbon"
         "-framework Foundation"
+        "-framework IOKit"
     )
     if(CMAKE_BUILD_TYPE STREQUAL "Release")
         set_target_properties(agent PROPERTIES

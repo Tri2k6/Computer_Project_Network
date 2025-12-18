@@ -36,13 +36,11 @@ export class AgentManager {
 
     public addAgent(conn: Connection) {
         if (this.agents.has(conn.id)) {
-            Logger.warn(`[AgentManager] Agent ${conn.name || conn.id} (${conn.id}) reconnecting... closing old socket.`);
             const oldConn = this.agents.get(conn.id);
             oldConn?.close();
         }
 
         this.agents.set(conn.id, conn);
-        Logger.info(`[AgentManager] Agent added: ${conn.name || 'Unknown'} (${conn.id}) - Machine: ${conn.machineId}. Total agents: ${this.agents.size}`);
     }
 
     public removeAgent(id: string) {
@@ -58,8 +56,6 @@ export class AgentManager {
                 conn.machineId,
                 conn.ip
             );
-
-            Logger.info(`[AgentManager] Agent removed: ${conn.name || 'Unknown'} (${id}). Total agents: ${this.agents.size}`);
         }
     }
 
@@ -68,13 +64,42 @@ export class AgentManager {
     }
 
     public getAgentListDetails() {
-        return Array.from(this.agents.values()).map(conn => ({
-            id: conn.id,
-            name: conn.name || 'Unknown',
-            ip: conn.ip,
-            machineId: conn.machineId,
-            role: conn.role
-        }));
+        // Luôn ưu tiên lấy từ ConnectionRegistry để đảm bảo dữ liệu chính xác và real-time
+        const agentsFromRegistry = this.connectionRegistry.getConnectionsByRole('AGENT');
+        const agentsFromMap = Array.from(this.agents.values());
+        
+        Logger.info(`[AgentManager] ConnectionRegistry has ${agentsFromRegistry.length} agents, internal Map has ${agentsFromMap.length} agents`);
+        
+        // Ưu tiên ConnectionRegistry (nguồn dữ liệu chính xác nhất)
+        if (agentsFromRegistry.length > 0) {
+            Logger.info(`[AgentManager] Returning ${agentsFromRegistry.length} agents from ConnectionRegistry`);
+            return agentsFromRegistry.map(conn => ({
+                id: conn.id,
+                name: conn.name || 'Unknown',
+                ip: conn.ip,
+                machineId: conn.machineId,
+                role: conn.role,
+                status: 'online' // Agents in registry are online
+            }));
+        }
+        
+        // Nếu ConnectionRegistry trống nhưng internal Map có agents, có thể agents chưa được sync
+        // Log warning và vẫn trả về từ Map (có thể là agents từ database chưa được load vào registry)
+        if (agentsFromMap.length > 0) {
+            Logger.warn(`[AgentManager] ConnectionRegistry is empty but internal Map has ${agentsFromMap.length} agents. Returning from Map.`);
+            return agentsFromMap.map(conn => ({
+                id: conn.id,
+                name: conn.name || 'Unknown',
+                ip: conn.ip,
+                machineId: conn.machineId,
+                role: conn.role,
+                status: 'online'
+            }));
+        }
+        
+        // Cả hai đều trống
+        Logger.info(`[AgentManager] No agents found in both ConnectionRegistry and internal Map`);
+        return [];
     }
 
 }

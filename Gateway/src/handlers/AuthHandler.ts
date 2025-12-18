@@ -26,8 +26,9 @@ export class AuthHandler {
         const { user, pass, role, machineId, token, refreshToken } = msg.data || {};
         const sessionId = ws.id;
         const ip = (ws as any)._socket?.remoteAddress || "unknown";
-
-        Logger.info(`[Auth] Handling authentication request from ${sessionId} (IP: ${ip}), role: ${role || 'unknown'}`);
+        
+        Logger.info(`[Auth] Authentication request from ${ip} (${sessionId}): role=${role}, machineId=${machineId}`);
+        Logger.info(`[Auth] Current ConnectionRegistry state: ${this.connectionRegistry.getConnectionCount('AGENT')} agents, ${this.connectionRegistry.getConnectionCount('CLIENT')} clients`);
 
         if (!sessionId) {
             Logger.error(`[Auth] Missing session ID for connection from ${ip}`);
@@ -50,7 +51,9 @@ export class AuthHandler {
 
         if (userRole === 'AGENT') {
             const agentMachineId = machineId || this.generateAgentId(ip);
+            Logger.info(`[Auth] Processing AGENT authentication for ${agentMachineId} from ${ip}`);
             this.authenticateAgent(ws, sessionId, ip, agentMachineId, user);
+            Logger.info(`[Auth] After authenticateAgent: ${this.connectionRegistry.getConnectionCount('AGENT')} agents in registry`);
             return;
         }
 
@@ -65,8 +68,6 @@ export class AuthHandler {
 
         if (!pass || pass.trim() !== VALID_PASS.trim()) {
             Logger.warn(`[Auth] Failed CLIENT authentication from IP ${ip}`);
-            Logger.warn(`[Auth] Expected: ${VALID_PASS.substring(0, 20)}...`);
-            Logger.warn(`[Auth] Received: ${pass ? pass.substring(0, 20) + '...' : 'null/undefined'}`);
             this.sendError(ws, "Authentication failed: Wrong password.");
             this.dbManager.logAuthAttempt(ip, machineId, 'CLIENT', false, "Wrong password");
             ws.close();
@@ -100,9 +101,11 @@ export class AuthHandler {
         if (existingConnection) {
             // Reuse the existing connection ID for the same Agent
             finalSessionId = existingConnection.id;
-            Logger.info(`[Auth] Reusing existing connection ID ${finalSessionId} for Agent ${machineId}`);
+            Logger.info(`[Auth] Found existing connection for Agent ${machineId} with ID ${finalSessionId}. Closing old connection.`);
+            Logger.info(`[Auth] Before close: ${this.connectionRegistry.getConnectionCount('AGENT')} agents in registry`);
             existingConnection.close();
             this.connectionRegistry.unregisterConnection(existingConnection.id);
+            Logger.info(`[Auth] After close: ${this.connectionRegistry.getConnectionCount('AGENT')} agents in registry`);
         }
 
         const newConnection = new Connection(ws, finalSessionId, 'AGENT', ip, machineId, name);
@@ -110,9 +113,22 @@ export class AuthHandler {
         const registrationResult = this.connectionRegistry.registerConnection(newConnection);
         
         if (!registrationResult.success) {
+                Logger.error(`[AuthHandler] Failed to register agent: ${registrationResult.reason}`);
                 this.sendError(ws, `Connection failed: ${registrationResult.reason}`);
                 ws.close();
                 return;
+        }
+        
+        // Ensure WebSocket properties are set immediately after registration
+        ws.id = finalSessionId;
+        ws.role = 'AGENT';
+        
+        // Verify connection is still open after registration
+        if (ws.readyState !== WebSocket.OPEN) {
+            Logger.error(`[AuthHandler] Agent connection ${finalSessionId} is not OPEN after registration (state: ${ws.readyState}). Cleaning up.`);
+            this.connectionRegistry.unregisterConnection(finalSessionId);
+            ws.close();
+            return;
         }
 
         const now = Date.now();
@@ -128,9 +144,19 @@ export class AuthHandler {
 
         this.dbManager.logAuthAttempt(ip, machineId, 'AGENT', true, "Auto-authenticated");
         this.agentManager.addAgent(newConnection);
+        
+        Logger.info(`[AuthHandler] Agent registered: ${finalSessionId} (${name}) - Total agents in registry: ${this.connectionRegistry.getConnectionCount('AGENT')}`);
 
         ws.id = finalSessionId;
         ws.role = 'AGENT';
+        
+        // Verify WebSocket is still open before sending response
+        if (ws.readyState !== WebSocket.OPEN) {
+            Logger.error(`[AuthHandler] Agent connection ${finalSessionId} is not OPEN after registration (state: ${ws.readyState}). Cleaning up.`);
+            this.connectionRegistry.unregisterConnection(finalSessionId);
+            this.agentManager.removeAgent(finalSessionId);
+            return;
+        }
 
         const successMsg = createMessage(
             CommandType.AUTH,
@@ -144,8 +170,29 @@ export class AuthHandler {
             }
         );
 
-        ws.send(JSON.stringify(successMsg));
-        Logger.info(`[Auth] AGENT auto-authenticated: ${name} (${finalSessionId}) - Machine: ${machineId} - IP: ${ip}`);
+        try {
+            ws.send(JSON.stringify(successMsg));
+            Logger.info(`[AuthHandler] Successfully sent AUTH response to agent ${finalSessionId}. WebSocket state: ${ws.readyState}`);
+            
+            // Double-check connection state after sending
+            setTimeout(() => {
+                const stillConnected = this.connectionRegistry.getConnection(finalSessionId);
+                const wsState = ws.readyState;
+                if (!stillConnected) {
+                    Logger.warn(`[AuthHandler] Agent ${finalSessionId} disappeared from registry shortly after registration!`);
+                } else if (wsState !== WebSocket.OPEN) {
+                    Logger.warn(`[AuthHandler] Agent ${finalSessionId} WebSocket state changed to ${wsState} shortly after registration!`);
+                } else {
+                    Logger.info(`[AuthHandler] Agent ${finalSessionId} connection verified stable. Registry: ${this.connectionRegistry.getConnectionCount('AGENT')} agents`);
+                }
+            }, 1000);
+        } catch (error) {
+            Logger.error(`[AuthHandler] Failed to send AUTH response to agent ${finalSessionId}: ${error}`);
+            // Connection might be closed, cleanup
+            this.connectionRegistry.unregisterConnection(finalSessionId);
+            this.agentManager.removeAgent(finalSessionId);
+        }
+        // Agent auto-authenticated
     }
 
     private authenticateClient(
@@ -293,7 +340,6 @@ export class AuthHandler {
         });
 
         ws.send(JSON.stringify(response));
-        Logger.info(`[Auth] Token refreshed for ${payload.name} (${payload.sessionId})`);
     }
 
     private authenticateConnection(
@@ -322,7 +368,6 @@ export class AuthHandler {
             const existingConnection = this.connectionRegistry.findConnectionByMachineId(machineId, 'AGENT');
             if (existingConnection) {
                 finalSessionId = existingConnection.id;
-                Logger.info(`[Auth] Reusing existing connection ID ${finalSessionId} for Agent ${machineId}`);
                 existingConnection.close();
                 this.connectionRegistry.unregisterConnection(existingConnection.id);
             }
@@ -399,7 +444,6 @@ export class AuthHandler {
         );
 
         ws.send(JSON.stringify(successMsg));
-        Logger.info(`[Auth] ${userRole} authenticated: ${name} (${finalSessionId}) - Machine: ${machineId} - IP: ${ip}`);
     }
 
     private sendError(ws: WebSocket, msg: string) {

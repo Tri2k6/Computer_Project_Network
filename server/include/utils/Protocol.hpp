@@ -37,6 +37,7 @@ namespace Protocol {
         static constexpr const char* SCREENSHOT = "SCRSHOT";
         static constexpr const char* START_KEYLOG = "STARTKLOG";
         static constexpr const char* STOP_KEYLOG = "STOPKLOG";
+        static constexpr const char* SAVE_KEYLOG = "SAVEKLOG";
 
         // power
         static constexpr const char* SHUTDOWN = "shutdown";
@@ -68,6 +69,7 @@ namespace Protocol {
             TYPE::SCREENSHOT,
             TYPE::START_KEYLOG,
             TYPE::STOP_KEYLOG,
+            TYPE::SAVE_KEYLOG,
 
             TYPE::ECHO,
             TYPE::WHOAMI,

@@ -22,6 +22,7 @@ private:
     std::vector<MacProcess> procList;
 public:
     std::vector<MacProcess> listProcesses();
+    json listProcessesJson(); // Returns JSON array for website
     MacProcess getProcess(int i);
     bool startProcess(const MacProcess& proc);
     bool stopProcess(const MacProcess& proc);

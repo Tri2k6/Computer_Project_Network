@@ -16,3 +16,22 @@
 #include "CaptureScreen.h"
 #include "CameraRecorder.h"
 #include "KeyboardController.h"
+
+// Helper functions to get JSON lists
+inline json getAppListJson() {
+    AppController ac;
+    #ifdef _WIN32
+        return ac.listAppsJson();
+    #elif __APPLE__
+        return ac.listAppsJson();
+    #endif
+}
+
+inline json getProcessListJson() {
+    ProcessController pc;
+    #ifdef _WIN32
+        return pc.listProcessesJson();
+    #elif __APPLE__
+        return pc.listProcessesJson();
+    #endif
+}

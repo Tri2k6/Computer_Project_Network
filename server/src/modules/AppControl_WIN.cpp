@@ -35,8 +35,7 @@ std::wstring WinAppController::resolveShortcut(const std::wstring& lnkPath)
 }
 
 
-std::string WinAppController::listApps() {
-    std::wstringstream ans;
+std::vector<WinApp> WinAppController::listApps() {
     appList.clear();
 
     std::vector<std::wstring> dirs = {
@@ -64,13 +63,24 @@ std::string WinAppController::listApps() {
 
                 if (!app.targetExe.empty()) {
                     appList.push_back(app);
-                    ans << i++ << L". Name: " << app.exeName << '\n';
+                    i++;
                 }
             }
         }
     }
 
-    return ws_to_utf8(ans.str());
+    return appList;
+}
+
+json WinAppController::listAppsJson() {
+    auto apps = listApps();
+    json result = json::array();
+    for (size_t i = 0; i < apps.size(); i++) {
+        json appJson = apps[i].toJson();
+        appJson["id"] = static_cast<int>(i);
+        result.push_back(appJson);
+    }
+    return result;
 }
 
 

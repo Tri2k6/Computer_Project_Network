@@ -15,6 +15,7 @@ private:
     std::vector<MacApp> appList;
 public:
     std::vector<MacApp> listApps();
+    json listAppsJson(); // Returns JSON array for website
     MacApp getApp(int index);
     bool startApp(const MacApp& app);
     bool stopApp(const MacApp& app);

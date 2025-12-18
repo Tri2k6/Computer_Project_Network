@@ -35,7 +35,21 @@ function openServerList() {
     serverOverlay.classList.remove('hidden');
     serverOverlay.classList.add('visible');
     
-    // Gọi hàm load dữ liệu (giả lập)
+    currentPage = 1; // Reset về trang 1 khi mở popup
+    
+    // Đảm bảo gateway đã sẵn sàng trước khi fetch
+    if (typeof window.gateway !== 'undefined' && window.gateway) {
+        // Nếu đã authenticated và chưa đang refresh, refresh agents để lấy data mới nhất
+        if (window.gateway.isAuthenticated && !isRefreshing) {
+            isRefreshing = true;
+            window.gateway.refreshAgents();
+            setTimeout(() => {
+                isRefreshing = false;
+            }, 2000);
+        }
+    }
+    
+    // Render ngay với data hiện có, sẽ tự update khi có data mới
     fetchAndRenderServers();
 }
 
@@ -56,106 +70,220 @@ function closeServerList() {
 // --- 3. Logic Render dữ liệu & Phân trang ---
 
 // Cấu hình phân trang
-const ITEMS_PER_PAGE = 5; // Số server hiển thị trên 1 trang (bạn có thể đổi thành 5 tùy ý)
+const ITEMS_PER_PAGE = 5; // Số server hiển thị trên 1 trang
 let currentPage = 1;
+let agentData = []; // Lưu trữ danh sách agent thực tế
+let isRefreshing = false; // Flag để tránh loop khi refresh
+let lastAgentCount = 0; // Đếm số agent lần trước để detect thay đổi
 
 // Các phần tử DOM cần thiết cho phân trang
 const prevBtn = document.querySelector('.prev-btn');
 const nextBtn = document.querySelector('.next-btn');
 const pageIndicator = document.getElementById('page-indicator');
+const refreshBtn = document.querySelector('.refresh-btn');
 
-// Giả lập dữ liệu (9 servers -> sẽ chia thành 3 trang nếu mỗi trang 4 dòng)
-const mockServerData = [
-    { ip: "192.168.1.10", port: "8080", status: "online" },
-    { ip: "192.168.1.15", port: "3000", status: "busy" },
-    { ip: "10.0.0.5", port: "2200", status: "online" },
-    { ip: "192.168.1.20", port: "8080", status: "online" },
-    { ip: "192.168.1.25", port: "3000", status: "busy" },
-    { ip: "10.0.0.6", port: "22", status: "online" },
-    { ip: "192.168.1.30", port: "8080", status: "online" },
-    { ip: "192.168.1.35", port: "3000", status: "busy" },
-    { ip: "10.0.0.7", port: "22", status: "online" }
-];
+// Hàm lấy danh sách agent từ gateway
+function getAgentData() {
+    // Kiểm tra xem gateway đã được khởi tạo chưa
+    if (typeof window.gateway !== 'undefined' && window.gateway) {
+        const formattedAgents = window.gateway.getFormattedAgents();
+        
+        // Lấy raw agent list từ gateway nếu có
+        const rawAgents = window.gateway.agentsList || [];
+        
+        // Ưu tiên dùng rawAgents nếu có, nếu không thì dùng formattedAgents
+        if (rawAgents.length > 0) {
+            return rawAgents.map(agent => ({
+                id: agent.id || agent.ID || '',
+                ip: agent.ip || agent["IP Address"] || agent["Địa chỉ IP"] || "N/A",
+                machine: agent.machineId || agent.machine || agent["Machine"] || agent["Tên máy"] || "Unknown",
+                status: agent.status || agent["Status"] || agent["Trạng thái"] || "Online"
+            }));
+        }
+        
+        // Fallback về formattedAgents
+        return formattedAgents.map(agent => ({
+            id: agent["ID"] || '',
+            ip: agent["IP Address"] || agent["Địa chỉ IP"] || "N/A",
+            machine: agent["Machine"] || agent["Tên máy"] || "Unknown",
+            status: agent["Status"] || agent["Trạng thái"] || "Online"
+        }));
+    }
+    return [];
+}
 
 // Hàm chính: Tính toán và Render theo trang
-function fetchAndRenderServers() {
+// Export để main.js có thể gọi
+window.fetchAndRenderServers = function fetchAndRenderServers() {
+    // Kiểm tra gateway connection trước
+    if (typeof window.gateway === 'undefined' || !window.gateway) {
+        serverListContent.innerHTML = '<li class="server-item" style="text-align: center; padding: 20px; color: #666;">Gateway chưa được khởi tạo</li>';
+        updateFooterUI();
+        return;
+    }
+    
+    // Nếu chưa authenticated, chỉ hiển thị thông báo
+    if (!window.gateway.isAuthenticated) {
+        serverListContent.innerHTML = '<li class="server-item" style="text-align: center; padding: 20px; color: #666;">Đang kết nối đến gateway...<br><small>Vui lòng đợi</small></li>';
+        updateFooterUI();
+        return;
+    }
+    
+    // Lấy dữ liệu agent thực tế từ gateway
+    agentData = getAgentData();
+    
+    // Kiểm tra nếu data không thay đổi thì không cần render lại
+    if (agentData.length === lastAgentCount && agentData.length > 0) {
+        // Data không đổi, chỉ render lại nếu cần
+        const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+        const endIndex = startIndex + ITEMS_PER_PAGE;
+        const currentAgents = agentData.slice(startIndex, endIndex);
+        renderList(currentAgents);
+        updateFooterUI();
+        return;
+    }
+    
+    // Hiển thị loading nếu chưa có dữ liệu và chưa đang refresh
+    if (agentData.length === 0 && !isRefreshing) {
+        serverListContent.innerHTML = '<li class="server-item" style="text-align: center; padding: 20px; color: #666;">Đang tải danh sách agent...<br><small>Vui lòng đảm bảo đã kết nối đến gateway</small></li>';
+        updateFooterUI();
+        // Chỉ refresh một lần nếu chưa có data
+        if (window.gateway.isAuthenticated && !isRefreshing) {
+            isRefreshing = true;
+            window.gateway.refreshAgents();
+            // Reset flag sau 2 giây
+            setTimeout(() => {
+                isRefreshing = false;
+            }, 2000);
+        }
+        return;
+    }
+    
+    // Cập nhật lastAgentCount
+    lastAgentCount = agentData.length;
+    
+    // Reset về trang 1 nếu trang hiện tại vượt quá số trang mới
+    const totalPages = Math.ceil(agentData.length / ITEMS_PER_PAGE);
+    if (currentPage > totalPages && totalPages > 0) {
+        currentPage = 1;
+    }
+    
     // 1. Tính toán vị trí cắt dữ liệu
     const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
     const endIndex = startIndex + ITEMS_PER_PAGE;
     
-    // Lấy danh sách server thuộc trang hiện tại
-    const currentServers = mockServerData.slice(startIndex, endIndex);
+    // Lấy danh sách agent thuộc trang hiện tại
+    const currentAgents = agentData.slice(startIndex, endIndex);
     
     // 2. Render ra màn hình
-    renderList(currentServers);
+    renderList(currentAgents);
 
     // 3. Cập nhật trạng thái nút và số trang
     updateFooterUI();
-}
+    
+    // Log để debug
+    console.log(`[Dashboard] Displaying ${currentAgents.length} agents (page ${currentPage}/${totalPages}, total: ${agentData.length})`);
+};
 
-function renderList(servers) {
+function renderList(agents) {
     serverListContent.innerHTML = ''; 
 
-    if (servers.length === 0) {
-        serverListContent.innerHTML = '<li class="server-item">No servers found.</li>';
+    if (agents.length === 0) {
+        serverListContent.innerHTML = '<li class="server-item" style="text-align: center; padding: 20px; color: #666;">Không tìm thấy agent nào.</li>';
         return;
     }
 
-    servers.forEach((server, index) => {
+    agents.forEach((agent, index) => {
         const li = document.createElement('li');
         li.className = 'server-item';
 
-        // 1. Cấu hình Flexbox cho dòng (Lưu ý: Bỏ justify-content: space-between)
+        // Cấu hình Flexbox cho dòng
         li.style.display = 'flex';
-        li.style.alignItems = 'center'; // Căn giữa theo chiều dọc
+        li.style.alignItems = 'center';
         li.style.padding = '12px 5px';
+        li.style.transition = 'background-color 0.2s';
         
-        // Thêm đường gạch dưới (code cũ)
-        if (index < servers.length - 1) {
+        // Hover effect
+        li.addEventListener('mouseenter', () => {
+            li.style.backgroundColor = '#f5f5f5';
+        });
+        li.addEventListener('mouseleave', () => {
+            li.style.backgroundColor = 'transparent';
+        });
+        
+        // Thêm đường gạch dưới
+        if (index < agents.length - 1) {
             li.style.borderBottom = '1px solid rgba(0, 0, 0, 0.1)';
         }
 
+        // Tạo link clickable kế bên IP
+        const linkButton = document.createElement('button');
+        linkButton.className = 'link-icon';
+        linkButton.style.cssText = 'margin-left: auto; border: none; background: transparent; cursor: pointer; padding: 5px; border-radius: 4px; transition: background-color 0.2s;';
+        linkButton.title = `Kết nối đến ${agent.machine}`;
+        linkButton.innerHTML = '<img src="./assets/images/link.png" width="20px" height="20px" style="display: block;">';
+        
+        // Xử lý click để mở tab mới và connect đến agent
+        linkButton.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const targetUrl = `${window.location.origin}${window.location.pathname}?agent=${agent.id}`;
+            window.open(targetUrl, '_blank');
+        });
+
+        // Hover effect cho button
+        linkButton.addEventListener('mouseenter', () => {
+            linkButton.style.backgroundColor = '#e3f2fd';
+        });
+        linkButton.addEventListener('mouseleave', () => {
+            linkButton.style.backgroundColor = 'transparent';
+        });
+
         li.innerHTML = `
-            <span class="server-ip" style="flex: 0 0 55%; font-weight: 500;">
-                IP: ${server.ip}
+            <span class="server-ip" style="flex: 0 0 40%; font-weight: 500; color: #2196F3;">
+                ${agent.ip}
             </span>
-
-            <span class="server-port" style="flex: 0 0 30%; color: #555;">
-                Port: ${server.port}
+            <span class="server-machine" style="flex: 0 0 45%; color: #555; font-size: 0.9em;">
+                ${agent.machine}
             </span>
-
-            <button class="link-icon" style="margin-left: auto; border: none; background: transparent; cursor: pointer; padding: 0;">
-                <img src="./assets/images/link.png" width="20px" height="20px" style="display: block;">
-            </button>
+            <span class="server-status" style="flex: 0 0 10%; text-align: center;">
+                <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background-color: #4CAF50; margin-right: 4px;"></span>
+                <span style="font-size: 0.85em; color: #666;">${agent.status}</span>
+            </span>
         `;
         
+        // Thêm link button vào cuối
+        li.appendChild(linkButton);
         serverListContent.appendChild(li);
     });
 }
 
 // Hàm phụ: Cập nhật Footer (Số trang, ẩn hiện nút Next/Prev)
 function updateFooterUI() {
-    const totalPages = Math.ceil(mockServerData.length / ITEMS_PER_PAGE);
+    const totalPages = Math.ceil(agentData.length / ITEMS_PER_PAGE) || 1;
     
     // Cập nhật text "Page 1/3"
-    pageIndicator.textContent = `Page ${currentPage}/${totalPages}`;
+    pageIndicator.textContent = `Trang ${currentPage}/${totalPages} (${agentData.length} agent)`;
 
     // Xử lý nút Prev (ẩn nếu ở trang 1)
-    if (currentPage === 1) {
+    if (currentPage === 1 || totalPages === 0) {
         prevBtn.disabled = true;
-        prevBtn.style.opacity = '0.5'; // Làm mờ
+        prevBtn.style.opacity = '0.5';
+        prevBtn.style.cursor = 'not-allowed';
     } else {
         prevBtn.disabled = false;
         prevBtn.style.opacity = '1';
+        prevBtn.style.cursor = 'pointer';
     }
 
     // Xử lý nút Next (ẩn nếu ở trang cuối)
-    if (currentPage === totalPages) {
+    if (currentPage === totalPages || totalPages === 0) {
         nextBtn.disabled = true;
-        nextBtn.style.opacity = '0.5'; // Làm mờ
+        nextBtn.style.opacity = '0.5';
+        nextBtn.style.cursor = 'not-allowed';
     } else {
         nextBtn.disabled = false;
         nextBtn.style.opacity = '1';
+        nextBtn.style.cursor = 'pointer';
     }
 }
 
@@ -171,13 +299,44 @@ prevBtn.addEventListener('click', () => {
 
 // Nút tiến
 nextBtn.addEventListener('click', () => {
-    const totalPages = Math.ceil(mockServerData.length / ITEMS_PER_PAGE);
+    const totalPages = Math.ceil(agentData.length / ITEMS_PER_PAGE);
     if (currentPage < totalPages) {
         currentPage++;
         fetchAndRenderServers();
     }
 });
 
-// Reset về trang 1 khi mở popup (Optional)
-// Bạn thêm dòng này vào bên trong hàm openServerList() ở phần 2:
-// currentPage = 1;
+// --- 5. Nút Refresh ---
+if (refreshBtn) {
+    refreshBtn.addEventListener('click', () => {
+        // Thêm hiệu ứng loading
+        const img = refreshBtn.querySelector('img');
+        if (img) {
+            img.style.animation = 'spin 1s linear infinite';
+        }
+        
+        // Refresh agent list từ gateway
+        if (typeof window.gateway !== 'undefined' && window.gateway && !isRefreshing) {
+            isRefreshing = true;
+            window.gateway.refreshAgents();
+            
+            // Đợi một chút để gateway cập nhật dữ liệu, sau đó render lại
+            setTimeout(() => {
+                currentPage = 1; // Reset về trang 1
+                isRefreshing = false;
+                fetchAndRenderServers();
+                
+                // Dừng animation
+                if (img) {
+                    img.style.animation = '';
+                }
+            }, 800);
+        } else {
+            // Nếu gateway chưa sẵn sàng hoặc đang refresh, chỉ render lại dữ liệu hiện có
+            fetchAndRenderServers();
+            if (img) {
+                img.style.animation = '';
+            }
+        }
+    });
+}

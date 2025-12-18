@@ -30,6 +30,14 @@ std::vector<MacProcess> MacProcessController::listProcesses() {
     return procList;
 }
 
+json MacProcessController::listProcessesJson() {
+    auto processes = listProcesses();
+    json result = json::array();
+    for (const auto& proc : processes) {
+        result.push_back(proc);
+    }
+    return result;
+}
 
 MacProcess MacProcessController::getProcess(int i) {
     if (procList.empty()) {

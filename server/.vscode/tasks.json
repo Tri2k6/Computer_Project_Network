@@ -2,10 +2,15 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "Run Server",
+            "label": "CMake: Configure",
             "type": "shell",
-            "command": "cmake --build build --target server && ./build/server",
-            "problemMatcher": ["$gcc"],
+            "command": "cmake",
+            "args": [
+                "-S", "${workspaceFolder}",
+                "-B", "${workspaceFolder}/build",
+                "-DCMAKE_BUILD_TYPE=Release"
+            ],
+            "problemMatcher": [],
             "presentation": {
                 "echo": true,
                 "reveal": "always",
@@ -13,22 +18,66 @@
             }
         },
         {
-            "label": "Run Client",
+            "label": "CMake: Build",
             "type": "shell",
-            "command": "cmake --build build --target client && ./build/client",
+            "command": "cmake",
+            "args": [
+                "--build", "${workspaceFolder}/build",
+                "--config", "Release"
+            ],
             "problemMatcher": ["$gcc"],
             "presentation": {
                 "echo": true,
                 "reveal": "always",
                 "panel": "dedicated"
+            },
+            "dependsOn": "CMake: Configure"
+        },
+        {
+            "label": "Build Agent",
+            "type": "shell",
+            "command": "cmake",
+            "args": [
+                "--build", "${workspaceFolder}/build",
+                "--target", "agent"
+            ],
+            "problemMatcher": ["$gcc"],
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "panel": "dedicated"
+            },
+            "group": {
+                "kind": "build",
+                "isDefault": true
             }
         },
         {
-            "label": "Run Server & Client",
-            "dependsOn": ["Run Server", "Run Client"],
-            "dependsOrder": "parallel",
+            "label": "Run Agent",
             "type": "shell",
-            "problemMatcher": []
+            "command": "${workspaceFolder}/build/agent",
+            "problemMatcher": [],
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "panel": "dedicated"
+            },
+            "dependsOn": "Build Agent"
+        },
+        {
+            "label": "Clean Build",
+            "type": "shell",
+            "command": "cmake",
+            "args": [
+                "--build", "${workspaceFolder}/build",
+                "--target", "clean"
+            ],
+            "problemMatcher": [],
+            "presentation": {
+                "echo": true,
+                "reveal": "always",
+                "panel": "dedicated"
+            }
         }
     ]
 }

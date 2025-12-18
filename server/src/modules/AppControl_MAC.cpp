@@ -32,6 +32,16 @@ std::vector<MacApp> MacAppController::listApps() {
     return appList;
 }
 
+json MacAppController::listAppsJson() {
+    auto apps = listApps();
+    json result = json::array();
+    for (size_t i = 0; i < apps.size(); i++) {
+        json appJson = apps[i];
+        appJson["id"] = static_cast<int>(i);
+        result.push_back(appJson);
+    }
+    return result;
+}
 
 MacApp MacAppController::getApp(int index) {
     if (appList.empty()) {

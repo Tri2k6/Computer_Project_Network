@@ -5,7 +5,7 @@
 #include <cstdlib>
 
 namespace Config {
-    const std::string SERVER_HOST = "10.148.31.96";
+    const std::string SERVER_HOST = "10.217.11.213";
     const std::string SERVER_PORT = "8080";
     const int RECONNECT_DELAY_MS = 3000;
 

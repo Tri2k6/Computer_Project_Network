@@ -4,34 +4,38 @@
 #include "Converter.h"
 
 
-std::string WinProcessController::listProcesses() {
-    std::wstringstream ans;
+std::vector<WinProcess> WinProcessController::listProcesses() {
     procList.clear();
 
     HANDLE snapshot = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
     if (snapshot == INVALID_HANDLE_VALUE) {
         std::cerr << "Cannot take process snapshot\n";
-        return "Failed\n";
+        return procList;
     }
 
     PROCESSENTRY32W entry{};
     entry.dwSize = sizeof(entry);
 
     if (Process32FirstW(snapshot, &entry)) {
-        int i = 0;
         do {
             WinProcess p;
             p.pid = entry.th32ProcessID;
             p.exeName = entry.szExeFile;
             procList.push_back(p);
-
-            ans << i++ << L". PID: " << entry.th32ProcessID
-                       << L" | Name: " << entry.szExeFile << std::endl;
         } while (Process32NextW(snapshot, &entry));
     }
 
     CloseHandle(snapshot);
-    return ws_to_utf8(ans.str());
+    return procList;
+}
+
+json WinProcessController::listProcessesJson() {
+    auto processes = listProcesses();
+    json result = json::array();
+    for (const auto& proc : processes) {
+        result.push_back(proc.toJson());
+    }
+    return result;
 }
 
 

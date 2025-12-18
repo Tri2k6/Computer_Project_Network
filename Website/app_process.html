@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Com.net - App Process Control</title>
+    <link rel="stylesheet" href="assets/css/style.css">
+    <link rel="stylesheet" href="assets/css/app_process.css">
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <div class="app-container">
+        <header class="nav-bar">
+            <div class="logo-container">
+                <img src="./assets/images/logo.png" alt="Logo" class="MyLogo" />
+            </div>
+
+            <nav class="nav-links">
+                <a href="./AvailableServer.html" class="nav-item">More</a>
+                <a href="#" class="nav-item">Settings</a>
+                <a href="./index.html" class="nav-item">Home</a>
+                <a href="#" class="nav-item btn-about">About</a>
+            </nav>
+        </header>
+
+        <main class="proc-main">
+            <div class="proc-content-wrapper">
+                
+                <div class="left-panel">
+                    <div class="laptop-wrapper">
+                        <img src="./assets/images/laptop.png" alt="Laptop Successful" class="laptop-img">
+                        <div class="screen-overlay">
+                            <div class="code-text typing-effect"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="right-panel">
+                    <div class="control-card">
+                        
+                        <div class="search-header">
+                            <div class="search-bar-container">
+                                <input type="text" id="search-input" placeholder="Find app..." autocomplete="off">
+                            </div>
+                            <button class="btn-undo" onclick="resetSearch()">
+                                <img src="./assets/images/return.png" alt="Reset">
+                            </button>
+                        </div>
+
+                        <div class="process-list-container">
+                            <ul id="process-list" class="process-list">
+                                <li class="loading-text">Loading...</li>
+                            </ul>
+                        </div>
+
+                        <div class="card-footer">
+                            <button class="nav-square prev-btn">
+                                <img src="./assets/images/left.png" alt="">
+                            </button>
+                            <span id="page-indicator">Page 1/1</span>
+                            <button class="nav-square next-btn">
+                                <img src="./assets/images/right.png" alt="">
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="./assets/js/app_process.js"></script>
+</body>
+</html>

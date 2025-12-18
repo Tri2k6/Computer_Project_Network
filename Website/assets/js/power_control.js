@@ -96,9 +96,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
             // Lưu hành động chờ xác nhận
             pendingAction = () => {
-                console.log(`Confirmed action: ${btn.id}`);
-
-                // TODO: Viết code xử lý hành động sau khi xác nhận ở đây
+                if (btn.id === "btn-restart") {
+                    
+                    return; 
+                } else if (btn.id === "btn-shutdown") {
+                    
+                    return; 
+                } else if (btn.id === "btn-sleep") {
+                    
+                    return; 
+                }
             };
 
             openConfirm();

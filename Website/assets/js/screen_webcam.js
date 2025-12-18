@@ -1,3 +1,7 @@
+// Lấy tham số từ URL
+const urlParams = new URLSearchParams(window.location.search);
+const mode = urlParams.get('mode'); // "screen" hoặc "webcam"
+
 // ===============================================
 // 1. LOGIC CHỌN THƯ MỤC
 // ===============================================
@@ -39,4 +43,34 @@ function handleSaveAction() {
     const fullPath = folderPath + fileName;
 
     console.log("Saving to:", fullPath);
+}
+
+function capture() {
+    if (mode === 'screen') {
+        // Xử lý cho màn hình (Screen Control)
+        alert('capture screen')
+        // code cho Screen Control ở đây
+    } else if (mode === 'webcam') {
+        // Xử lý cho Webcam Control
+        alert('capture webcam')
+        // code cho Webcam Control ở đây
+    }
+}
+
+function record() {
+    // Lấy phần tử input có class 'duration-input'
+    const durationInput = document.querySelector('.duration-input');
+
+    // Lấy giá trị hiện tại (là chuỗi)
+    const value = durationInput.value;
+
+    if (mode === 'screen') {
+        // Xử lý cho màn hình (Screen Control)
+        alert('record screen for ' + value)
+        // code cho Screen Control ở đây
+    } else if (mode === 'webcam') {
+        // Xử lý cho Webcam Control
+        alert('record webcam for ' + value)
+        // code cho Webcam Control ở đây
+    }
 }

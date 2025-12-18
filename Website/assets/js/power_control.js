@@ -1,42 +1,113 @@
-// Danh sách định nghĩa: ID của nút -> Chữ sẽ hiện lên màn hình
-const HOVER_TEXTS = {
-    'btn-restart': 'Restarting...',
+// ================== CONFIG ==================
+
+// Text hiển thị khi hover từng nút
+const hoverTexts = {
+    'btn-restart':  'Restarting...',
     'btn-shutdown': 'Shutting Down...',
-    'btn-sleep': 'Sleeping...'
+    'btn-sleep':    'Sleeping...'
 };
 
-document.addEventListener('DOMContentLoaded', () => {
-    const screenTextElement = document.getElementById('screen-text');
-    const buttons = document.querySelectorAll('.img-btn');
-    const defaultText = "Goodbye!";
+const screenText = document.querySelector('.screen-text');
+const featureItems = document.querySelectorAll('.feature-content');
+const defaultText = "What to do?";
+let typingInterval;
 
-    function updateText(text) {
-        screenTextElement.classList.add('fade-out');
+typeEffect(defaultText);
 
-        setTimeout(() => {
-            screenTextElement.textContent = text;
-            screenTextElement.classList.remove('fade-out');
-        }, 250);
+function typeEffect(text) {
+    screenText.classList.add('typing-effect');
+    screenText.style.width = 'auto';
+
+    clearInterval(typingInterval);
+    screenText.textContent = "";
+
+    let i = 0;
+    const speed = 50;
+
+    typingInterval = setInterval(() => {
+        if (i < text.length) {
+            screenText.textContent += text.charAt(i);
+            i++;
+        } else {
+            clearInterval(typingInterval);
+            // giữ nhấp nháy hoặc tắt class:
+            // screenText.classList.remove('typing-effect');
+        }
+    }, speed);
+}
+
+// ================== CONFIRM PANEL ==================
+
+let pendingAction = null;
+
+const confirmPanel = document.getElementById("confirmPanel");
+const yesBtn = document.querySelector(".confirm-btn.yes");
+const noBtn  = document.querySelector(".confirm-btn.no");
+
+function openConfirm() {
+    confirmPanel.classList.remove("hidden");
+}
+
+function closeConfirm() {
+    confirmPanel.classList.add("hidden");
+}
+
+yesBtn.addEventListener("click", () => {
+    if (pendingAction) {
+        pendingAction();
+        pendingAction = null;
     }
+    closeConfirm();
+});
+
+noBtn.addEventListener("click", () => {
+    pendingAction = null;
+    closeConfirm();
+});
+
+// ================== MAIN LOGIC ==================
+
+document.addEventListener("DOMContentLoaded", () => {
+    const buttons = document.querySelectorAll(".img-btn");
+
+    // Khi chưa hover nút nào, hiển thị default text
+    typeEffect(defaultText);
 
     buttons.forEach(btn => {
-        // Khi di chuột VÀO nút
-        btn.addEventListener('mouseenter', () => {
-            const btnId = btn.id;
-            if (HOVER_TEXTS[btnId]) {
-                updateText(HOVER_TEXTS[btnId]);
+
+        // Hover vào nút: gõ text tương ứng
+        btn.addEventListener("mouseenter", () => {
+            const text = hoverTexts[btn.id] || defaultText;
+            typeEffect(text);
+        });
+
+        // Rời nút: gõ lại default text
+        btn.addEventListener("mouseleave", () => {
+            typeEffect(defaultText);
+        });
+
+        // Click nút: xử lý confirm nếu cần
+        btn.addEventListener("click", () => {
+
+            if (btn.id === "btn-back") {
+                backToMenu();
+                return; // Không mở confirm panel cho nút back
             }
-        });
 
-        // Khi di chuột RA KHỎI nút
-        btn.addEventListener('mouseleave', () => {
-            updateText(defaultText);
-        });
+            // Lưu hành động chờ xác nhận
+            pendingAction = () => {
+                console.log(`Confirmed action: ${btn.id}`);
 
-        // Khi CLICK nút (Chưa gửi dữ liệu, chỉ log chơi hoặc làm hiệu ứng khác nếu muốn)
-        btn.addEventListener('click', () => {
-            console.log(`User clicked: ${btn.id}`);
-            // Sau này bạn muốn gửi JSON thì viết code vào đây
+                // TODO: Viết code xử lý hành động sau khi xác nhận ở đây
+            };
+
+            openConfirm();
         });
     });
 });
+
+// ================== BACK TO MENU ==================
+
+function backToMenu() {
+    window.location.href = 'feature_menu.html';
+}

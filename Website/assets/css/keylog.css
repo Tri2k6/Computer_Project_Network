@@ -17,6 +17,18 @@
     padding: 30px 20px;
     gap: 30px;
     background-color: var(--bg-color);
+    margin-top: 60px;
+ 
+    opacity: 0;
+    transform: translateY(20px);
+    animation: pageFadeIn 0.3s ease-out forwards;
+} /* Fade in cả trang khi mở lên */
+
+@keyframes pageFadeIn {
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 /* --- 1. CONTROLS --- */
@@ -25,7 +37,7 @@
     align-items: center;
     justify-content: space-between;
     width: 100%;
-    max-width: 1250px;
+    max-width: 1200px;
     /* Tăng nhẹ để vừa bàn phím */
     gap: 20px;
 }
@@ -33,8 +45,8 @@
 .key-display {
     flex-grow: 1;
     height: 50px;
-    background-color: #E6E8EB;
-    border: 2px solid #14234C;
+    background-color: var(--panel-bg);
+    border: 2px solid var(--text-blue);
     border-radius: 25px;
     padding: 0 20px;
     font-family: 'Inter', sans-serif;
@@ -49,7 +61,7 @@
 }
 
 .k-btn {
-    background-color: #EAB973;
+    background-color: var(--nav-bg);
     color: var(--text-dark);
     font-weight: 700;
     padding: 0 20px;
@@ -82,8 +94,8 @@
     box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
 
     display: flex;
-    gap: 20px;
-    min-width: fit-content;
+    gap: 27px;
+    min-width: 1200px;
 
     /* Align items flex-start để Numpad có thể dùng margin-top: auto */
     align-items: flex-start;
@@ -91,8 +103,8 @@
 
 /* --- KEY STYLES --- */
 .key {
-    background-color: #FDF6E8;
-    color: #E57D36;
+    background-color: var(--bg-color);
+    color: var(--text-orange);
     font-weight: 700;
     font-size: 12px;
     border-radius: var(--radius);
@@ -108,8 +120,8 @@
 .key:active {
     transform: translateY(3px);
     box-shadow: none;
-    background-color: #E57D36;
-    color: white;
+    background-color: var(--text-orange);
+    color: var(--bg-color);
 }
 
 .key.transparent {
@@ -125,7 +137,6 @@
     display: flex;
     flex-direction: column;
     gap: var(--gap-size);
-    /* Tính toán tổng chiều rộng chuẩn: 15u + 14 khoảng trống */
     width: calc(15 * var(--key-base-size) + 14 * var(--gap-size));
 }
 
@@ -182,7 +193,6 @@
 
 /* Row 6 (Ctrl Row): Thiếu 6 gap */
 .k-6-25 {
-    /* Spacebar cũ + 6 gap */
     width: calc((var(--key-base-size) * 6.25 + var(--gap-size) * 5.25) + 6 * var(--gap-size));
 }
 

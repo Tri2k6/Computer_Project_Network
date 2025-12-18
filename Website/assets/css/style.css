@@ -308,6 +308,7 @@ body {
     display: flex;
     justify-content: center;
     align-items: center;
+    margin-left: 30px;
 
     /* setup cho animation */
     transform: translateX(-60px);
@@ -328,14 +329,14 @@ body {
     height: 500px;
     background-color: var(--nav-bg); /* Màu cam giống menu */
     border-radius: 12px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.3);
     display: flex;
     flex-direction: column;
     padding: 20px;
     font-family: 'Inter', sans-serif;
     transform: translateX(-350px);
     margin-top: 60px;
-    color: #14234C;
+    color: white;
 }
 
 .list-header {
@@ -348,8 +349,8 @@ body {
 }
 
 .list-header h2 {
-    margin: 0;
-    font-size: 18px;
+    margin-left: -220px;
+    font-size: 20px;
     font-weight: 700;
 }
 
@@ -359,18 +360,24 @@ body {
 }
 
 .icon-btn {
-    background: none;
-    border: none;
-    font-size: 20px;
-    cursor: pointer;
-    color: #14234C;
-    font-weight: bold;
+    width: 40px;
+    height: 40px;
+    flex-shrink: 0;
+    margin-bottom: 5px;
 }
+
+.icon-btn img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    display: block;
+}
+
 
 /* Khu vực chứa danh sách */
 .server-items-wrapper {
     flex-grow: 1;
-    background-color: #FDF6E8; /* Màu nền nhạt cho list */
+    background-color: var(--bg-color); /* Màu nền nhạt cho list */
     border-radius: 8px;
     padding: 10px;
     overflow-y: auto; /* Cho phép cuộn nếu danh sách dài */
@@ -389,6 +396,7 @@ body {
     justify-content: space-between;
     align-items: center;
     font-size: 14px;
+    color: var(--text-dark)
 }
 
 /* Footer phân trang */
@@ -439,6 +447,7 @@ body {
     user-select: none;
     white-space: nowrap;
     font-weight: 600;
+    color: var(--text-dark);
 }
 
 /* =========================================

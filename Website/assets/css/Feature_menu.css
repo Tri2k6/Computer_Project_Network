@@ -16,7 +16,7 @@
     background-color: var(--bg-color);
     overflow: hidden;
     position: relative;
-    transform: translateY(30px);
+    transform: translateY(15px);
 }
 
 /* Container chính chứa 3 cột */
@@ -69,11 +69,11 @@
 }
 
 .left-col .feature-content {
-    justify-content: flex-end; /* Icon và chữ dồn về phía icon */
+    justify-content: flex-end;
 }
 
 .content-right {
-    flex-direction: row-reverse; /* Đảo icon sang phải */
+    flex-direction: row-reverse;
     justify-content: flex-end;
 }
 
@@ -98,10 +98,11 @@
 .warning { color: #d9534f; }
 
 
-/* --- TRUNG TÂM (Laptop & Chữ) --- */
+/* --- TRUNG TÂM --- */
 .center-column {
-    flex: 0 0 auto; /* Không co giãn, giữ kích thước thật */
+    flex: 0 0 auto;
     display: flex;
+    flex-direction: column;  /* thêm dòng này */
     justify-content: center;
     align-items: center;
     position: relative;
@@ -110,7 +111,7 @@
 
 .laptop-wrapper {
     position: relative;
-    width: 500px; /* Kích thước hiển thị laptop */
+    width: 500px;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -122,6 +123,36 @@
     display: block;
     filter: drop-shadow(0 30px 20px rgba(0,0,0,0.2));
 }
+
+.disconnect-btn {
+    background-color: var(--text-orange);
+    color: var(--panel-bg);
+    border: none;
+    padding: 10px 36px;
+    border-radius: 6px;
+    font-weight: 700;
+    font-size: 20px;
+    cursor: pointer;
+    transition: background-color 0.3s ease, transform 0.3s ease, filter 0.3s ease;
+    user-select: none;
+
+    transform: translateY(-40px) scale(1);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+.disconnect-btn:hover {
+    filter: brightness(1.15);
+    transform: translateY(-44px) scale(1.05);
+    box-shadow: 0 8px 16px rgba(0,0,0,0.3);
+}
+
+.disconnect-btn:focus {
+    outline: none;
+    filter: brightness(0.85);
+    transform: translateY(-40px) scale(1);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+}
+
 
 /* Căn chữ vào giữa màn hình laptop */
 .screen-overlay {
@@ -175,12 +206,18 @@
 .typing-effect {
     overflow: hidden;
     white-space: nowrap;
-    border-right: 2px solid #3A6DAF;
-    width: 0;
-    animation: typing 2s steps(15) 1s forwards, blink 0.75s infinite;
+    border-right: 2px solid var(--text-blue); /* thêm màu mặc định */
+    width: 0ch;
+    animation: typing 2s steps(15) 1s forwards, blink 0.75s step-end infinite;
 }
-@keyframes typing { to { width: 100%; } }
-@keyframes blink { 50% { border-color: transparent; } }
+
+@keyframes typing { 
+    to { width: auto; }
+}
+
+@keyframes blink { 
+    50% { border-color: transparent; } 
+}
 
 /* --- RESPONSIVE --- */
 @media (max-width: 1024px) {

@@ -3,8 +3,8 @@ document.addEventListener("DOMContentLoaded", () => {
        1. CẤU HÌNH LIÊN KẾT (Bạn điền link vào đây)
        ========================================= */
     const urlMap = {
-        "Application Control": "./application.html",
-        "Process Control":     "./process.html",
+        "Application Control": "./app_process.html",
+        "Process Control":     "./app_process.html",
         "Keylog Control":      "./keylog.html",
         "Screen Control":      "./screen_webcam.html",
         "Webcam Control":      "./screen_webcam.html",
@@ -21,15 +21,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
     typeEffect(defaultText);
 
-
     /* =========================================
        3. HÀM XỬ LÝ HIỆU ỨNG GÕ CHỮ (TYPING)
        ========================================= */
     function typeEffect(text) {
-        screenText.classList.remove('typing-effect');
+        screenText.classList.add('typing-effect');
         screenText.style.width = 'auto';
-        screenText.style.borderRight = '2px solid #3A6DAF';
-
         clearInterval(typingInterval);
         screenText.textContent = "";
 
@@ -42,16 +39,18 @@ document.addEventListener("DOMContentLoaded", () => {
                 i++;
             } else {
                 clearInterval(typingInterval);
+                // giữ nhấp nháy hoặc tắt class:
+                // screenText.classList.remove('typing-effect');
             }
         }, speed);
     }
+
 
     /* =========================================
        4. GÁN SỰ KIỆN CHO CÁC NÚT
        ========================================= */
     featureItems.forEach(item => {
         const featureName = item.querySelector('.feature-text').textContent.trim();
-
 
         // Sự kiện: Khi chuột RÊ VÀO (Hover)
         item.addEventListener('mouseenter', () => {
@@ -76,3 +75,9 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     });
 });
+
+// 5. Ngắt kết nối với server
+function Disconnect() {
+    // thêm logic ngắt kết nối ở đây
+    window.location.href = 'index.html';
+}

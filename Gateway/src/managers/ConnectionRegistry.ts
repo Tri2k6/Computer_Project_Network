@@ -1,9 +1,12 @@
-import { Connection } from '../core/Connection';
+import { Connection, ConnectionHistory, MachineInfo } from '../core/Connection';
 import { DatabaseManager } from './DatabaseManager';
 import { Logger } from '../utils/Logger';
+import * as crypto from 'crypto';
 
 export class ConnectionRegistry {
     private connections: Map<string, Connection> = new Map();
+    private persistentIdToConnection: Map<string, Connection> = new Map();
+    private ipPortToConnection: Map<string, Connection> = new Map();
     private machineIdToConnection: Map<string, Set<string>> = new Map(); 
     private roleConnections: Map<'AGENT' | 'CLIENT', Set<string>> = new Map([
         ['AGENT', new Set()],
@@ -12,37 +15,63 @@ export class ConnectionRegistry {
 
     constructor(private dbManager: DatabaseManager) {}
 
+    public getPersistentId(machineId: string, role: 'AGENT' | 'CLIENT', ip: string): string {
+        const hash = crypto.createHash('md5').update(ip).digest('hex').substring(0, 8);
+        return `${role}-${machineId}-${hash}`;
+    }
+
+    public findConnectionByPersistentId(machineId: string, role: 'AGENT' | 'CLIENT', ip: string): Connection | null {
+        const persistentId = this.getPersistentId(machineId, role, ip);
+        return this.persistentIdToConnection.get(persistentId) || null;
+    }
+
+    public findConnectionByIPPort(ip: string, port: number): Connection | null {
+        const key = `${ip}:${port}`;
+        return this.ipPortToConnection.get(key) || null;
+    }
+
     public registerConnection(conn: Connection): { success: boolean; reason?: string; existingConnection?: Connection } {
-        const { id, machineId, role } = conn;
+        const { id, machineId, role, ip, persistentId } = conn;
 
         if (this.connections.has(id)) {
             Logger.warn(`[ConnectionRegistry] Connection ID ${id} already exists`);
             return { 
                 success: false, 
                 reason: `Connection ID ${id} already exists`,
-                existingConnection: this.connections.get(id)
+                existingConnection: this.connections.get(id)!
             };
         }
 
-        const existingByMachineId = this.findConnectionByMachineId(machineId, role);
-        if (existingByMachineId) {
-            Logger.warn(`[ConnectionRegistry] Duplicate connection detected: ${machineId} as ${role} (existing: ${existingByMachineId.id})`);
-            return { 
-                success: false, 
-                reason: `Machine ${machineId} already connected as ${role}`,
-                existingConnection: existingByMachineId
-            };
+        // Check for duplicate by IP:PORT + machineId + role
+        const existingByIPPort = this.findConnectionByIPPort(ip, conn.machineInfo?.port || 0);
+        if (existingByIPPort && existingByIPPort.machineId === machineId && existingByIPPort.role === role) {
+            Logger.warn(`[ConnectionRegistry] Duplicate connection detected: ${ip}:${conn.machineInfo?.port || 0} (${machineId} as ${role})`);
+            existingByIPPort.close();
+            this.unregisterConnection(existingByIPPort.id);
         }
 
-        const oppositeRole: 'AGENT' | 'CLIENT' = role === 'AGENT' ? 'CLIENT' : 'AGENT';
-        const oppositeConnection = this.findConnectionByMachineId(machineId, oppositeRole);
-        if (oppositeConnection) {
-            Logger.warn(`[ConnectionRegistry] Machine ${machineId} is already connected as ${oppositeRole}, closing existing connection`);
-            oppositeConnection.close();
-            this.unregisterConnection(oppositeConnection.id);
+        // Check for existing persistent ID (reconnect)
+        const existingByPersistentId = this.persistentIdToConnection.get(persistentId);
+        if (existingByPersistentId && existingByPersistentId.id !== id) {
+            Logger.info(`[ConnectionRegistry] Reconnect detected: ${persistentId} (old: ${existingByPersistentId.id}, new: ${id})`);
+            existingByPersistentId.addConnectionEvent({
+                timestamp: Date.now(),
+                event: 'reconnect',
+                ip: ip,
+                port: conn.machineInfo?.port || 0
+            });
+            existingByPersistentId.close();
+            this.unregisterConnection(existingByPersistentId.id);
         }
 
+        // Register new connection
         this.connections.set(id, conn);
+        this.persistentIdToConnection.set(persistentId, conn);
+        
+        if (conn.machineInfo?.port) {
+            const ipPortKey = `${ip}:${conn.machineInfo.port}`;
+            this.ipPortToConnection.set(ipPortKey, conn);
+        }
         
         if (!this.machineIdToConnection.has(machineId)) {
             this.machineIdToConnection.set(machineId, new Set());
@@ -51,8 +80,88 @@ export class ConnectionRegistry {
         
         this.roleConnections.get(role)!.add(id);
 
-        Logger.info(`[ConnectionRegistry] Registered ${role} connection: ${id} (machineId: ${machineId})`);
+        // Save connection history
+        this.registerConnectionWithHistory(conn);
+        
+        // Save machine info
+        if (conn.machineInfo) {
+            this.dbManager.updateMachineInfo(conn.machineInfo.ip, conn.machineInfo.port, conn.machineInfo.role);
+        }
+
+        Logger.info(`[ConnectionRegistry] Registered ${role} connection: ${id} (persistentId: ${persistentId}, machineId: ${machineId})`);
         return { success: true };
+    }
+
+    private registerConnectionWithHistory(conn: Connection): void {
+        const history: ConnectionHistory = {
+            timestamp: Date.now(),
+            event: 'connect',
+            ip: conn.ip,
+            port: conn.machineInfo?.port || 0
+        };
+        conn.addConnectionEvent(history);
+        
+        this.dbManager.saveConnectionHistory(
+            conn.id,
+            'connect',
+            conn.ip,
+            conn.machineInfo?.port || 0
+        );
+    }
+
+    public updateMachineInfo(connId: string, machineInfo: Partial<MachineInfo>): void {
+        const conn = this.connections.get(connId);
+        if (conn) {
+            const info: MachineInfo = {
+                ip: machineInfo.ip || conn.ip,
+                port: machineInfo.port || conn.machineInfo?.port || 0,
+                role: machineInfo.role || conn.role
+            };
+            
+            conn.updateMachineInfo(info);
+            
+            if (info.port !== undefined) {
+                const oldKey = `${conn.ip}:${conn.machineInfo?.port || 0}`;
+                const newKey = `${conn.ip}:${info.port}`;
+                if (this.ipPortToConnection.get(oldKey) === conn) {
+                    this.ipPortToConnection.delete(oldKey);
+                }
+                this.ipPortToConnection.set(newKey, conn);
+            }
+            
+            this.dbManager.updateMachineInfo(info.ip, info.port, info.role);
+        }
+    }
+
+    public getConnectionHistory(connId: string): ConnectionHistory[] {
+        const conn = this.connections.get(connId);
+        return conn ? conn.connectionHistory : [];
+    }
+
+    public storeQueryResult(connId: string, result: any): void {
+        const conn = this.connections.get(connId);
+        if (conn) {
+            conn.storeQueryResult(result);
+            this.dbManager.saveQueryResult(connId, result);
+        }
+    }
+
+    public getQueryResults(connId: string): any[] {
+        const conn = this.connections.get(connId);
+        if (conn) {
+            return conn.getQueryResults();
+        }
+        const dbResults = this.dbManager.getQueryResults(connId);
+        return dbResults.map(r => JSON.parse(r.result));
+    }
+
+    public getQueryResult(connId: string): any {
+        const conn = this.connections.get(connId);
+        if (conn) {
+            const results = conn.getQueryResults();
+            return results.length > 0 ? results[results.length - 1] : null;
+        }
+        return this.dbManager.getQueryResult(connId);
     }
 
     public unregisterConnection(id: string): boolean {
@@ -61,9 +170,30 @@ export class ConnectionRegistry {
             return false;
         }
 
-        const { machineId, role } = conn;
+        const { machineId, role, ip, persistentId } = conn;
+
+        // Add disconnect event
+        conn.addConnectionEvent({
+            timestamp: Date.now(),
+            event: 'disconnect',
+            ip: ip,
+            port: conn.machineInfo?.port || 0
+        });
+
+        this.dbManager.saveConnectionHistory(
+            id,
+            'disconnect',
+            ip,
+            conn.machineInfo?.port || 0
+        );
 
         this.connections.delete(id);
+        this.persistentIdToConnection.delete(persistentId);
+        
+        if (conn.machineInfo?.port) {
+            const ipPortKey = `${ip}:${conn.machineInfo.port}`;
+            this.ipPortToConnection.delete(ipPortKey);
+        }
         
         const machineConnections = this.machineIdToConnection.get(machineId);
         if (machineConnections) {
@@ -75,7 +205,7 @@ export class ConnectionRegistry {
 
         this.roleConnections.get(role)!.delete(id);
 
-        Logger.info(`[ConnectionRegistry] Unregistered ${role} connection: ${id} (machineId: ${machineId})`);
+        Logger.info(`[ConnectionRegistry] Unregistered ${role} connection: ${id} (persistentId: ${persistentId}, machineId: ${machineId})`);
         return true;
     }
 

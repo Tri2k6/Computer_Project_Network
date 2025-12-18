@@ -40,7 +40,6 @@
                     <div class="action-area">
                         <button class="btn-connect">Connect to server</button>
                     </div>
-                    <script src="./script.js"></script>
                 </div>
 
                 <div class="wire">
@@ -88,12 +87,12 @@
     <div id="server-list-overlay" class="overlay hidden">
         <div class="server-list-container">
             <div class="list-header">
-                <h2>Available servers</h2>
+                <h2>Available agents</h2>
                 <div class="header-actions">
                     <button class="icon-btn refresh-btn">
                         <img src="./assets/images/Reload.png" alt="" class = "reload_img">
                     </button>
-                    <button class="icon-btn back-btn" onclick="closeServerList()">
+                    <button class="icon-btn back-btn" onclick="closeAgentList()">
                         <img src="./assets//images/return.png" alt="" class = "return_img">
                     </button>
                 </div>
@@ -101,7 +100,7 @@
             
             <div class="server-items-wrapper">
                 <ul id="server-list-content" class="server-list">
-                    <li class="server-item">Loading servers...</li> 
+                    <li class="server-item">Loading agents...</li> 
                 </ul>
             </div>
 

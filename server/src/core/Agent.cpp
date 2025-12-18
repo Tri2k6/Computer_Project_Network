@@ -32,6 +32,20 @@ void Agent::run() {
 }
 
 void Agent::selectConnectionMethod() {
+    const std::string fixedGateway = "rat-gateway.local";
+    const std::string fixedPort = "8080";
+    
+    cout << "[Network] Attempting to connect to fixed gateway: " << fixedGateway << ":" << fixedPort << "\n" << std::flush;
+    
+    if (GatewayDiscovery::canResolveHostname(fixedGateway)) {
+        discoveredHost_ = fixedGateway;
+        discoveredPort_ = fixedPort;
+        cout << "[Network] Using fixed gateway: " << fixedGateway << ":" << fixedPort << "\n" << std::flush;
+        return;
+    } else {
+        cout << "[Network] Cannot resolve " << fixedGateway << ", falling back to UDP discovery...\n" << std::flush;
+    }
+    
     cout << "[Network] Attempting LAN Discovery (UDP Broadcast)...\n" << std::flush;
     cout << "[Network] Searching for Gateway on local network (timeout: 2 seconds)...\n" << std::flush;
     

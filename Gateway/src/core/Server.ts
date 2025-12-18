@@ -13,6 +13,8 @@ import { BonjourService } from "../utils/BonjourService";
 import { Config } from "../config";
 import * as https from 'https'
 import * as http from 'http'
+import * as fs from 'fs'
+import * as path from 'path'
 
 export class GatewayServer {
     private wss: WebSocketServer;
@@ -50,16 +52,17 @@ export class GatewayServer {
 
     public start() {
         this.wss.on('connection', (ws: WebSocket, req) => {
-            const ip = req.socket.remoteAddress;
+            const ip = req.socket.remoteAddress || "unknown";
+            const port = req.socket.remotePort || 0;
             const sessionId = `CONN-${this.connectionCounter++}`;
             ws.id = sessionId;
-            Logger.info(`New connection from IP: ${ip} (Session: ${sessionId})`);
+            Logger.info(`New connection from IP: ${ip}:${port} (Session: ${sessionId})`);
 
             ws.isAlive = true;
             
             const autoAuthTimer = setTimeout(() => {
                 if (!ws.role) {
-                    this.autoAuthenticateAgent(ws, sessionId, ip || "unknown");
+                    this.autoAuthenticateAgent(ws, sessionId, ip, port);
                 }
             }, 1000);
 
@@ -100,17 +103,18 @@ export class GatewayServer {
             this.wssInsecure = new WebSocketServer({ server: this.httpServer });
             
             this.wssInsecure.on('connection', (ws: WebSocket, req) => {
-                const ip = req.socket.remoteAddress;
+                const ip = req.socket.remoteAddress || "unknown";
+                const port = req.socket.remotePort || 0;
                 const sessionId = `CONN-${this.connectionCounter++}`;
                 ws.id = sessionId;
-                Logger.info(`New INSECURE connection from IP: ${ip} (Session: ${sessionId})`);
+                Logger.info(`New INSECURE connection from IP: ${ip}:${port} (Session: ${sessionId})`);
 
                 ws.isAlive = true;
                 
                 const autoAuthTimer = setTimeout(() => {
                     if (!ws.role) {
                         Logger.info(`[Server] Auto-authenticating INSECURE connection ${sessionId} as AGENT (no message received)`);
-                        this.autoAuthenticateAgent(ws, sessionId, ip || "unknown");
+                        this.autoAuthenticateAgent(ws, sessionId, ip, port);
                     }
                 }, 1000);
 
@@ -208,14 +212,73 @@ export class GatewayServer {
                 return;
             }
 
-            res.writeHead(404);
-            res.end('Not Found');
+            // Serve static files from Website directory
+            const websitePath = path.join(process.cwd(), 'Website');
+            let requestedPath = url.pathname === '/' ? '/index.html' : url.pathname;
+            let filePath = path.join(websitePath, requestedPath);
+            
+            // Security: prevent directory traversal - normalize path
+            filePath = path.normalize(filePath);
+            if (!filePath.startsWith(path.normalize(websitePath))) {
+                res.writeHead(403);
+                res.end('Forbidden');
+                return;
+            }
+
+            // Check if file exists
+            fs.stat(filePath, (err, stats) => {
+                if (err) {
+                    // If file doesn't exist and path is root or ends with /, try index.html
+                    if (url.pathname === '/' || url.pathname.endsWith('/')) {
+                        filePath = path.join(websitePath, 'index.html');
+                    } else {
+                        res.writeHead(404);
+                        res.end('Not Found');
+                        return;
+                    }
+                } else if (!stats.isFile()) {
+                    // If it's a directory, try index.html inside it
+                    filePath = path.join(filePath, 'index.html');
+                }
+
+                // Final check and read file
+                fs.readFile(filePath, (err, data) => {
+                    if (err) {
+                        res.writeHead(404);
+                        res.end('Not Found');
+                        return;
+                    }
+
+                    // Determine content type
+                    const ext = path.extname(filePath).toLowerCase();
+                    const contentTypes: { [key: string]: string } = {
+                        '.html': 'text/html',
+                        '.js': 'application/javascript',
+                        '.css': 'text/css',
+                        '.json': 'application/json',
+                        '.png': 'image/png',
+                        '.jpg': 'image/jpeg',
+                        '.jpeg': 'image/jpeg',
+                        '.gif': 'image/gif',
+                        '.svg': 'image/svg+xml',
+                        '.ico': 'image/x-icon'
+                    };
+                    const contentType = contentTypes[ext] || 'application/octet-stream';
+
+                    res.writeHead(200, {
+                        'Content-Type': contentType,
+                        'Access-Control-Allow-Origin': '*'
+                    });
+                    res.end(data);
+                });
+            });
         });
 
         this.dashboardServer.listen(dashboardPort, '0.0.0.0', () => {
             Logger.info(`[Dashboard] HTTP server listening on port ${dashboardPort}`);
             Logger.info(`[Dashboard] Health check: http://localhost:${dashboardPort}/health`);
             Logger.info(`[Dashboard] Stats: http://localhost:${dashboardPort}/stats`);
+            Logger.info(`[Dashboard] Website: http://localhost:${dashboardPort}/`);
         });
     }
 
@@ -284,10 +347,11 @@ export class GatewayServer {
     private autoAuthenticateAgent(ws: WebSocket, sessionId: string, ip: string) {
         const machineId = `AGENT-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
         const name = `Agent-${machineId.substring(machineId.length - 6)}`;
+        const port = (ws as any).socket?.remotePort || 0;
 
         Logger.info(`[Server] Auto-authenticating as AGENT: ${name} (${sessionId}) - Machine: ${machineId}`);
 
-        const newConnection = new Connection(ws, sessionId, 'AGENT', ip, machineId, name);
+        const newConnection = new Connection(ws, sessionId, 'AGENT', ip, machineId, name, port);
 
         const registrationResult = this.connectionRegistry.registerConnection(newConnection);
         

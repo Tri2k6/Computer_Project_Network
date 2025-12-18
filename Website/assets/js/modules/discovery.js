@@ -1,8 +1,9 @@
-import { CONFIG } from "./config.js";
+import { CONFIG, loadDefaultGateways } from "./config.js";
 
 export class GatewayDiscovery {
     constructor() {
         this.isDiscovering = false;
+        this.defaultGateways = loadDefaultGateways();
     }
 
     async discover(onFound, onProgress) {
@@ -15,69 +16,87 @@ export class GatewayDiscovery {
         this.isDiscovering = true;
         let found = false;
         
-        if (onProgress) onProgress("Discovering Gateway via mDNS/Bonjour...");
-
-        if (onProgress) onProgress("Trying mDNS/Bonjour: rat-gateway.local (HTTP/WS first, then HTTPS/WSS)...");
+        // Try rat-gateway.local first (fixed gateway)
         const bonjourHost = 'rat-gateway.local';
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/10c16e71-75ba-4efd-b6cb-47716d67b948',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'discovery.js:20',message:'Starting rat-gateway.local discovery',data:{hostname:bonjourHost,serverPort:CONFIG.SERVER_PORT},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
+        if (onProgress) onProgress(`Connecting to ${bonjourHost}...`);
         
         if (onProgress) onProgress("Testing mDNS resolution...");
         const canResolve = await this._testDNSResolution(bonjourHost);
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/10c16e71-75ba-4efd-b6cb-47716d67b948',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'discovery.js:25',message:'DNS resolution result',data:{hostname:bonjourHost,canResolve:canResolve},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+        // #endregion
         if (!canResolve) {
             if (onProgress) onProgress("⚠️ mDNS not resolving. Trying direct connection anyway...");
         } else {
             if (onProgress) onProgress("✓ mDNS resolved successfully!");
         }
         
-        if (onProgress) onProgress(`Attempting connection to ws://${bonjourHost}:${CONFIG.SERVER_PORT + 2} (HTTP/WS)...`);
+        if (onProgress) onProgress(`Attempting connection to wss://${bonjourHost}:${CONFIG.SERVER_PORT} (HTTPS/WSS)...`);
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/10c16e71-75ba-4efd-b6cb-47716d67b948',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'discovery.js:32',message:'Before WebSocket connection attempt',data:{hostname:bonjourHost,port:CONFIG.SERVER_PORT,timeout:8000,expectedWSPort:CONFIG.SERVER_PORT+2,expectedWSSPort:CONFIG.SERVER_PORT},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+        // #endregion
         const bonjourResult = await this._tryWebSocketConnection(bonjourHost, CONFIG.SERVER_PORT, 8000);
+        // #region agent log
+        fetch('http://127.0.0.1:7242/ingest/10c16e71-75ba-4efd-b6cb-47716d67b948',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'discovery.js:33',message:'After WebSocket connection attempt',data:{hostname:bonjourHost,result:bonjourResult,success:!!bonjourResult},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+        // #endregion
         if (bonjourResult) {
-            console.log(`[Discovery] ✓ Gateway found via mDNS: ${bonjourHost}:${bonjourResult.port || CONFIG.SERVER_PORT}, calling onFound callback...`);
-            if (onProgress) onProgress(`✓ Found Gateway via mDNS: ${bonjourHost}:${bonjourResult.port || CONFIG.SERVER_PORT}`);
+            console.log(`[Discovery] ✓ Gateway found: ${bonjourHost}:${bonjourResult.port || CONFIG.SERVER_PORT}`);
+            if (onProgress) onProgress(`✓ Found Gateway: ${bonjourHost}:${bonjourResult.port || CONFIG.SERVER_PORT}`);
             if (onFound) {
-                console.log(`[Discovery] Calling onFound('${bonjourHost}', ${bonjourResult.port || CONFIG.SERVER_PORT})`);
                 onFound(bonjourHost, bonjourResult.port || CONFIG.SERVER_PORT);
             }
-            localStorage.setItem('gateway_ip', bonjourHost);
+            localStorage.setItem(CONFIG.LOCAL_STORAGE_GATEWAY_KEY, bonjourHost);
             this.isDiscovering = false;
             return true;
         } else {
             if (onProgress) onProgress(`✗ Connection failed to ${bonjourHost}`);
         }
-
-        if (onProgress) onProgress("Gateway not found via mDNS.");
-        if (onProgress) onProgress("Note: mDNS may not work when client and server are on the same machine.");
-        if (onProgress) onProgress("Trying localhost as fallback...");
         
-        const wsPort = CONFIG.SERVER_PORT + 2;
-        if (onProgress) onProgress(`Trying localhost:${wsPort} (HTTP/WS)...`);
-        const localhostResult = await this._tryWebSocketConnection('localhost', CONFIG.SERVER_PORT, 3000);
-        if (localhostResult) {
-            const foundPort = localhostResult.port || wsPort;
-            console.log(`[Discovery] ✓ Gateway found on localhost:${foundPort}, calling onFound callback...`);
-            if (onProgress) onProgress(`✓ Found Gateway on localhost: localhost:${foundPort}`);
-            if (onFound) {
-                console.log(`[Discovery] Calling onFound('localhost', ${foundPort})`);
-                onFound('localhost', foundPort);
-            }
-            localStorage.setItem('gateway_ip', 'localhost');
+        // Fallback to default gateways
+        if (onProgress) onProgress("Trying fallback gateways...");
+        const defaultResult = await this.discoverViaDefaultGateways(onFound, onProgress);
+        if (defaultResult) {
             this.isDiscovering = false;
             return true;
         }
         
-        if (onProgress) onProgress("Troubleshooting:");
-        if (onProgress) onProgress("  1. mDNS typically doesn't work when client/server are on same machine");
-        if (onProgress) onProgress("  2. Try from another device on the same network");
-        if (onProgress) onProgress("  3. Or manually connect using: gateway.connect('localhost', 8082)");
+        if (onProgress) onProgress("Gateway not found. Please ensure Gateway is running and Bonjour/mDNS is installed.");
         this.isDiscovering = false;
+        return false;
+    }
+
+    async discoverViaDefaultGateways(onFound, onProgress) {
+        const gateways = loadDefaultGateways();
+        
+        for (const gateway of gateways) {
+            if (onProgress) onProgress(`Trying ${gateway.ip}:${gateway.port} (${gateway.protocol})...`);
+            
+            const result = await this._tryWebSocketConnection(gateway.ip, gateway.port, 2000);
+            if (result) {
+                console.log(`[Discovery] ✓ Gateway found at default: ${gateway.ip}:${result.port || gateway.port}`);
+                if (onProgress) onProgress(`✓ Found Gateway: ${gateway.ip}:${result.port || gateway.port}`);
+                if (onFound) {
+                    onFound(gateway.ip, result.port || gateway.port);
+                }
+                localStorage.setItem(CONFIG.LOCAL_STORAGE_GATEWAY_KEY, gateway.ip);
+                return true;
+            }
+        }
+        
         return false;
     }
 
     _tryWebSocketConnection(ip, port, customTimeout = 300) {
         return new Promise((resolve) => {
-            let mainResolved = false; // Renamed to avoid confusion
+            let mainResolved = false; 
             const timeout = customTimeout;
             console.log(`[Discovery] Testing WebSocket connection to ${ip}:${port} (timeout: ${timeout}ms)`);
-            
+        
+            // fetch('http://127.0.0.1:7242/ingest/10c16e71-75ba-4efd-b6cb-47716d67b948',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'discovery.js:80',message:'_tryWebSocketConnection entry',data:{ip:ip,port:port,timeout:timeout},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+            // #endregion            
             const tryConnection = (protocol, url) => {
                 return new Promise((innerResolve) => {
                     let connectionResolved = false; // Local flag for this connection attempt
@@ -97,6 +116,9 @@ export class GatewayDiscovery {
                     let hasOpened = false;
                     
                     try {
+                        // #region agent log
+                        fetch('http://127.0.0.1:7242/ingest/10c16e71-75ba-4efd-b6cb-47716d67b948',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'discovery.js:105',message:'Creating WebSocket',data:{url:url,protocol:protocol},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+                        // #endregion
                         ws = new WebSocket(url);
                         
                         ws.onopen = () => {
@@ -129,6 +151,9 @@ export class GatewayDiscovery {
                         };
                         
                         ws.onerror = (event) => {
+                            // #region agent log
+                            fetch('http://127.0.0.1:7242/ingest/10c16e71-75ba-4efd-b6cb-47716d67b948',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'discovery.js:136',message:'WebSocket error',data:{url:url,protocol:protocol,hasOpened:hasOpened,connectionResolved:connectionResolved,readyState:ws?ws.readyState:'unknown'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+                            // #endregion
                             if (!hasOpened && !connectionResolved) {
                                 clearTimeout(timeoutId);
                                 connectionResolved = true;
@@ -142,6 +167,9 @@ export class GatewayDiscovery {
                         };
                         
                         ws.onclose = (event) => {
+                            // #region agent log
+                            fetch('http://127.0.0.1:7242/ingest/10c16e71-75ba-4efd-b6cb-47716d67b948',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'discovery.js:170',message:'WebSocket close',data:{url:url,protocol:protocol,code:event.code,reason:event.reason,hasOpened:hasOpened,connectionResolved:connectionResolved,wasClean:event.wasClean},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
+                            // #endregion
                             if (!hasOpened && !connectionResolved) {
                                 clearTimeout(timeoutId);
                                 connectionResolved = true;
@@ -163,9 +191,13 @@ export class GatewayDiscovery {
             };
 
             (async () => {
-                const wsPort = port + 2;
+                // If port is already 8082 (WS port), use it directly. Otherwise, add 2 to get WS port from WSS port (8080 -> 8082)
+                const wsPort = port >= 8082 ? port : port + 2;
                 const wsUrl = `ws://${ip}:${wsPort}`;
                 console.log(`[Discovery] Trying WS connection: ${wsUrl}`);
+                // #region agent log
+                fetch('http://127.0.0.1:7242/ingest/10c16e71-75ba-4efd-b6cb-47716d67b948',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'discovery.js:195',message:'Before WS connection attempt',data:{ip:ip,basePort:port,calculatedWSPort:wsPort,wsUrl:wsUrl},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+                // #endregion
                 const insecureResult = await tryConnection('ws', wsUrl);
                 console.log(`[Discovery] WS result:`, insecureResult, `mainResolved flag:`, mainResolved);
                 if (insecureResult) {
@@ -182,16 +214,26 @@ export class GatewayDiscovery {
                 }
                 
                 if (!mainResolved) {
-                    const wssUrl = `wss://${ip}:${port}`;
-                    console.log(`[Discovery] Trying WSS connection: ${wssUrl}`);
-                    const secureResult = await tryConnection('wss', wssUrl);
-                    console.log(`[Discovery] WSS result:`, secureResult);
-                    if (secureResult && !mainResolved) {
-                        mainResolved = true;
-                        console.log(`[Discovery] ✓ WSS connection successful: ${wssUrl}, resolving with port ${secureResult.port || port}`);
-                        resolve({ ip, port: secureResult.port || port });
-                    } else if (!mainResolved) {
-                        console.log(`[Discovery] ✗ Both WS and WSS connections failed`);
+                    // Only try WSS if port is 8080 (WSS port). If port is 8082 (WS port), skip WSS.
+                    if (port < 8082) {
+                        const wssUrl = `wss://${ip}:${port}`;
+                        console.log(`[Discovery] Trying WSS connection: ${wssUrl}`);
+                        // #region agent log
+                        fetch('http://127.0.0.1:7242/ingest/10c16e71-75ba-4efd-b6cb-47716d67b948',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'discovery.js:214',message:'Before WSS connection attempt',data:{ip:ip,basePort:port,wssUrl:wssUrl},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+                        // #endregion
+                        const secureResult = await tryConnection('wss', wssUrl);
+                        console.log(`[Discovery] WSS result:`, secureResult);
+                        if (secureResult && !mainResolved) {
+                            mainResolved = true;
+                            console.log(`[Discovery] ✓ WSS connection successful: ${wssUrl}, resolving with port ${secureResult.port || port}`);
+                            resolve({ ip, port: secureResult.port || port });
+                        } else if (!mainResolved) {
+                            console.log(`[Discovery] ✗ Both WS and WSS connections failed`);
+                            resolve(null);
+                        }
+                    } else {
+                        // Port is already 8082 (WS), no need to try WSS
+                        console.log(`[Discovery] ✗ WS connection failed (port ${port} is WS-only, no WSS to try)`);
                         resolve(null);
                     }
                 }
@@ -202,12 +244,65 @@ export class GatewayDiscovery {
     async _testDNSResolution(hostname) {
         return new Promise((resolve) => {
             try {
+                // #region agent log
+                fetch('http://127.0.0.1:7242/ingest/10c16e71-75ba-4efd-b6cb-47716d67b948',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'discovery.js:207',message:'Starting DNS resolution test',data:{hostname:hostname,serverPort:CONFIG.SERVER_PORT},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+                // #endregion
+                // Try multiple methods for better reliability
+                let resolved = false;
+                
+                // Method 1: Image load
                 const img = new Image();
-                img.onload = () => resolve(true);
-                img.onerror = () => resolve(false);
-                img.src = `https://${hostname}:8080/favicon.ico?t=${Date.now()}`;
-                setTimeout(() => resolve(false), 2000);
+                img.onload = () => {
+                    if (!resolved) {
+                        resolved = true;
+                        // #region agent log
+                        fetch('http://127.0.0.1:7242/ingest/10c16e71-75ba-4efd-b6cb-47716d67b948',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'discovery.js:215',message:'DNS resolution success via image load',data:{hostname:hostname,method:'image'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+                        // #endregion
+                        resolve(true);
+                    }
+                };
+                img.onerror = () => {
+                    if (!resolved) {
+                        // Try fetch API
+                        fetch(`https://${hostname}:${CONFIG.SERVER_PORT}/health`, {
+                            method: 'GET',
+                            mode: 'no-cors',
+                            signal: AbortSignal.timeout(2000)
+                        }).then(() => {
+                            if (!resolved) {
+                                resolved = true;
+                                // #region agent log
+                                fetch('http://127.0.0.1:7242/ingest/10c16e71-75ba-4efd-b6cb-47716d67b948',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'discovery.js:224',message:'DNS resolution success via fetch',data:{hostname:hostname,method:'fetch'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+                                // #endregion
+                                resolve(true);
+                            }
+                        }).catch(() => {
+                            if (!resolved) {
+                                resolved = true;
+                                // #region agent log
+                                fetch('http://127.0.0.1:7242/ingest/10c16e71-75ba-4efd-b6cb-47716d67b948',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'discovery.js:233',message:'DNS resolution failed',data:{hostname:hostname,method:'fetch-failed'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+                                // #endregion
+                                resolve(false);
+                            }
+                        });
+                    }
+                };
+                img.src = `https://${hostname}:${CONFIG.SERVER_PORT}/favicon.ico?t=${Date.now()}`;
+                
+                // Timeout fallback
+                setTimeout(() => {
+                    if (!resolved) {
+                        resolved = true;
+                        // #region agent log
+                        fetch('http://127.0.0.1:7242/ingest/10c16e71-75ba-4efd-b6cb-47716d67b948',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'discovery.js:244',message:'DNS resolution timeout',data:{hostname:hostname,method:'timeout'},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+                        // #endregion
+                        resolve(false);
+                    }
+                }, 2000);
             } catch (error) {
+                // #region agent log
+                fetch('http://127.0.0.1:7242/ingest/10c16e71-75ba-4efd-b6cb-47716d67b948',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'discovery.js:250',message:'DNS resolution exception',data:{hostname:hostname,error:error.toString()},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+                // #endregion
                 resolve(false);
             }
         });

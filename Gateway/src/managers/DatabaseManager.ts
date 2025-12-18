@@ -22,9 +22,22 @@ export interface ConnectionLog {
     role: 'AGENT' | 'CLIENT';
     machineId: string;
     ip: string;
-    event: 'connect' | 'disconnect';
+    event: 'connect' | 'disconnect' | 'reconnect';
     timestamp: number;
     message?: string;
+}
+
+export interface MachineInfo {
+    ip: string;
+    port: number;
+    role: 'AGENT' | 'CLIENT';
+}
+
+export interface QueryResult {
+    id: string;
+    connectionId: string;
+    timestamp: number;
+    result: string;
 }
 
 export class DatabaseManager {
@@ -77,7 +90,7 @@ export class DatabaseManager {
                 role TEXT NOT NULL CHECK(role IN ('AGENT', 'CLIENT')),
                 machineId TEXT NOT NULL,
                 ip TEXT NOT NULL,
-                event TEXT NOT NULL CHECK(event IN ('connect', 'disconnect')),
+                event TEXT NOT NULL CHECK(event IN ('connect', 'disconnect', 'reconnect')),
                 timestamp INTEGER NOT NULL,
                 message TEXT
             )
@@ -114,6 +127,92 @@ export class DatabaseManager {
             )
         `);
 
+        // #region debug log - check machine_info schema
+        try {
+            const tableInfo = this.db.prepare("PRAGMA table_info(machine_info)").all() as Array<{name: string, type: string}>;
+            fetch('http://127.0.0.1:7242/ingest/10c16e71-75ba-4efd-b6cb-47716d67b948',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'DatabaseManager.ts:130',message:'Checking machine_info table schema',data:{columns:tableInfo.map(c=>c.name),hasRole:tableInfo.some(c=>c.name==='role'),hasMachineId:tableInfo.some(c=>c.name==='machineId')},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+        } catch (e) {
+            fetch('http://127.0.0.1:7242/ingest/10c16e71-75ba-4efd-b6cb-47716d67b948',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'DatabaseManager.ts:130',message:'machine_info table does not exist yet',data:{error:String(e)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+        }
+        // #endregion
+
+        // Check if table exists with old schema and migrate if needed
+        try {
+            const tableInfo = this.db.prepare("PRAGMA table_info(machine_info)").all() as Array<{name: string, type: string}>;
+            const columnNames = tableInfo.map(col => col.name);
+            const hasRole = columnNames.includes('role');
+            const hasMachineId = columnNames.includes('machineId');
+            
+            // #region debug log - migration decision
+            Logger.info(`[DatabaseManager] machine_info schema check: columns=${columnNames.join(',')}, hasRole=${hasRole}, hasMachineId=${hasMachineId}`);
+            fetch('http://127.0.0.1:7242/ingest/10c16e71-75ba-4efd-b6cb-47716d67b948',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'DatabaseManager.ts:140',message:'Migration check result',data:{columns:columnNames,hasRole,hasMachineId,needsMigration:!hasRole||hasMachineId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+            // #endregion
+            
+            if (!hasRole || hasMachineId) {
+                // Old schema detected - drop and recreate
+                Logger.info('[DatabaseManager] Migrating machine_info table to new schema (old schema detected)...');
+                this.db.exec('DROP TABLE IF EXISTS machine_info');
+                // #region debug log - table dropped
+                Logger.info('[DatabaseManager] Dropped old machine_info table');
+                fetch('http://127.0.0.1:7242/ingest/10c16e71-75ba-4efd-b6cb-47716d67b948',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'DatabaseManager.ts:152',message:'Dropped old machine_info table',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+                // #endregion
+            } else {
+                Logger.info('[DatabaseManager] machine_info table already has correct schema, no migration needed');
+            }
+        } catch (e) {
+            // Table doesn't exist yet, will be created below
+            Logger.info(`[DatabaseManager] machine_info table does not exist yet: ${e}`);
+        }
+
+        this.db.exec(`
+            CREATE TABLE IF NOT EXISTS machine_info (
+                ip TEXT NOT NULL,
+                port INTEGER NOT NULL,
+                role TEXT NOT NULL CHECK(role IN ('AGENT', 'CLIENT')),
+                PRIMARY KEY (ip, port, role)
+            )
+        `);
+        
+        // #region debug log - verify table created
+        try {
+            const verifyInfo = this.db.prepare("PRAGMA table_info(machine_info)").all() as Array<{name: string, type: string}>;
+            Logger.info(`[DatabaseManager] machine_info table created/verified with columns: ${verifyInfo.map(c => c.name).join(', ')}`);
+            fetch('http://127.0.0.1:7242/ingest/10c16e71-75ba-4efd-b6cb-47716d67b948',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'DatabaseManager.ts:168',message:'machine_info table created/verified',data:{columns:verifyInfo.map(c=>c.name)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
+        } catch (e) {
+            Logger.error(`[DatabaseManager] Failed to verify machine_info table: ${e}`);
+        }
+        // #endregion
+
+        // Check if query_results table has old schema (with queryId) and migrate if needed
+        try {
+            const tableInfo = this.db.prepare("PRAGMA table_info(query_results)").all() as Array<{name: string, type: string}>;
+            const hasQueryId = tableInfo.some(col => col.name === 'queryId');
+            
+            // #region debug log - query_results migration check
+            fetch('http://127.0.0.1:7242/ingest/10c16e71-75ba-4efd-b6cb-47716d67b948',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'DatabaseManager.ts:165',message:'Checking query_results schema',data:{hasQueryId,needsMigration:hasQueryId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+            // #endregion
+            
+            if (hasQueryId) {
+                // Old schema detected - drop and recreate
+                Logger.info('[DatabaseManager] Migrating query_results table to new schema...');
+                this.db.exec('DROP TABLE IF EXISTS query_results');
+                // #region debug log - query_results dropped
+                fetch('http://127.0.0.1:7242/ingest/10c16e71-75ba-4efd-b6cb-47716d67b948',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'DatabaseManager.ts:172',message:'Dropped old query_results table',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
+                // #endregion
+            }
+        } catch (e) {
+            // Table doesn't exist yet, will be created below
+        }
+
+        this.db.exec(`
+            CREATE TABLE IF NOT EXISTS query_results (
+                id TEXT PRIMARY KEY,
+                connectionId TEXT NOT NULL,
+                timestamp INTEGER NOT NULL,
+                result TEXT NOT NULL
+            )
+        `);
+
         this.db.exec(`
             CREATE INDEX IF NOT EXISTS idx_connections_machineId ON connections(machineId);
             CREATE INDEX IF NOT EXISTS idx_connections_role ON connections(role);
@@ -128,6 +227,7 @@ export class DatabaseManager {
             CREATE INDEX IF NOT EXISTS idx_activity_action ON activity_history(action);
             CREATE INDEX IF NOT EXISTS idx_activity_commandType ON activity_history(commandType);
             CREATE INDEX IF NOT EXISTS idx_activity_category ON activity_history(category);
+            CREATE INDEX IF NOT EXISTS idx_query_results_connectionId ON query_results(connectionId);
         `);
 
         this.db.prepare('UPDATE connections SET isActive = 0').run();
@@ -387,6 +487,139 @@ export class DatabaseManager {
         } catch (error) {
             Logger.error(`[DatabaseManager] Failed to get auth attempts: ${error}`);
             return 0;
+        }
+    }
+
+    public saveConnectionHistory(connId: string, event: 'connect' | 'disconnect' | 'reconnect', ip: string, port: number): void {
+        try {
+            const conn = this.getConnectionById(connId);
+            if (!conn) {
+                Logger.warn(`[DatabaseManager] Cannot save history: connection ${connId} not found`);
+                return;
+            }
+
+            const logId = `${connId}-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+            const stmt = this.db.prepare(`
+                INSERT INTO connection_logs 
+                (id, connectionId, name, role, machineId, ip, event, timestamp)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            `);
+            
+            stmt.run(
+                logId,
+                connId,
+                conn.name,
+                conn.role,
+                conn.machineId,
+                ip,
+                event,
+                Date.now()
+            );
+        } catch (error) {
+            Logger.error(`[DatabaseManager] Failed to save connection history: ${error}`);
+        }
+    }
+
+    public updateMachineInfo(ip: string, port: number, role: 'AGENT' | 'CLIENT'): void {
+        try {
+            // #region debug log - before update
+            fetch('http://127.0.0.1:7242/ingest/10c16e71-75ba-4efd-b6cb-47716d67b948',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'DatabaseManager.ts:455',message:'Updating machine info',data:{ip,port,role},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+            // #endregion
+            
+            const stmt = this.db.prepare(`
+                INSERT OR REPLACE INTO machine_info 
+                (ip, port, role)
+                VALUES (?, ?, ?)
+            `);
+            stmt.run(ip, port, role);
+            
+            // #region debug log - after update
+            fetch('http://127.0.0.1:7242/ingest/10c16e71-75ba-4efd-b6cb-47716d67b948',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'DatabaseManager.ts:463',message:'Machine info updated successfully',data:{ip,port,role},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+            // #endregion
+        } catch (error) {
+            // #region debug log - error
+            fetch('http://127.0.0.1:7242/ingest/10c16e71-75ba-4efd-b6cb-47716d67b948',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'DatabaseManager.ts:465',message:'Failed to update machine info',data:{ip,port,role,error:String(error)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
+            // #endregion
+            Logger.error(`[DatabaseManager] Failed to update machine info: ${error}`);
+        }
+    }
+
+    public getMachineInfo(ip: string, port: number, role: 'AGENT' | 'CLIENT'): MachineInfo | null {
+        try {
+            const stmt = this.db.prepare('SELECT * FROM machine_info WHERE ip = ? AND port = ? AND role = ?');
+            const row = stmt.get(ip, port, role) as MachineInfo | undefined;
+            return row || null;
+        } catch (error) {
+            Logger.error(`[DatabaseManager] Failed to get machine info: ${error}`);
+            return null;
+        }
+    }
+
+    public saveQueryResult(connId: string, result: any): void {
+        try {
+            const countStmt = this.db.prepare(`
+                SELECT COUNT(*) as count FROM query_results 
+                WHERE connectionId = ?
+            `);
+            const count = (countStmt.get(connId) as { count: number })?.count || 0;
+            
+            if (count >= 10) {
+                const deleteStmt = this.db.prepare(`
+                    DELETE FROM query_results 
+                    WHERE id = (
+                        SELECT id FROM query_results 
+                        WHERE connectionId = ? 
+                        ORDER BY timestamp ASC 
+                        LIMIT 1
+                    )
+                `);
+                deleteStmt.run(connId);
+            }
+            
+            const id = `${connId}-${Date.now()}`;
+            const resultJson = JSON.stringify(result);
+            const insertStmt = this.db.prepare(`
+                INSERT INTO query_results 
+                (id, connectionId, timestamp, result)
+                VALUES (?, ?, ?, ?)
+            `);
+            insertStmt.run(id, connId, Date.now(), resultJson);
+        } catch (error) {
+            Logger.error(`[DatabaseManager] Failed to save query result: ${error}`);
+        }
+    }
+
+    public getQueryResults(connId: string): QueryResult[] {
+        try {
+            const stmt = this.db.prepare(`
+                SELECT * FROM query_results 
+                WHERE connectionId = ?
+                ORDER BY timestamp DESC
+                LIMIT 10
+            `);
+            return stmt.all(connId) as QueryResult[];
+        } catch (error) {
+            Logger.error(`[DatabaseManager] Failed to get query results: ${error}`);
+            return [];
+        }
+    }
+
+    public getQueryResult(connId: string): any {
+        try {
+            const stmt = this.db.prepare(`
+                SELECT result FROM query_results 
+                WHERE connectionId = ?
+                ORDER BY timestamp DESC
+                LIMIT 1
+            `);
+            const row = stmt.get(connId) as { result: string } | undefined;
+            if (row) {
+                return JSON.parse(row.result);
+            }
+            return null;
+        } catch (error) {
+            Logger.error(`[DatabaseManager] Failed to get query result: ${error}`);
+            return null;
         }
     }
 

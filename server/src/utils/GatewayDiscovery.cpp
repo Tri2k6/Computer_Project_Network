@@ -1,4 +1,4 @@
-#include "utils/GatewayDiscovery.h"
+#include "GatewayDiscovery.h"
 #include <thread>
 #include <chrono>
 
@@ -184,35 +184,39 @@ std::pair<std::string, std::string> GatewayDiscovery::listenForResponse(int time
                     
                     if (response.find(DISCOVERY_RESPONSE_PREFIX) == 0) {
                         std::string data = response.substr(strlen(DISCOVERY_RESPONSE_PREFIX));
-                        size_t wsPos = data.find("ws://");
-                        if (wsPos != std::string::npos) {
-                            std::string url = data.substr(wsPos + 5);
-                            size_t colon = url.find(':');
-                            if (colon != std::string::npos) {
-                                result.first = url.substr(0, colon);
-                                size_t portEnd = url.find_first_of(" \r\n\t", colon + 1);
-                                if (portEnd != std::string::npos) {
-                                    result.second = url.substr(colon + 1, portEnd - colon - 1);
-                                } else {
-                                    result.second = url.substr(colon + 1);
-                                }
+                        
+                        // Trim whitespace
+                        size_t start = data.find_first_not_of(" \t\r\n");
+                        if (start != std::string::npos) {
+                            data = data.substr(start);
+                        }
+                        
+                        // Parse format: "IP:PORT" or "wss://IP:PORT" or "ws://IP:PORT"
+                        size_t protocolPos = data.find("://");
+                        if (protocolPos != std::string::npos) {
+                            // Has protocol prefix, skip it
+                            size_t ipStart = data.find_first_not_of(" \t", protocolPos + 3);
+                            if (ipStart != std::string::npos) {
+                                data = data.substr(ipStart);
+                            }
+                        }
+                        
+                        // Parse IP:PORT
+                        size_t colon = data.find(':');
+                        if (colon != std::string::npos) {
+                            result.first = data.substr(0, colon);
+                            size_t portEnd = data.find_first_of(" \r\n\t", colon + 1);
+                            if (portEnd != std::string::npos) {
+                                result.second = data.substr(colon + 1, portEnd - colon - 1);
+                            } else {
+                                result.second = data.substr(colon + 1);
                             }
                         } else {
-                            size_t colon = data.find(':');
-                            if (colon != std::string::npos) {
-                                result.first = data.substr(0, colon);
-                                size_t portEnd = data.find_first_of(" \r\n\t", colon + 1);
-                                if (portEnd != std::string::npos) {
-                                    result.second = data.substr(colon + 1, portEnd - colon - 1);
-                                } else {
-                                    result.second = data.substr(colon + 1);
-                                }
-                            } else {
-                                char ip[INET_ADDRSTRLEN];
-                                inet_ntop(AF_INET, &from.sin_addr, ip, INET_ADDRSTRLEN);
-                                result.first = ip;
-                                result.second = "8080";
-                            }
+                            // No port specified, use sender IP and default port
+                            char ip[INET_ADDRSTRLEN];
+                            inet_ntop(AF_INET, &from.sin_addr, ip, INET_ADDRSTRLEN);
+                            result.first = ip;
+                            result.second = "8080";
                         }
                     }
                 }
@@ -258,35 +262,39 @@ std::pair<std::string, std::string> GatewayDiscovery::listenForResponse(int time
                     
                     if (response.find(DISCOVERY_RESPONSE_PREFIX) == 0) {
                         std::string data = response.substr(strlen(DISCOVERY_RESPONSE_PREFIX));
-                        size_t wsPos = data.find("ws://");
-                        if (wsPos != std::string::npos) {
-                            std::string url = data.substr(wsPos + 5);
-                            size_t colon = url.find(':');
-                            if (colon != std::string::npos) {
-                                result.first = url.substr(0, colon);
-                                size_t portEnd = url.find_first_of(" \r\n\t", colon + 1);
-                                if (portEnd != std::string::npos) {
-                                    result.second = url.substr(colon + 1, portEnd - colon - 1);
-                                } else {
-                                    result.second = url.substr(colon + 1);
-                                }
+                        
+                        // Trim whitespace
+                        size_t start = data.find_first_not_of(" \t\r\n");
+                        if (start != std::string::npos) {
+                            data = data.substr(start);
+                        }
+                        
+                        // Parse format: "IP:PORT" or "wss://IP:PORT" or "ws://IP:PORT"
+                        size_t protocolPos = data.find("://");
+                        if (protocolPos != std::string::npos) {
+                            // Has protocol prefix, skip it
+                            size_t ipStart = data.find_first_not_of(" \t", protocolPos + 3);
+                            if (ipStart != std::string::npos) {
+                                data = data.substr(ipStart);
+                            }
+                        }
+                        
+                        // Parse IP:PORT
+                        size_t colon = data.find(':');
+                        if (colon != std::string::npos) {
+                            result.first = data.substr(0, colon);
+                            size_t portEnd = data.find_first_of(" \r\n\t", colon + 1);
+                            if (portEnd != std::string::npos) {
+                                result.second = data.substr(colon + 1, portEnd - colon - 1);
+                            } else {
+                                result.second = data.substr(colon + 1);
                             }
                         } else {
-                            size_t colon = data.find(':');
-                            if (colon != std::string::npos) {
-                                result.first = data.substr(0, colon);
-                                size_t portEnd = data.find_first_of(" \r\n\t", colon + 1);
-                                if (portEnd != std::string::npos) {
-                                    result.second = data.substr(colon + 1, portEnd - colon - 1);
-                                } else {
-                                    result.second = data.substr(colon + 1);
-                                }
-                            } else {
-                                char ip[INET_ADDRSTRLEN];
-                                inet_ntop(AF_INET, &from.sin_addr, ip, INET_ADDRSTRLEN);
-                                result.first = ip;
-                                result.second = "8080";
-                            }
+                            // No port specified, use sender IP and default port
+                            char ip[INET_ADDRSTRLEN];
+                            inet_ntop(AF_INET, &from.sin_addr, ip, INET_ADDRSTRLEN);
+                            result.first = ip;
+                            result.second = "8080";
                         }
                     }
                 }
@@ -377,35 +385,39 @@ std::pair<std::string, std::string> GatewayDiscovery::discoverGateway(int timeou
                     
                     if (response.find(DISCOVERY_RESPONSE_PREFIX) == 0) {
                         std::string data = response.substr(strlen(DISCOVERY_RESPONSE_PREFIX));
-                        size_t wsPos = data.find("ws://");
-                        if (wsPos != std::string::npos) {
-                            std::string url = data.substr(wsPos + 5);
-                            size_t colon = url.find(':');
-                            if (colon != std::string::npos) {
-                                result.first = url.substr(0, colon);
-                                size_t portEnd = url.find_first_of(" \r\n\t", colon + 1);
-                                if (portEnd != std::string::npos) {
-                                    result.second = url.substr(colon + 1, portEnd - colon - 1);
-                                } else {
-                                    result.second = url.substr(colon + 1);
-                                }
+                        
+                        // Trim whitespace
+                        size_t start = data.find_first_not_of(" \t\r\n");
+                        if (start != std::string::npos) {
+                            data = data.substr(start);
+                        }
+                        
+                        // Parse format: "IP:PORT" or "wss://IP:PORT" or "ws://IP:PORT"
+                        size_t protocolPos = data.find("://");
+                        if (protocolPos != std::string::npos) {
+                            // Has protocol prefix, skip it
+                            size_t ipStart = data.find_first_not_of(" \t", protocolPos + 3);
+                            if (ipStart != std::string::npos) {
+                                data = data.substr(ipStart);
+                            }
+                        }
+                        
+                        // Parse IP:PORT
+                        size_t colon = data.find(':');
+                        if (colon != std::string::npos) {
+                            result.first = data.substr(0, colon);
+                            size_t portEnd = data.find_first_of(" \r\n\t", colon + 1);
+                            if (portEnd != std::string::npos) {
+                                result.second = data.substr(colon + 1, portEnd - colon - 1);
+                            } else {
+                                result.second = data.substr(colon + 1);
                             }
                         } else {
-                            size_t colon = data.find(':');
-                            if (colon != std::string::npos) {
-                                result.first = data.substr(0, colon);
-                                size_t portEnd = data.find_first_of(" \r\n\t", colon + 1);
-                                if (portEnd != std::string::npos) {
-                                    result.second = data.substr(colon + 1, portEnd - colon - 1);
-                                } else {
-                                    result.second = data.substr(colon + 1);
-                                }
-                            } else {
-                                char ip[INET_ADDRSTRLEN];
-                                inet_ntop(AF_INET, &from.sin_addr, ip, INET_ADDRSTRLEN);
-                                result.first = ip;
-                                result.second = "8080";
-                            }
+                            // No port specified, use sender IP and default port
+                            char ip[INET_ADDRSTRLEN];
+                            inet_ntop(AF_INET, &from.sin_addr, ip, INET_ADDRSTRLEN);
+                            result.first = ip;
+                            result.second = "8080";
                         }
                     }
                 }
@@ -474,35 +486,39 @@ std::pair<std::string, std::string> GatewayDiscovery::discoverGateway(int timeou
                     
                     if (response.find(DISCOVERY_RESPONSE_PREFIX) == 0) {
                         std::string data = response.substr(strlen(DISCOVERY_RESPONSE_PREFIX));
-                        size_t wsPos = data.find("ws://");
-                        if (wsPos != std::string::npos) {
-                            std::string url = data.substr(wsPos + 5);
-                            size_t colon = url.find(':');
-                            if (colon != std::string::npos) {
-                                result.first = url.substr(0, colon);
-                                size_t portEnd = url.find_first_of(" \r\n\t", colon + 1);
-                                if (portEnd != std::string::npos) {
-                                    result.second = url.substr(colon + 1, portEnd - colon - 1);
-                                } else {
-                                    result.second = url.substr(colon + 1);
-                                }
+                        
+                        // Trim whitespace
+                        size_t start = data.find_first_not_of(" \t\r\n");
+                        if (start != std::string::npos) {
+                            data = data.substr(start);
+                        }
+                        
+                        // Parse format: "IP:PORT" or "wss://IP:PORT" or "ws://IP:PORT"
+                        size_t protocolPos = data.find("://");
+                        if (protocolPos != std::string::npos) {
+                            // Has protocol prefix, skip it
+                            size_t ipStart = data.find_first_not_of(" \t", protocolPos + 3);
+                            if (ipStart != std::string::npos) {
+                                data = data.substr(ipStart);
+                            }
+                        }
+                        
+                        // Parse IP:PORT
+                        size_t colon = data.find(':');
+                        if (colon != std::string::npos) {
+                            result.first = data.substr(0, colon);
+                            size_t portEnd = data.find_first_of(" \r\n\t", colon + 1);
+                            if (portEnd != std::string::npos) {
+                                result.second = data.substr(colon + 1, portEnd - colon - 1);
+                            } else {
+                                result.second = data.substr(colon + 1);
                             }
                         } else {
-                            size_t colon = data.find(':');
-                            if (colon != std::string::npos) {
-                                result.first = data.substr(0, colon);
-                                size_t portEnd = data.find_first_of(" \r\n\t", colon + 1);
-                                if (portEnd != std::string::npos) {
-                                    result.second = data.substr(colon + 1, portEnd - colon - 1);
-                                } else {
-                                    result.second = data.substr(colon + 1);
-                                }
-                            } else {
-                                char ip[INET_ADDRSTRLEN];
-                                inet_ntop(AF_INET, &from.sin_addr, ip, INET_ADDRSTRLEN);
-                                result.first = ip;
-                                result.second = "8080";
-                            }
+                            // No port specified, use sender IP and default port
+                            char ip[INET_ADDRSTRLEN];
+                            inet_ntop(AF_INET, &from.sin_addr, ip, INET_ADDRSTRLEN);
+                            result.first = ip;
+                            result.second = "8080";
                         }
                     }
                 }
@@ -514,4 +530,51 @@ std::pair<std::string, std::string> GatewayDiscovery::discoverGateway(int timeou
     }
     
     return result;
+}
+
+bool GatewayDiscovery::canResolveHostname(const std::string& hostname) {
+    if (hostname.empty()) {
+        return false;
+    }
+    
+    try {
+        #ifdef _WIN32
+            WSADATA wsaData;
+            if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
+                return false;
+            }
+            
+            struct addrinfo hints;
+            memset(&hints, 0, sizeof(hints));
+            hints.ai_family = AF_INET;
+            hints.ai_socktype = SOCK_STREAM;
+            
+            struct addrinfo* result = nullptr;
+            int status = getaddrinfo(hostname.c_str(), nullptr, &hints, &result);
+            
+            WSACleanup();
+            
+            if (status == 0 && result != nullptr) {
+                freeaddrinfo(result);
+                return true;
+            }
+            return false;
+        #else
+            struct addrinfo hints;
+            memset(&hints, 0, sizeof(hints));
+            hints.ai_family = AF_INET;
+            hints.ai_socktype = SOCK_STREAM;
+            
+            struct addrinfo* result = nullptr;
+            int status = getaddrinfo(hostname.c_str(), nullptr, &hints, &result);
+            
+            if (status == 0 && result != nullptr) {
+                freeaddrinfo(result);
+                return true;
+            }
+            return false;
+        #endif
+    } catch (...) {
+        return false;
+    }
 }

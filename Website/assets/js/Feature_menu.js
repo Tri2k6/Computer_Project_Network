@@ -26,8 +26,7 @@ document.addEventListener("DOMContentLoaded", () => {
        ========================================= */
     function typeEffect(text) {
         screenText.classList.add('typing-effect');
-        screenText.style.width = 'auto'; // hoặc bỏ dòng này đi
-
+        screenText.style.width = 'auto';
         clearInterval(typingInterval);
         screenText.textContent = "";
 

@@ -39,5 +39,4 @@ function handleSaveAction() {
     const fullPath = folderPath + fileName;
 
     console.log("Saving to:", fullPath);
-    alert(`Đang tiến hành lưu file vào:\n${fullPath}`);
 }

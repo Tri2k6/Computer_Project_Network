@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="vi">
+
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -8,7 +9,8 @@
     <link rel="stylesheet" href="assets/css/screen_webcam.css" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&display=swap"
+        rel="stylesheet" />
 </head>
 
 <body>
@@ -34,21 +36,24 @@
 
                     <div class="status-bar">
                         <span class="label-fixed">Result will be saved at: </span>
-                        
-                        <span id="display-folder-path" class="path-clickable" onclick="triggerSelectFolder()" title="Nhấp để thay đổi thư mục">
+
+                        <span id="display-folder-path" class="path-clickable" onclick="triggerSelectFolder()"
+                            title="Nhấp để thay đổi thư mục">
                             D:/Com.net/Resources/
                         </span>
 
-                        <input type="text" id="input-file-name" value="capture_default.png" title="Nhấp để sửa tên file" autocomplete="off"/>
+                        <input type="text" id="input-file-name" value="capture_default.png" title="Nhấp để sửa tên file"
+                            autocomplete="off" />
                     </div>
                 </div>
             </div>
 
             <div class="controls-container">
                 <a href="./feature_menu.html" class="control-btn nav-back">Back to Menu</a>
-                
-                <button class="control-btn action-capture" onclick="alert('Tính năng Capture đang phát triển')">Capture</button>
-                
+
+                <button class="control-btn action-capture"
+                    onclick="alert('Tính năng Capture đang phát triển')">Capture</button>
+
                 <div class="control-group-record">
                     <span class="label">Record for duration</span>
                     <input type="number" value="5" class="duration-input" />
@@ -57,11 +62,13 @@
                 <button class="control-btn action-save" onclick="handleSaveAction()">Save to device</button>
             </div>
 
-            <input type="file" id="hidden-folder-input" webkitdirectory directory style="display: none;" onchange="onFolderSelected(this)" />
+            <input type="file" id="hidden-folder-input" webkitdirectory directory style="display: none;"
+                onchange="onFolderSelected(this)" />
 
         </main>
     </div>
 
     <script src="./assets/js/screen_webcam.js"></script>
 </body>
+
 </html>

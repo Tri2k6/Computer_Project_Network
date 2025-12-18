@@ -7,7 +7,9 @@
     <title>Shutdown & Restart</title>
 
     <link rel="stylesheet" href="assets/css/style.css" />
+    <link rel="stylesheet" href="assets/css/feature_menu.css" />
     <link rel="stylesheet" href="assets/css/power_control.css" />
+
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700;900&display=swap" rel="stylesheet" />
@@ -27,12 +29,14 @@
     </header>
 
     <main class="shutdown-page">
-        <div class="content-container">
+        <div class="page-content">
 
             <div class="laptop-section" style="position: relative;">
                 <img src="./assets/images/laptop.png" alt="Goodbye Laptop" class="laptop-img" />
 
-                <h2 id="screen-text" class="screen-text">Goodbye!</h2>
+                <div class="screen-overlay">
+                    <div class="screen-text typing-effect"></div>
+                </div>
             </div>
 
             <div class="control-panel-wrapper">
@@ -41,17 +45,34 @@
                     <div class="control-panel-face">
 
                         <button id="btn-restart" class="img-btn sm-btn">
-                            <img src="./assets/images/Restart.png" alt="Restart">
+                            <img src="./assets/images/restart.png" alt="Restart">
                         </button>
 
                         <button id="btn-shutdown" class="img-btn lg-btn">
-                            <img src="./assets/images/Shutdown.png" alt="Shutdown">
+                            <img src="./assets/images/shutdown.png" alt="Shutdown">
                         </button>
 
                         <button id="btn-sleep" class="img-btn sm-btn">
-                            <img src="./assets/images/Sleep.png" alt="Sleep">
+                            <img src="./assets/images/sleep.png" alt="Sleep">
                         </button>
 
+                        <button id="btn-back" class="img-btn tn-btn">
+                            <img src="./assets/images/back.png" alt="Back">
+                        </button>
+
+                    </div>
+                </div>
+            </div>
+
+            <div class="confirm-panel hidden" id="confirmPanel">
+                <div class="confirm-outline">
+                    <div class="confirm-face">
+                        <p class="confirm-text">Are you sure?</p>
+
+                        <div class="confirm-actions">
+                            <button class="confirm-btn yes">Yes</button>
+                            <button class="confirm-btn no">No</button>
+                        </div>
                     </div>
                 </div>
             </div>

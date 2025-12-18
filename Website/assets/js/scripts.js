@@ -189,7 +189,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const goMenuBtn = document.getElementById('link-icon');
     if (goMenuBtn) {
         goMenuBtn.addEventListener('click', () => {
-            window.location.href = 'menu.html';
+            window.location.href = 'feature_menu.html';
         });
     }
 });

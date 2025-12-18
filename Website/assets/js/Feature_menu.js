@@ -6,8 +6,8 @@ document.addEventListener("DOMContentLoaded", () => {
         "Application Control": "./app_process.html",
         "Process Control":     "./app_process.html",
         "Keylog Control":      "./keylog.html",
-        "Screen Control":      "./screen_webcam.html",
-        "Webcam Control":      "./screen_webcam.html",
+        "Screen Control":      "./screen_webcam.html?mode=screen",
+        "Webcam Control":      "./screen_webcam.html?mode=webcam",
         "Power Control":       "./power_control.html"
     };
 

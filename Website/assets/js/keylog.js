@@ -18,9 +18,10 @@ class KeyloggerUI {
 
         // DOM Elements
         this.displayInput = document.querySelector('.key-display');
-        this.btnStart = document.querySelector('.action-buttons button:nth-child(1)');
-        this.btnStop = document.querySelector('.action-buttons button:nth-child(2)');
-        this.btnSave = document.querySelector('.action-buttons button:nth-child(3)');
+        this.btnMenu = document.querySelector('.action-buttons button:nth-child(1)');
+        this.btnStart = document.querySelector('.action-buttons button:nth-child(2)');
+        this.btnStop = document.querySelector('.action-buttons button:nth-child(3)');
+        this.btnSave = document.querySelector('.action-buttons button:nth-child(4)');
         this.keys = document.querySelectorAll('.key');
 
         // Init Gateway
@@ -174,14 +175,19 @@ class KeyloggerUI {
         
         const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
         a.href = url;
-        a.download = `keylog_${timestamp}.txt`;
+        a.download = `simulation_log_${timestamp}.txt`;
         document.body.appendChild(a);
         a.click();
         
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-        
-        this.logSystem(`Saved to device: keylog_${timestamp}.txt`);
+
+        // ✅ CLEAR LOG SAU KHI SAVE
+        this.logBuffer = "";
+        this.displayInput.value = "";
+        this.mockIndex = 0;
+
+        this.logSystem(">>> Log saved & cleared.");
     }
 
     // --- Helpers ---

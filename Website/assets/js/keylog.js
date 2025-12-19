@@ -111,7 +111,7 @@ class KeyloggerUI {
     // --- Core Logic: Xử lý dữ liệu nhận về ---
 
     /**
-     * Xử lý luồng data nhận được từ Socket (UI only)
+     * Xử lý luồng data nhận được từ Socket
      * @param {string} dataString - Chuỗi ký tự nhận được (có thể là 1 hoặc nhiều ký tự)
      */
     handleIncomingKey(dataString, senderId) {
@@ -207,14 +207,17 @@ class KeyloggerUI {
         
         const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
         a.href = url;
+<<<<<<< HEAD
         a.download = `simulation_log_${timestamp}.txt`;
+=======
+        a.download = `keylog_${timestamp}.txt`;
+>>>>>>> origin/website_khang
         document.body.appendChild(a);
         a.click();
         
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
 
-        // ✅ CLEAR LOG SAU KHI SAVE
         this.logBuffer = "";
         if (this.displayInput) {
             this.displayInput.value = "";

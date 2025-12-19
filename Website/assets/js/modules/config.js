@@ -36,6 +36,7 @@ export const CONFIG = {
 
         SHUTDOWN: "shutdown",
         RESTART: "restart",
+        SLEEP: "sleep",
 
         ECHO: "echo",
         WHOAMI: "whoami",

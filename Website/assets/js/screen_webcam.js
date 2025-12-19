@@ -1,3 +1,5 @@
+import * as Logic from './logic.js';
+
 // Lấy tham số từ URL
 // Xử lý trường hợp URL có nhiều query string (ví dụ: ?mode=screen?id=CONN-1)
 let searchString = window.location.search;
@@ -37,30 +39,23 @@ let selectedDirectoryName = null; // Lưu tên thư mục để hiển thị
 // ===============================================
 
 async function triggerSelectFolder() {
-    // Kiểm tra xem File System Access API có khả dụng không
     if ('showDirectoryPicker' in window) {
         try {
-            // Hiển thị dialog chọn thư mục
             selectedDirectoryHandle = await window.showDirectoryPicker();
-            
-            // Lưu tên thư mục
             selectedDirectoryName = selectedDirectoryHandle.name;
             
-            // Cập nhật hiển thị đường dẫn với tên thư mục đã chọn
             const folderLabel = document.getElementById('display-folder-path');
             folderLabel.innerText = selectedDirectoryName + '/';
             folderLabel.style.color = 'var(--text-orange)';
             
             console.log('Directory selected:', selectedDirectoryName);
         } catch (error) {
-            // Người dùng hủy dialog
             if (error.name !== 'AbortError') {
                 console.error('Error selecting directory:', error);
                 alert('Lỗi khi chọn thư mục: ' + error.message);
             }
         }
     } else {
-        // Fallback: Thông báo không hỗ trợ
         alert('Trình duyệt không hỗ trợ chọn thư mục. Vui lòng sử dụng Chrome, Edge hoặc trình duyệt Chromium khác.');
     }
 }
@@ -145,45 +140,90 @@ async function handleSaveAction() {
     }
 }
 
+// Debounce và timeout tracking cho capture
+let lastCaptureTime = 0;
+const CAPTURE_DEBOUNCE_MS = 2000; // 2 giây debounce
+let captureTimeoutId = null;
+let isWaitingForCapture = false;
+
 function capture() {
     try {
-        // Kiểm tra gateway đã sẵn sàng chưa
-        if (!window.gateway) {
-            console.error('[Capture] Gateway chưa sẵn sàng');
-            alert('Gateway chưa sẵn sàng. Vui lòng đợi kết nối...');
-            return;
-        }
-        
-        if (!window.CONFIG || !window.CONFIG.CMD) {
-            console.error('[Capture] CONFIG chưa sẵn sàng');
-            alert('CONFIG chưa sẵn sàng. Vui lòng đợi...');
+        // Debounce: Tránh spam requests
+        const now = Date.now();
+        if (now - lastCaptureTime < CAPTURE_DEBOUNCE_MS) {
+            const remaining = Math.ceil((CAPTURE_DEBOUNCE_MS - (now - lastCaptureTime)) / 1000);
+            alert(`Vui lòng đợi ${remaining} giây trước khi capture lại.`);
             return;
         }
 
-        // Kiểm tra mode
+        // Kiểm tra connection
+        if (!window.gateway || !window.gateway.ws || window.gateway.ws.readyState !== WebSocket.OPEN) {
+            alert('Chưa kết nối đến Gateway. Vui lòng kiểm tra kết nối.');
+            return;
+        }
+
+        if (!window.gateway.isAuthenticated) {
+            alert('Chưa đăng nhập. Vui lòng đợi kết nối hoàn tất.');
+            return;
+        }
+
         if (!mode) {
             console.error('[Capture] Mode không được xác định');
             alert('Mode không hợp lệ. Vui lòng kiểm tra URL (cần có ?mode=screen hoặc ?mode=webcam)');
             return;
         }
 
+        // Clear timeout cũ nếu có
+        if (captureTimeoutId) {
+            clearTimeout(captureTimeoutId);
+        }
+
+        // Set flag đang chờ response
+        isWaitingForCapture = true;
+        lastCaptureTime = now;
+
+        let success = false;
         if (mode === 'screen') {
-            // Gửi lệnh chụp màn hình
             console.log('[Capture] Sending SCREENSHOT command');
-            window.gateway.send(window.CONFIG.CMD.SCREENSHOT, "");
-            // Cập nhật tên file mặc định cho ảnh
+            success = Logic.captureScreen();
             document.getElementById('input-file-name').value = 'screenshot_' + Date.now() + '.png';
         } else if (mode === 'webcam') {
-            // Gửi lệnh chụp webcam
             console.log('[Capture] Sending CAMSHOT command');
-            window.gateway.send(window.CONFIG.CMD.CAMSHOT, "");
-            // Cập nhật tên file mặc định cho ảnh
+            success = Logic.captureWebcam();
             document.getElementById('input-file-name').value = 'webcam_' + Date.now() + '.png';
         } else {
             console.error('[Capture] Mode không hợp lệ:', mode);
             alert('Mode không hợp lệ: ' + mode);
+            isWaitingForCapture = false;
+            return;
         }
+
+        if (!success) {
+            isWaitingForCapture = false;
+            alert('Không thể thực hiện capture. Vui lòng kiểm tra kết nối.');
+            return;
+        }
+
+        // Timeout: Nếu sau 10 giây không nhận được response, báo lỗi
+        captureTimeoutId = setTimeout(() => {
+            if (isWaitingForCapture) {
+                isWaitingForCapture = false;
+                console.warn('[Capture] Timeout: Không nhận được response sau 10 giây');
+                
+                // Kiểm tra connection
+                if (!window.gateway || !window.gateway.ws || window.gateway.ws.readyState !== WebSocket.OPEN) {
+                    handleCaptureError('Kết nối bị đứt. Vui lòng thử lại sau khi kết nối lại.');
+                } else {
+                    handleCaptureError('Không nhận được dữ liệu từ agent. Có thể agent đã crash hoặc không thể capture màn hình.');
+                }
+            }
+        }, 10000); // 10 giây timeout
+
     } catch (error) {
+        isWaitingForCapture = false;
+        if (captureTimeoutId) {
+            clearTimeout(captureTimeoutId);
+        }
         console.error('[Capture] Error:', error);
         alert('Lỗi khi capture: ' + error.message);
     }
@@ -192,21 +232,10 @@ function capture() {
 // Expose functions to window object ngay sau khi định nghĩa để đảm bảo có thể truy cập từ HTML
 // Đặt ở đây để đảm bảo các function đã được định nghĩa trước khi expose
 
+// Function record() - chỉ được gọi khi nhấn nút "Record"
+// Input duration chỉ để chỉnh thời gian, không gửi lệnh khi thay đổi
 function record() {
     try {
-        // Kiểm tra gateway đã sẵn sàng chưa
-        if (!window.gateway) {
-            console.error('[Record] Gateway chưa sẵn sàng');
-            alert('Gateway chưa sẵn sàng. Vui lòng đợi kết nối...');
-            return;
-        }
-        
-        if (!window.CONFIG || !window.CONFIG.CMD) {
-            console.error('[Record] CONFIG chưa sẵn sàng');
-            alert('CONFIG chưa sẵn sàng. Vui lòng đợi...');
-            return;
-        }
-
         // Kiểm tra mode
         if (!mode) {
             console.error('[Record] Mode không được xác định');
@@ -215,6 +244,8 @@ function record() {
         }
 
         // Lấy phần tử input có class 'duration-input'
+        // Lưu ý: Input này chỉ để nhập thời gian, không có event listener nào
+        // Lệnh chỉ được gửi khi nhấn nút "Record" (gọi hàm này)
         const durationInput = document.querySelector('.duration-input');
         if (!durationInput) {
             console.error('[Record] Không tìm thấy duration-input');
@@ -222,7 +253,7 @@ function record() {
             return;
         }
 
-        // Lấy giá trị hiện tại (là chuỗi)
+        // Lấy giá trị hiện tại từ input (chỉ đọc giá trị, không gửi lệnh)
         const value = durationInput.value;
 
         // Chuyển đổi sang số và kiểm tra hợp lệ
@@ -235,21 +266,27 @@ function record() {
         // Giới hạn thời gian tối đa 15 giây (theo server)
         const finalDuration = Math.min(duration, 15);
 
+        let success = false;
         if (mode === 'screen') {
             // Gửi lệnh quay màn hình với thời gian
             console.log('[Record] Sending SCR_RECORD command with duration:', finalDuration);
-            window.gateway.send(window.CONFIG.CMD.SCR_RECORD, String(finalDuration));
+            success = Logic.recordScreen(finalDuration);
             // Cập nhật tên file mặc định cho video
             document.getElementById('input-file-name').value = 'screen_record_' + Date.now() + '.mp4';
         } else if (mode === 'webcam') {
             // Gửi lệnh quay webcam với thời gian
             console.log('[Record] Sending CAM_RECORD command with duration:', finalDuration);
-            window.gateway.send(window.CONFIG.CMD.CAM_RECORD, String(finalDuration));
+            success = Logic.recordWebcam(finalDuration);
             // Cập nhật tên file mặc định cho video
             document.getElementById('input-file-name').value = 'webcam_record_' + Date.now() + '.mp4';
         } else {
             console.error('[Record] Mode không hợp lệ:', mode);
             alert('Mode không hợp lệ: ' + mode);
+            return;
+        }
+
+        if (!success) {
+            alert('Không thể thực hiện record. Vui lòng kiểm tra kết nối.');
         }
     } catch (error) {
         console.error('[Record] Error:', error);
@@ -257,12 +294,14 @@ function record() {
     }
 }
 
-// ===============================================
-// 3. LOGIC HIỂN THỊ PREVIEW (ẢNH/VIDEO)
-// ===============================================
-
-// Hiển thị ảnh preview (cho screenshot và webcam shot)
 window.displayImagePreview = function(base64Data) {
+    // Clear timeout vì đã nhận được response
+    if (captureTimeoutId) {
+        clearTimeout(captureTimeoutId);
+        captureTimeoutId = null;
+    }
+    isWaitingForCapture = false;
+
     const cameraFeed = document.getElementById('camera-feed');
     
     if (!cameraFeed) {
@@ -270,19 +309,29 @@ window.displayImagePreview = function(base64Data) {
         return;
     }
 
-    // Xóa placeholder text nếu có
+    // Validate base64 data
+    if (!base64Data || base64Data.trim() === '') {
+        console.error('[Display] Base64 data rỗng');
+        handleCaptureError('Không nhận được dữ liệu ảnh từ server');
+        return;
+    }
+
     const placeholder = cameraFeed.querySelector('.placeholder-text');
     if (placeholder) {
         placeholder.remove();
     }
 
-    // Xóa video nếu có
     const existingVideo = cameraFeed.querySelector('video');
     if (existingVideo) {
         existingVideo.remove();
     }
 
-    // Kiểm tra xem đã có img chưa, nếu có thì cập nhật src
+    // Xóa error message nếu có
+    const errorDiv = cameraFeed.querySelector('.error-message');
+    if (errorDiv) {
+        errorDiv.remove();
+    }
+
     let img = cameraFeed.querySelector('img');
     if (!img) {
         img = document.createElement('img');
@@ -292,12 +341,33 @@ window.displayImagePreview = function(base64Data) {
         cameraFeed.appendChild(img);
     }
 
-    img.src = "data:image/jpeg;base64," + base64Data;
-    img.alt = mode === 'screen' ? 'Screen Capture' : 'Webcam Capture';
+    try {
+        img.src = "data:image/jpeg;base64," + base64Data;
+        img.alt = mode === 'screen' ? 'Screen Capture' : 'Webcam Capture';
+        
+        // Xử lý lỗi load image
+        img.onerror = () => {
+            console.error('[Display] Lỗi load image từ base64');
+            handleCaptureError('Không thể hiển thị ảnh. Dữ liệu có thể bị hỏng.');
+        };
+        
+        img.onload = () => {
+            console.log('[Display] Image loaded successfully');
+        };
+    } catch (error) {
+        console.error('[Display] Error setting image src:', error);
+        handleCaptureError('Lỗi khi hiển thị ảnh: ' + error.message);
+    }
 };
 
-// Hiển thị video preview (cho screen record và webcam record)
 window.displayVideoPreview = function(base64Data) {
+    // Clear timeout vì đã nhận được response
+    if (captureTimeoutId) {
+        clearTimeout(captureTimeoutId);
+        captureTimeoutId = null;
+    }
+    isWaitingForCapture = false;
+
     const cameraFeed = document.getElementById('camera-feed');
     
     if (!cameraFeed) {
@@ -305,19 +375,29 @@ window.displayVideoPreview = function(base64Data) {
         return;
     }
 
-    // Xóa placeholder text nếu có
+    // Validate base64 data
+    if (!base64Data || base64Data.trim() === '') {
+        console.error('[Display] Base64 video data rỗng');
+        handleCaptureError('Không nhận được dữ liệu video từ server');
+        return;
+    }
+
     const placeholder = cameraFeed.querySelector('.placeholder-text');
     if (placeholder) {
         placeholder.remove();
     }
 
-    // Xóa ảnh nếu có
     const existingImg = cameraFeed.querySelector('img');
     if (existingImg) {
         existingImg.remove();
     }
 
-    // Kiểm tra xem đã có video chưa, nếu có thì cập nhật src
+    // Xóa error message nếu có
+    const errorDiv = cameraFeed.querySelector('.error-message');
+    if (errorDiv) {
+        errorDiv.remove();
+    }
+
     let video = cameraFeed.querySelector('video');
     if (!video) {
         video = document.createElement('video');
@@ -328,12 +408,35 @@ window.displayVideoPreview = function(base64Data) {
         cameraFeed.appendChild(video);
     }
 
-    video.src = "data:video/mp4;base64," + base64Data;
-    video.load(); // Tải lại video với src mới
+    try {
+        video.src = "data:video/mp4;base64," + base64Data;
+        
+        // Xử lý lỗi load video
+        video.onerror = () => {
+            console.error('[Display] Lỗi load video từ base64');
+            handleCaptureError('Không thể hiển thị video. Dữ liệu có thể bị hỏng.');
+        };
+        
+        video.onloadeddata = () => {
+            console.log('[Display] Video loaded successfully');
+        };
+        
+        video.load();
+    } catch (error) {
+        console.error('[Display] Error setting video src:', error);
+        handleCaptureError('Lỗi khi hiển thị video: ' + error.message);
+    }
 };
 
 // Xử lý lỗi khi capture/record
 window.handleCaptureError = function(errorMessage) {
+    // Clear timeout và flag
+    if (captureTimeoutId) {
+        clearTimeout(captureTimeoutId);
+        captureTimeoutId = null;
+    }
+    isWaitingForCapture = false;
+
     console.error('[Capture Error]', errorMessage);
     
     // Xóa placeholder và hiển thị thông báo lỗi trong preview area
@@ -366,8 +469,32 @@ window.handleCaptureError = function(errorMessage) {
         // Dịch thông báo lỗi sang tiếng Việt nếu cần
         let friendlyMessage = errorMessage;
         
-        // Kiểm tra lỗi "cannot execute binary file" - không tương thích kiến trúc CPU
-        if (errorMessage.includes('cannot execute binary file') || errorMessage.includes('cannot execute binary')) {
+        // Kiểm tra lỗi connection
+        if (errorMessage.includes('Broken pipe') || errorMessage.includes('Connection error') || errorMessage.includes('kết nối bị đứt')) {
+            friendlyMessage = '❌ Lỗi kết nối\n\n' +
+                            'Kết nối đến agent bị đứt trong khi capture.\n\n' +
+                            'Nguyên nhân có thể:\n' +
+                            '1. Agent bị crash khi chụp màn hình\n' +
+                            '2. Mất kết nối mạng\n' +
+                            '3. Gateway đã ngắt kết nối\n\n' +
+                            'Giải pháp:\n' +
+                            '- Đợi vài giây để kết nối tự động khôi phục\n' +
+                            '- Thử lại sau khi thấy "Đã kết nối" trong console\n' +
+                            '- Kiểm tra agent có đang chạy không';
+        } else if (errorMessage.includes('hard exiting') || errorMessage.includes('system signals')) {
+            friendlyMessage = '❌ Agent bị crash\n\n' +
+                            'Agent đã bị crash khi thực hiện capture.\n\n' +
+                            'Nguyên nhân có thể:\n' +
+                            '1. Ffmpeg không tương thích kiến trúc CPU\n' +
+                            '2. Lỗi quyền truy cập màn hình/webcam\n' +
+                            '3. Lỗi bộ nhớ hoặc tài nguyên hệ thống\n\n' +
+                            'Giải pháp:\n' +
+                            '- Kiểm tra và cài lại ffmpeg đúng kiến trúc:\n' +
+                            '  rm ~/.local/bin/ffmpeg\n' +
+                            '  brew install ffmpeg\n' +
+                            '- Khởi động lại agent\n' +
+                            '- Kiểm tra quyền truy cập màn hình/webcam';
+        } else if (errorMessage.includes('cannot execute binary file') || errorMessage.includes('cannot execute binary')) {
             friendlyMessage = '❌ Lỗi: Ffmpeg không tương thích với kiến trúc CPU\n\n' +
                             'Nguyên nhân: File ffmpeg được biên dịch cho kiến trúc CPU khác (x86_64 vs ARM64)\n\n' +
                             'Giải pháp:\n' +
@@ -424,7 +551,21 @@ window.handleCaptureError = function(errorMessage) {
     alert('❌ Lỗi Capture\n\n' + errorMessage);
 };
 
-// Expose functions to window object ở cuối file để đảm bảo tất cả đã được định nghĩa
+document.addEventListener('DOMContentLoaded', () => {
+    const durationInput = document.querySelector('.duration-input');
+    if (durationInput) {
+        durationInput.addEventListener('click', (e) => {
+            e.stopPropagation();
+        });
+        durationInput.addEventListener('change', (e) => {
+            e.stopPropagation();
+        });
+        durationInput.addEventListener('input', (e) => {
+            e.stopPropagation();
+        });
+    }
+});
+
 window.capture = capture;
 window.record = record;
 window.handleSaveAction = handleSaveAction;

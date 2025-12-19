@@ -1,3 +1,5 @@
+import * as Logic from './logic.js';
+
 // --- 1. Dữ liệu ---
 const mockProcessData = [
     { id: 1, name: "YouTube", pid: 1234, status: 'running' },
@@ -159,26 +161,25 @@ function resetSearch() {
 
 // --- 7. Toggle Control ---
 function controlApp(id, action, appName) {
-    if (!window.gateway || !window.gateway.ws || window.gateway.ws.readyState !== WebSocket.OPEN) {
-        console.warn('[App_Menu] Gateway not connected');
-        alert('Please connect to gateway first');
-        return;
-    }
-
-    if (!window.gateway.isAuthenticated) {
-        console.warn('[App_Menu] Gateway not authenticated');
-        alert('Please authenticate first');
-        return;
-    }
-
+    let success = false;
+    
     if (action === 'start') {
-        window.gateway.startApp(id);
-        console.log(`[App_Menu] Starting app: ${appName} (ID: ${id})`);
+        success = Logic.startApp(id);
+        if (success) {
+            console.log(`[App_Menu] Starting app: ${appName} (ID: ${id})`);
+        }
     } else if (action === 'stop') {
-        window.gateway.killApp(id);
-        console.log(`[App_Menu] Stopping app: ${appName} (ID: ${id})`);
+        success = Logic.stopApp(id);
+        if (success) {
+            console.log(`[App_Menu] Stopping app: ${appName} (ID: ${id})`);
+        }
     } else {
         console.warn(`[App_Menu] Unknown action: ${action}`);
+        return;
+    }
+
+    if (!success) {
+        alert('Không thể thực hiện thao tác. Vui lòng kiểm tra kết nối.');
         return;
     }
 
@@ -192,102 +193,48 @@ function controlApp(id, action, appName) {
 window.controlProcess = controlApp;
 
 // --- 10. Refresh App List from Gateway ---
-function refreshAppList() {
-    if (!window.gateway) {
-        console.warn('[App_Menu] Gateway not found - main.js may not be loaded, using mock data');
+async function refreshAppList(isInitialLoad = false) {
+    // Sử dụng logic.js để fetch dữ liệu
+    const apps = await Logic.fetchAppList(isInitialLoad);
+    
+    console.log('[App_Menu] refreshAppList result:', {
+        apps: apps,
+        isNull: apps === null,
+        isArray: Array.isArray(apps),
+        length: apps?.length || 0,
+        cacheLength: window.gateway?.appListCache?.length || 0
+    });
+    
+    if (apps !== null && apps !== undefined) {
+        // Có dữ liệu từ gateway (có thể là empty array hoặc có data)
+        originalData = apps;
+        currentData = [...apps];
+        console.log(`[App_Menu] ✓ Loaded ${apps.length} apps from gateway`);
+        
+        // Nếu là initial load và apps rỗng, đợi thêm một chút để check lại
+        if (isInitialLoad && apps.length === 0) {
+            console.log('[App_Menu] Initial load returned empty, waiting a bit more...');
+            setTimeout(async () => {
+                const retryApps = await Logic.fetchAppList(false); // Retry with shorter timeout
+                if (retryApps && retryApps.length > 0) {
+                    originalData = retryApps;
+                    currentData = [...retryApps];
+                    console.log(`[App_Menu] ✓ Retry loaded ${retryApps.length} apps`);
+                    currentPage = 1;
+                    renderData();
+                    return;
+                }
+            }, 1000);
+        }
+    } else {
+        // Fallback về mock data nếu không có kết nối
+        console.warn('[App_Menu] Gateway not available, using mock data');
         originalData = [...mockProcessData];
         currentData = [...mockProcessData];
-        currentPage = 1;
-        renderData();
-        return;
     }
     
-    if (!window.gateway.ws || window.gateway.ws.readyState !== WebSocket.OPEN) {
-        console.warn('[App_Menu] Gateway not connected, using mock data');
-        originalData = [...mockProcessData];
-        currentData = [...mockProcessData];
-        currentPage = 1;
-        renderData();
-        return;
-    }
-    
-    if (!window.gateway.isAuthenticated) {
-        console.warn('[App_Menu] Gateway not authenticated, using mock data');
-        originalData = [...mockProcessData];
-        currentData = [...mockProcessData];
-        currentPage = 1;
-        renderData();
-        return;
-    }
-
-    // Fetch app list từ gateway
-    console.log('[App_Menu] Fetching app list from gateway...');
-    window.gateway.fetchAppList();
-    
-    // Track initial cache state để detect khi có update
-    const initialCacheLength = window.gateway.appListCache?.length || -1;
-    let lastCheckedLength = initialCacheLength;
-    let hasReceivedResponse = false;
-    
-    // Poll để check khi appListCache được update (vì gateway không có callback cho APP_LIST)
-    let attempts = 0;
-    const maxAttempts = 20; // 20 lần * 300ms = 6 giây timeout
-    const pollInterval = setInterval(() => {
-        attempts++;
-        
-        const rawCache = window.gateway.appListCache;
-        const currentLength = rawCache?.length || 0;
-        
-        // Detect nếu cache đã thay đổi (có thể là array rỗng nhưng vẫn là response hợp lệ)
-        if (currentLength !== lastCheckedLength || (Array.isArray(rawCache) && attempts > 3)) {
-            hasReceivedResponse = true;
-            lastCheckedLength = currentLength;
-        }
-        
-        // Debug: log appListCache trực tiếp (chỉ log mỗi 5 lần để không spam)
-        if (attempts % 5 === 0 || hasReceivedResponse) {
-            console.log(`[App_Menu] Poll attempt ${attempts}/${maxAttempts} - appListCache:`, {
-                isArray: Array.isArray(rawCache),
-                length: currentLength,
-                type: typeof rawCache,
-                sample: rawCache?.[0] || 'N/A',
-                hasReceivedResponse: hasReceivedResponse
-            });
-        }
-        
-        const formattedApps = window.gateway.getFormattedAppList();
-        
-        // Nếu đã nhận được response (dù rỗng) hoặc hết thời gian chờ
-        if (hasReceivedResponse || attempts >= maxAttempts) {
-            clearInterval(pollInterval);
-            
-            if (formattedApps && formattedApps.length > 0) {
-                originalData = formattedApps;
-                currentData = [...formattedApps];
-                console.log(`[App_Menu] ✓ Loaded ${formattedApps.length} apps from gateway`);
-            } else if (hasReceivedResponse) {
-                // Đã nhận được response nhưng là array rỗng - đây là kết quả hợp lệ từ server
-                originalData = [];
-                currentData = [];
-                console.log('[App_Menu] Server returned empty app list (no apps found)');
-            } else {
-                // Chưa nhận được response - timeout
-                console.warn('[App_Menu] Timeout waiting for app list, using mock data');
-                console.warn('[App_Menu] Debug info:', {
-                    rawCache: rawCache,
-                    formattedApps: formattedApps,
-                    cacheLength: currentLength,
-                    formattedLength: formattedApps?.length || 0,
-                    attempts: attempts
-                });
-                // Nếu timeout, dùng mock data
-                originalData = [...mockProcessData];
-                currentData = [...mockProcessData];
-            }
-            currentPage = 1;
-            renderData();
-        }
-    }, 300);
+    currentPage = 1;
+    renderData();
 }
 
 // --- 8. Event Listeners ---
@@ -302,74 +249,63 @@ nextBtn.addEventListener('click', () => {
 
 // --- Helper function: Initialize agent target ---
 function initAgentTarget(onTargetSet) {
-    const urlParams = new URLSearchParams(window.location.search);
-    const agentId = urlParams.get('id');
-    
-    if (agentId) {
-        const checkAndSetTarget = () => {
-            if (window.gateway && window.gateway.isAuthenticated) {
-                // Đợi agents list được load trước
-                if (window.gateway.agentsList && window.gateway.agentsList.length > 0) {
-                    window.gateway.setTarget(agentId);
-                    console.log(`[App_Menu] Đã setTarget đến agent: ${agentId}`);
-                    // Gọi callback sau khi setTarget xong (để fetch list)
-                    if (onTargetSet && typeof onTargetSet === 'function') {
-                        onTargetSet();
-                    }
-                } else {
-                    // Nếu agents list chưa có, đợi thêm
-                    setTimeout(checkAndSetTarget, 500);
-                }
-            } else {
-                setTimeout(checkAndSetTarget, 500);
-            }
-        };
-        setTimeout(checkAndSetTarget, 1000);
-    } else if (onTargetSet && typeof onTargetSet === 'function') {
-        // Nếu không có agent ID, vẫn gọi callback để load list
-        onTargetSet();
-    }
+    Logic.initAgentTargetFromURL(onTargetSet);
 }
 
 // --- 11. Auto-update when appListCache changes ---
 let lastAppListCacheLength = 0;
 function checkAppListUpdate() {
-    if (window.gateway && Array.isArray(window.gateway.appListCache)) {
-        const currentLength = window.gateway.appListCache.length;
+    const formattedApps = Logic.checkAppListUpdate();
+    if (formattedApps && formattedApps.length > 0) {
+        const currentLength = formattedApps.length;
         // Nếu appListCache có thay đổi (thêm mới hoặc thay đổi)
-        if (currentLength !== lastAppListCacheLength && currentLength > 0) {
+        if (currentLength !== lastAppListCacheLength) {
             lastAppListCacheLength = currentLength;
-            const formattedApps = window.gateway.getFormattedAppList();
-            if (formattedApps && formattedApps.length > 0) {
-                originalData = formattedApps;
-                // Giữ nguyên filter nếu đang search
-                const searchKeyword = searchInput.value.toLowerCase().trim();
-                if (searchKeyword) {
-                    currentData = originalData.filter(item => {
-                        const name = (item.name || item.appName || '').toLowerCase();
-                        const pid = item.pid ? item.pid.toString() : '';
-                        return name.includes(searchKeyword) || pid.includes(searchKeyword);
-                    });
-                } else {
-                    currentData = [...formattedApps];
-                }
-                // Reset về page 1 nếu current page vượt quá total pages
-                const totalPages = Math.ceil(currentData.length / ITEMS_PER_PAGE) || 1;
-                if (currentPage > totalPages) currentPage = 1;
-                renderData();
-                console.log(`[App_Menu] Auto-updated: ${formattedApps.length} apps`);
+            originalData = formattedApps;
+            // Giữ nguyên filter nếu đang search
+            const searchKeyword = searchInput.value.toLowerCase().trim();
+            if (searchKeyword) {
+                currentData = originalData.filter(item => {
+                    const name = (item.name || item.appName || '').toLowerCase();
+                    const pid = item.pid ? item.pid.toString() : '';
+                    return name.includes(searchKeyword) || pid.includes(searchKeyword);
+                });
+            } else {
+                currentData = [...formattedApps];
             }
+            // Reset về page 1 nếu current page vượt quá total pages
+            const totalPages = Math.ceil(currentData.length / ITEMS_PER_PAGE) || 1;
+            if (currentPage > totalPages) currentPage = 1;
+            renderData();
+            console.log(`[App_Menu] Auto-updated: ${formattedApps.length} apps`);
         }
     }
 }
 
-// Check mỗi 500ms để auto-update
-setInterval(checkAppListUpdate, 500);
+// Check mỗi 300ms để auto-update (faster response)
+setInterval(checkAppListUpdate, 300);
 
 // --- 9. Init & Typing Effect ---
 document.addEventListener('DOMContentLoaded', () => {
-    // Initialize agent target and then refresh app list
-    initAgentTarget(refreshAppList);
+    // Wait for gateway to be ready, then initialize and load data
+    const waitForGatewayAndLoad = () => {
+        if (window.gateway && window.gateway.isAuthenticated) {
+            // Initialize agent target and then refresh app list
+            initAgentTarget(() => {
+                // Always refresh app list after target is set (or if no target)
+                // Use longer timeout for initial load when switching tabs
+                setTimeout(() => {
+                    refreshAppList(true); // Pass true for initial load
+                }, 200);
+            });
+        } else {
+            // Retry after 200ms if gateway not ready (faster check)
+            setTimeout(waitForGatewayAndLoad, 200);
+        }
+    };
+    
+    // Start waiting for gateway
+    waitForGatewayAndLoad();
 
     // Typing Effect
     const textElement = document.querySelector('.code-text');

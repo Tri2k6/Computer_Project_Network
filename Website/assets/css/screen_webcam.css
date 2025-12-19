@@ -192,6 +192,7 @@
     box-shadow: 0 4px 6px rgba(0,0,0,0.15);
     transition: transform 0.3s ease, box-shadow 0.3s ease, background-color 0.3s ease;
     gap: 10px;
+    cursor: pointer;
 }
 
 /* Box chứa 2 nút record */
@@ -244,6 +245,8 @@
     outline: none;
     background-color: rgba(255,255,255,0.8);
     flex-shrink: 0;
+    cursor: text;
+    pointer-events: auto;
 }
 
 .duration-input:focus {

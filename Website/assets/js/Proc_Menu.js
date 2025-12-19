@@ -1,3 +1,5 @@
+import * as Logic from './logic.js';
+
 // --- 1. Dữ liệu (Mock Data) ---
 const mockProcessData = [
     { id: 1, name: "YouTube", pid: 1234, status: 'running' },
@@ -168,136 +170,64 @@ function resetSearch() {
 
 // --- 7. Toggle Control ---
 function controlProcess(id, newStatus, procName) {
-    if (!window.gateway || !window.gateway.ws || window.gateway.ws.readyState !== WebSocket.OPEN) {
-        console.warn('[Proc_Menu] Gateway not connected');
-        alert('Please connect to gateway first');
-        return;
-    }
-
-    if (!window.gateway.isAuthenticated) {
-        console.warn('[Proc_Menu] Gateway not authenticated');
-        alert('Please authenticate first');
-        return;
-    }
-
-    // Ensure id is a number (should be index, not PID)
-    const processIndex = typeof id === 'number' ? id : parseInt(id, 10);
-    if (isNaN(processIndex) || processIndex < 0) {
-        console.error('[Proc_Menu] Invalid process index:', id);
-        alert('Invalid process ID');
-        return;
-    }
-
     // Find the process in the list to get its PID for logging
-    const proc = originalData.find(p => p.id === processIndex);
+    const proc = originalData.find(p => p.id === id);
     const processPid = proc?.pid || 'N/A';
 
+    let success = false;
     if (newStatus === 'running') {
-        window.gateway.startProcess(processIndex);
-        console.log(`[Proc_Menu] Starting process: ${procName} (Index: ${processIndex}, PID: ${processPid})`);
+        success = Logic.startProcess(id);
+        if (success) {
+            console.log(`[Proc_Menu] Starting process: ${procName} (Index: ${id}, PID: ${processPid})`);
+        }
     } else {
-        window.gateway.killProcess(processIndex);
-        console.log(`[Proc_Menu] Stopping process: ${procName} (Index: ${processIndex}, PID: ${processPid})`);
+        success = Logic.killProcess(id);
+        if (success) {
+            console.log(`[Proc_Menu] Stopping process: ${procName} (Index: ${id}, PID: ${processPid})`);
+        }
+    }
+
+    if (!success) {
+        alert('Không thể thực hiện thao tác. Vui lòng kiểm tra kết nối.');
+        return;
     }
 }
 
 // --- 10. Refresh Process List from Gateway ---
-function refreshProcessList() {
-    if (!window.gateway) {
-        console.warn('[Proc_Menu] Gateway not found - main.js may not be loaded, using mock data');
+async function refreshProcessList(isInitialLoad = false) {
+    // Sử dụng logic.js để fetch dữ liệu
+    const processes = await Logic.fetchProcessList(isInitialLoad);
+    
+    if (processes !== null && processes !== undefined) {
+        // Có dữ liệu từ gateway (có thể là empty array hoặc có data)
+        originalData = processes;
+        currentData = [...processes];
+        console.log(`[Proc_Menu] ✓ Loaded ${processes.length} processes from gateway`);
+        
+        // Nếu là initial load và processes rỗng, đợi thêm một chút để check lại
+        if (isInitialLoad && processes.length === 0) {
+            console.log('[Proc_Menu] Initial load returned empty, waiting a bit more...');
+            setTimeout(async () => {
+                const retryProcs = await Logic.fetchProcessList(false); // Retry with shorter timeout
+                if (retryProcs && retryProcs.length > 0) {
+                    originalData = retryProcs;
+                    currentData = [...retryProcs];
+                    console.log(`[Proc_Menu] ✓ Retry loaded ${retryProcs.length} processes`);
+                    currentPage = 1;
+                    renderData();
+                    return;
+                }
+            }, 1000);
+        }
+    } else {
+        // Fallback về mock data nếu không có kết nối
+        console.warn('[Proc_Menu] Gateway not available, using mock data');
         originalData = [...mockProcessData];
         currentData = [...mockProcessData];
-        currentPage = 1;
-        renderData();
-        return;
     }
     
-    if (!window.gateway.ws || window.gateway.ws.readyState !== WebSocket.OPEN) {
-        console.warn('[Proc_Menu] Gateway not connected, using mock data');
-        originalData = [...mockProcessData];
-        currentData = [...mockProcessData];
-        currentPage = 1;
-        renderData();
-        return;
-    }
-    
-    if (!window.gateway.isAuthenticated) {
-        console.warn('[Proc_Menu] Gateway not authenticated, using mock data');
-        originalData = [...mockProcessData];
-        currentData = [...mockProcessData];
-        currentPage = 1;
-        renderData();
-        return;
-    }
-
-    // Fetch process list từ gateway
-    console.log('[Proc_Menu] Fetching process list from gateway...');
-    window.gateway.fetchProcessList();
-    
-    // Track initial cache state để detect khi có update
-    const initialCacheLength = window.gateway.processListCache?.length || -1;
-    let lastCheckedLength = initialCacheLength;
-    let hasReceivedResponse = false;
-    
-    // Poll để check khi processListCache được update (vì gateway không có callback cho PROC_LIST)
-    let attempts = 0;
-    const maxAttempts = 20; // 20 lần * 300ms = 6 giây timeout
-    const pollInterval = setInterval(() => {
-        attempts++;
-        
-        const rawCache = window.gateway.processListCache;
-        const currentLength = rawCache?.length || 0;
-        
-        // Detect nếu cache đã thay đổi (có thể là array rỗng nhưng vẫn là response hợp lệ)
-        if (currentLength !== lastCheckedLength || (Array.isArray(rawCache) && attempts > 3)) {
-            hasReceivedResponse = true;
-            lastCheckedLength = currentLength;
-        }
-        
-        // Debug: log processListCache trực tiếp (chỉ log mỗi 5 lần để không spam)
-        if (attempts % 5 === 0 || hasReceivedResponse) {
-            console.log(`[Proc_Menu] Poll attempt ${attempts}/${maxAttempts} - processListCache:`, {
-                isArray: Array.isArray(rawCache),
-                length: currentLength,
-                type: typeof rawCache,
-                sample: rawCache?.[0] || 'N/A',
-                hasReceivedResponse: hasReceivedResponse
-            });
-        }
-        
-        const formattedProcs = window.gateway.getFormattedProcessList();
-        
-        // Nếu đã nhận được response (dù rỗng) hoặc hết thời gian chờ
-        if (hasReceivedResponse || attempts >= maxAttempts) {
-            clearInterval(pollInterval);
-            
-            if (formattedProcs && formattedProcs.length > 0) {
-                originalData = formattedProcs;
-                currentData = [...formattedProcs];
-                console.log(`[Proc_Menu] ✓ Loaded ${formattedProcs.length} processes from gateway`);
-            } else if (hasReceivedResponse) {
-                // Đã nhận được response nhưng là array rỗng - đây là kết quả hợp lệ từ server
-                originalData = [];
-                currentData = [];
-                console.log('[Proc_Menu] Server returned empty process list (no processes found)');
-            } else {
-                // Chưa nhận được response - timeout
-                console.warn('[Proc_Menu] Timeout waiting for process list, using mock data');
-                console.warn('[Proc_Menu] Debug info:', {
-                    rawCache: rawCache,
-                    formattedProcs: formattedProcs,
-                    cacheLength: currentLength,
-                    formattedLength: formattedProcs?.length || 0,
-                    attempts: attempts
-                });
-                // Nếu timeout, dùng mock data
-                originalData = [...mockProcessData];
-                currentData = [...mockProcessData];
-            }
-            currentPage = 1;
-            renderData();
-        }
-    }, 300);
+    currentPage = 1;
+    renderData();
 }
 
 // --- 8. Event Listeners ---
@@ -312,74 +242,63 @@ nextBtn.addEventListener('click', () => {
 
 // --- Helper function: Initialize agent target ---
 function initAgentTarget(onTargetSet) {
-    const urlParams = new URLSearchParams(window.location.search);
-    const agentId = urlParams.get('id');
-    
-    if (agentId) {
-        const checkAndSetTarget = () => {
-            if (window.gateway && window.gateway.isAuthenticated) {
-                // Đợi agents list được load trước
-                if (window.gateway.agentsList && window.gateway.agentsList.length > 0) {
-                    window.gateway.setTarget(agentId);
-                    console.log(`[Proc_Menu] Đã setTarget đến agent: ${agentId}`);
-                    // Gọi callback sau khi setTarget xong (để fetch list)
-                    if (onTargetSet && typeof onTargetSet === 'function') {
-                        onTargetSet();
-                    }
-                } else {
-                    // Nếu agents list chưa có, đợi thêm
-                    setTimeout(checkAndSetTarget, 500);
-                }
-            } else {
-                setTimeout(checkAndSetTarget, 500);
-            }
-        };
-        setTimeout(checkAndSetTarget, 1000);
-    } else if (onTargetSet && typeof onTargetSet === 'function') {
-        // Nếu không có agent ID, vẫn gọi callback để load list
-        onTargetSet();
-    }
+    Logic.initAgentTargetFromURL(onTargetSet);
 }
 
 // --- 11. Auto-update when processListCache changes ---
 let lastProcessListCacheLength = 0;
 function checkProcessListUpdate() {
-    if (window.gateway && Array.isArray(window.gateway.processListCache)) {
-        const currentLength = window.gateway.processListCache.length;
+    const formattedProcs = Logic.checkProcessListUpdate();
+    if (formattedProcs && formattedProcs.length > 0) {
+        const currentLength = formattedProcs.length;
         // Nếu processListCache có thay đổi (thêm mới hoặc thay đổi)
-        if (currentLength !== lastProcessListCacheLength && currentLength > 0) {
+        if (currentLength !== lastProcessListCacheLength) {
             lastProcessListCacheLength = currentLength;
-            const formattedProcs = window.gateway.getFormattedProcessList();
-            if (formattedProcs && formattedProcs.length > 0) {
-                originalData = formattedProcs;
-                // Giữ nguyên filter nếu đang search
-                const searchKeyword = searchInput.value.toLowerCase().trim();
-                if (searchKeyword) {
-                    currentData = originalData.filter(item => {
-                        const name = (item.name || item.processName || '').toLowerCase();
-                        const pid = item.pid ? item.pid.toString() : '';
-                        return name.includes(searchKeyword) || pid.includes(searchKeyword);
-                    });
-                } else {
-                    currentData = [...formattedProcs];
-                }
-                // Reset về page 1 nếu current page vượt quá total pages
-                const totalPages = Math.ceil(currentData.length / ITEMS_PER_PAGE) || 1;
-                if (currentPage > totalPages) currentPage = 1;
-                renderData();
-                console.log(`[Proc_Menu] Auto-updated: ${formattedProcs.length} processes`);
+            originalData = formattedProcs;
+            // Giữ nguyên filter nếu đang search
+            const searchKeyword = searchInput.value.toLowerCase().trim();
+            if (searchKeyword) {
+                currentData = originalData.filter(item => {
+                    const name = (item.name || item.processName || '').toLowerCase();
+                    const pid = item.pid ? item.pid.toString() : '';
+                    return name.includes(searchKeyword) || pid.includes(searchKeyword);
+                });
+            } else {
+                currentData = [...formattedProcs];
             }
+            // Reset về page 1 nếu current page vượt quá total pages
+            const totalPages = Math.ceil(currentData.length / ITEMS_PER_PAGE) || 1;
+            if (currentPage > totalPages) currentPage = 1;
+            renderData();
+            console.log(`[Proc_Menu] Auto-updated: ${formattedProcs.length} processes`);
         }
     }
 }
 
-// Check mỗi 500ms để auto-update
-setInterval(checkProcessListUpdate, 500);
+// Check mỗi 300ms để auto-update (faster response)
+setInterval(checkProcessListUpdate, 300);
 
 // --- 9. Init & Typing Effect ---
 document.addEventListener('DOMContentLoaded', () => {
-    // Initialize agent target and then refresh process list
-    initAgentTarget(refreshProcessList);
+    // Wait for gateway to be ready, then initialize and load data
+    const waitForGatewayAndLoad = () => {
+        if (window.gateway && window.gateway.isAuthenticated) {
+            // Initialize agent target and then refresh process list
+            initAgentTarget(() => {
+                // Always refresh process list after target is set (or if no target)
+                // Use longer timeout for initial load when switching tabs
+                setTimeout(() => {
+                    refreshProcessList(true); // Pass true for initial load
+                }, 200);
+            });
+        } else {
+            // Retry after 200ms if gateway not ready (faster check)
+            setTimeout(waitForGatewayAndLoad, 200);
+        }
+    };
+    
+    // Start waiting for gateway
+    waitForGatewayAndLoad();
 
     // Typing Effect
     const textElement = document.querySelector('.code-text');

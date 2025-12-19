@@ -1,3 +1,6 @@
+
+import * as Logic from './logic.js';
+
 // ================== CONFIG ==================
 
 // Text hiển thị khi hover từng nút
@@ -14,26 +17,7 @@ let typingInterval;
 
 // Helper function: Initialize agent target
 function initAgentTarget() {
-    const urlParams = new URLSearchParams(window.location.search);
-    const agentId = urlParams.get('id');
-    
-    if (agentId) {
-        const checkAndSetTarget = () => {
-            if (window.gateway && window.gateway.isAuthenticated) {
-                // Đợi agents list được load trước
-                if (window.gateway.agentsList && window.gateway.agentsList.length > 0) {
-                    window.gateway.setTarget(agentId);
-                    console.log(`[Power_Control] Đã setTarget đến agent: ${agentId}`);
-                } else {
-                    // Nếu agents list chưa có, đợi thêm
-                    setTimeout(checkAndSetTarget, 500);
-                }
-            } else {
-                setTimeout(checkAndSetTarget, 500);
-            }
-        };
-        setTimeout(checkAndSetTarget, 1000);
-    }
+    Logic.initAgentTargetFromURL();
 }
 
 // Initialize agent target when DOM is ready
@@ -126,13 +110,13 @@ document.addEventListener("DOMContentLoaded", () => {
             // Lưu hành động chờ xác nhận
             pendingAction = () => {
                 if (btn.id === "btn-restart") {
-                    
+                    Logic.restartAgent();
                     return; 
                 } else if (btn.id === "btn-shutdown") {
-                    
+                    Logic.shutdownAgent();
                     return; 
                 } else if (btn.id === "btn-sleep") {
-                    
+                    Logic.sleepAgent();
                     return; 
                 }
             };

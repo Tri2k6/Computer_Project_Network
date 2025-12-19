@@ -67,7 +67,8 @@ void WSConnection::onResolve(beast::error_code ec,
 void WSConnection::onConnect(beast::error_code ec, tcp::resolver::results_type::endpoint_type ep) {
     if (ec) {
         cancelTimeout();
-        std::cerr << "[WSConnection] TCP connect error: " << ec.message() << "\n" << std::flush;
+        std::cerr << "[WSConnection] TCP connect error: " << ec.message() << " (code: " << ec.value() << ")\n" << std::flush;
+        std::cerr << "[WSConnection] Failed to connect to " << host_ << ":" << port_ << "\n" << std::flush;
         if (onError) onError(ec);
         return;
     }

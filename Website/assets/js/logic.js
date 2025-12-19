@@ -1,0 +1,750 @@
+/**
+ * logic.js - Centralizes all data processing logic, data fetching, and function calls
+ * Other .js files only handle frontend/UI
+ */
+
+// ==================== AGENT MANAGEMENT ====================
+
+/**
+ * Get agent list from gateway
+ */
+export function getAgentList() {
+    if (!window.gateway) {
+        console.warn('[Logic] Gateway not found');
+        return;
+    }
+    window.gateway.refreshAgents();
+}
+
+/**
+ * Authenticate with gateway
+ */
+export function authenticate() {
+    if (!window.gateway || !window.gateway.ws || window.gateway.ws.readyState !== WebSocket.OPEN) {
+        console.warn('[Logic] Gateway not connected');
+        return false;
+    }
+    window.gateway.authenticate();
+    return true;
+}
+
+/**
+ * Set target agent
+ * @param {string} agentId - Agent ID or 'ALL'
+ */
+export function setTarget(agentId) {
+    if (!window.gateway) {
+        console.warn('[Logic] Gateway not found');
+        return false;
+    }
+    window.gateway.setTarget(agentId);
+    return true;
+}
+
+/**
+ * Khởi tạo target từ URL parameter
+ * @param {Function} onTargetSet - Callback khi setTarget thành công
+ */
+export function initAgentTargetFromURL(onTargetSet) {
+    const urlParams = new URLSearchParams(window.location.search);
+    const agentId = urlParams.get('id');
+    
+    if (agentId) {
+        const checkAndSetTarget = () => {
+            if (window.gateway && window.gateway.isAuthenticated) {
+                if (window.gateway.agentsList && window.gateway.agentsList.length > 0) {
+                    window.gateway.setTarget(agentId);
+                    console.log(`[Logic] Set target to agent: ${agentId}`);
+                    if (onTargetSet && typeof onTargetSet === 'function') {
+                        onTargetSet();
+                    }
+                } else {
+                    setTimeout(checkAndSetTarget, 200); // Reduced from 500ms
+                }
+            } else {
+                setTimeout(checkAndSetTarget, 200); // Reduced from 500ms
+            }
+        };
+        setTimeout(checkAndSetTarget, 300); // Reduced from 1000ms
+    } else if (onTargetSet && typeof onTargetSet === 'function') {
+        onTargetSet();
+    }
+}
+
+// ==================== APPLICATION MANAGEMENT ====================
+
+/**
+ * Get application list from gateway
+ * @param {boolean} isInitialLoad - If true, use longer timeout for initial page load
+ */
+export function fetchAppList(isInitialLoad = false) {
+    if (!window.gateway) {
+        console.warn('[Logic] Gateway not found');
+        return null;
+    }
+    
+    if (!window.gateway.ws || window.gateway.ws.readyState !== WebSocket.OPEN) {
+        console.warn('[Logic] Gateway not connected');
+        return null;
+    }
+    
+    if (!window.gateway.isAuthenticated) {
+        console.warn('[Logic] Gateway not authenticated');
+        return null;
+    }
+
+    console.log('[Logic] Fetching app list from gateway...');
+    
+    // Check if data already exists in cache
+    const existingData = window.gateway.getFormattedAppList();
+    if (existingData && existingData.length > 0) {
+        return Promise.resolve(existingData);
+    }
+    
+    window.gateway.fetchAppList();
+    
+    return new Promise((resolve) => {
+        const initialCacheLength = window.gateway.appListCache?.length || -1;
+        let lastCheckedLength = initialCacheLength;
+        let hasReceivedResponse = false;
+        let attempts = 0;
+        let lastFormattedLength = 0;
+        // Longer timeout for initial load when switching tabs (20 seconds vs 1.5 seconds)
+        const maxAttempts = isInitialLoad ? 200 : 15;
+        const pollInterval = 100;
+        
+        const checkCache = () => {
+            attempts++;
+            const rawCache = window.gateway.appListCache;
+            const currentLength = Array.isArray(rawCache) ? rawCache.length : 0;
+            
+            // Always check formatted apps first
+            const formattedApps = window.gateway.getFormattedAppList();
+            const formattedLength = formattedApps ? formattedApps.length : 0;
+            
+            // Check if formatted apps changed (this is the most reliable indicator)
+            if (formattedLength > 0 && formattedLength !== lastFormattedLength) {
+                console.log(`[Logic] Formatted apps detected: ${formattedLength} apps`);
+                lastFormattedLength = formattedLength;
+                resolve(formattedApps);
+                return true;
+            }
+            
+            // Check if cache changed (length changed or became an array with data)
+            const cacheChanged = currentLength !== lastCheckedLength;
+            const isArrayWithData = Array.isArray(rawCache) && currentLength > 0;
+            
+            if (cacheChanged || isArrayWithData) {
+                hasReceivedResponse = true;
+                lastCheckedLength = currentLength;
+                
+                // Re-check formatted apps when cache changes
+                const formattedAppsAfterChange = window.gateway.getFormattedAppList();
+                if (formattedAppsAfterChange && formattedAppsAfterChange.length > 0) {
+                    console.log(`[Logic] Cache updated, found ${formattedAppsAfterChange.length} apps`);
+                    resolve(formattedAppsAfterChange);
+                    return true;
+                }
+            } else if (Array.isArray(rawCache) && attempts > 2) {
+                // If cache is an array (even if empty), we got a response
+                hasReceivedResponse = true;
+            }
+            
+            // If we got a response (even if empty) or max attempts reached
+            if (hasReceivedResponse || attempts >= maxAttempts) {
+                if (formattedApps && formattedApps.length > 0) {
+                    resolve(formattedApps);
+                } else if (hasReceivedResponse && formattedLength === 0 && attempts > 10) {
+                    // Only return empty if we've waited enough (attempts > 10) and still no data
+                    // This prevents showing "No items found" too early
+                    resolve([]);
+                } else if (attempts >= maxAttempts) {
+                    // Max attempts reached - check one more time
+                    const finalCheck = window.gateway.getFormattedAppList();
+                    if (finalCheck && finalCheck.length > 0) {
+                        resolve(finalCheck);
+                    } else if (hasReceivedResponse) {
+                        resolve([]);
+                    } else {
+                        resolve(null);
+                    }
+                } else {
+                    // Continue polling if we haven't waited enough
+                    return false;
+                }
+                return true; // Signal to stop
+            }
+            return false; // Continue polling
+        };
+        
+        // Immediate check
+        if (checkCache()) return;
+        
+        // Poll with faster interval
+        const pollTimer = setInterval(() => {
+            if (checkCache()) {
+                clearInterval(pollTimer);
+            }
+        }, pollInterval);
+    });
+}
+
+/**
+ * Start application
+ * @param {number} appId - Application ID
+ */
+export function startApp(appId) {
+    if (!window.gateway || !window.gateway.ws || window.gateway.ws.readyState !== WebSocket.OPEN) {
+        console.warn('[Logic] Gateway not connected');
+        return false;
+    }
+
+    if (!window.gateway.isAuthenticated) {
+        console.warn('[Logic] Gateway not authenticated');
+        return false;
+    }
+
+    window.gateway.startApp(appId);
+    console.log(`[Logic] Starting app ID: ${appId}`);
+    return true;
+}
+
+/**
+ * Dừng ứng dụng
+ * @param {number} appId - ID của ứng dụng
+ */
+export function stopApp(appId) {
+    if (!window.gateway || !window.gateway.ws || window.gateway.ws.readyState !== WebSocket.OPEN) {
+        console.warn('[Logic] Gateway not connected');
+        return false;
+    }
+
+    if (!window.gateway.isAuthenticated) {
+        console.warn('[Logic] Gateway not authenticated');
+        return false;
+    }
+
+    window.gateway.killApp(appId);
+    console.log(`[Logic] Stopping app ID: ${appId}`);
+    return true;
+}
+
+// ==================== PROCESS MANAGEMENT ====================
+
+/**
+ * Get process list from gateway
+ * @param {boolean} isInitialLoad - If true, use longer timeout for initial page load
+ */
+export function fetchProcessList(isInitialLoad = false) {
+    if (!window.gateway) {
+        console.warn('[Logic] Gateway not found');
+        return null;
+    }
+    
+    if (!window.gateway.ws || window.gateway.ws.readyState !== WebSocket.OPEN) {
+        console.warn('[Logic] Gateway not connected');
+        return null;
+    }
+    
+    if (!window.gateway.isAuthenticated) {
+        console.warn('[Logic] Gateway not authenticated');
+        return null;
+    }
+
+    console.log('[Logic] Fetching process list from gateway...');
+    
+    // Check if data already exists in cache
+    const existingData = window.gateway.getFormattedProcessList();
+    if (existingData && existingData.length > 0) {
+        return Promise.resolve(existingData);
+    }
+    
+    window.gateway.fetchProcessList();
+    
+    return new Promise((resolve) => {
+        const initialCacheLength = window.gateway.processListCache?.length || -1;
+        let lastCheckedLength = initialCacheLength;
+        let hasReceivedResponse = false;
+        let attempts = 0;
+        let lastFormattedLength = 0;
+        // Longer timeout for initial load when switching tabs (20 seconds vs 1.5 seconds)
+        const maxAttempts = isInitialLoad ? 200 : 15;
+        const pollInterval = 100;
+        
+        const checkCache = () => {
+            attempts++;
+            const rawCache = window.gateway.processListCache;
+            const currentLength = Array.isArray(rawCache) ? rawCache.length : 0;
+            
+            // Always check formatted processes first
+            const formattedProcs = window.gateway.getFormattedProcessList();
+            const formattedLength = formattedProcs ? formattedProcs.length : 0;
+            
+            // Check if formatted processes changed (this is the most reliable indicator)
+            if (formattedLength > 0 && formattedLength !== lastFormattedLength) {
+                console.log(`[Logic] Formatted processes detected: ${formattedLength} processes`);
+                lastFormattedLength = formattedLength;
+                resolve(formattedProcs);
+                return true;
+            }
+            
+            // Check if cache changed (length changed or became an array with data)
+            const cacheChanged = currentLength !== lastCheckedLength;
+            const isArrayWithData = Array.isArray(rawCache) && currentLength > 0;
+            
+            if (cacheChanged || isArrayWithData) {
+                hasReceivedResponse = true;
+                lastCheckedLength = currentLength;
+                
+                // Re-check formatted processes when cache changes
+                const formattedProcsAfterChange = window.gateway.getFormattedProcessList();
+                if (formattedProcsAfterChange && formattedProcsAfterChange.length > 0) {
+                    console.log(`[Logic] Cache updated, found ${formattedProcsAfterChange.length} processes`);
+                    resolve(formattedProcsAfterChange);
+                    return true;
+                }
+            } else if (Array.isArray(rawCache) && attempts > 2) {
+                // If cache is an array (even if empty), we got a response
+                hasReceivedResponse = true;
+            }
+            
+            // If we got a response (even if empty) or max attempts reached
+            if (hasReceivedResponse || attempts >= maxAttempts) {
+                if (formattedProcs && formattedProcs.length > 0) {
+                    resolve(formattedProcs);
+                } else if (hasReceivedResponse && formattedLength === 0 && attempts > 10) {
+                    // Only return empty if we've waited enough (attempts > 10) and still no data
+                    // This prevents showing "No items found" too early
+                    resolve([]);
+                } else if (attempts >= maxAttempts) {
+                    // Max attempts reached - check one more time
+                    const finalCheck = window.gateway.getFormattedProcessList();
+                    if (finalCheck && finalCheck.length > 0) {
+                        resolve(finalCheck);
+                    } else if (hasReceivedResponse) {
+                        resolve([]);
+                    } else {
+                        resolve(null);
+                    }
+                } else {
+                    // Continue polling if we haven't waited enough
+                    return false;
+                }
+                return true; // Signal to stop
+            }
+            return false; // Continue polling
+        };
+        
+        // Immediate check
+        if (checkCache()) return;
+        
+        // Poll with faster interval
+        const pollTimer = setInterval(() => {
+            if (checkCache()) {
+                clearInterval(pollTimer);
+            }
+        }, pollInterval);
+    });
+}
+
+/**
+ * Start process
+ * @param {number} processId - Process ID (index)
+ */
+export function startProcess(processId) {
+    if (!window.gateway || !window.gateway.ws || window.gateway.ws.readyState !== WebSocket.OPEN) {
+        console.warn('[Logic] Gateway not connected');
+        return false;
+    }
+
+    if (!window.gateway.isAuthenticated) {
+        console.warn('[Logic] Gateway not authenticated');
+        return false;
+    }
+
+    const processIndex = typeof processId === 'number' ? processId : parseInt(processId, 10);
+    if (isNaN(processIndex) || processIndex < 0) {
+        console.error('[Logic] Invalid process index:', processId);
+        return false;
+    }
+
+    window.gateway.startProcess(processIndex);
+    console.log(`[Logic] Starting process index: ${processIndex}`);
+    return true;
+}
+
+/**
+ * Dừng process
+ * @param {number} processId - ID (index) của process
+ */
+export function killProcess(processId) {
+    if (!window.gateway || !window.gateway.ws || window.gateway.ws.readyState !== WebSocket.OPEN) {
+        console.warn('[Logic] Gateway not connected');
+        return false;
+    }
+
+    if (!window.gateway.isAuthenticated) {
+        console.warn('[Logic] Gateway not authenticated');
+        return false;
+    }
+
+    const processIndex = typeof processId === 'number' ? processId : parseInt(processId, 10);
+    if (isNaN(processIndex) || processIndex < 0) {
+        console.error('[Logic] Invalid process index:', processId);
+        return false;
+    }
+
+    window.gateway.killProcess(processIndex);
+    console.log(`[Logic] Stopping process index: ${processIndex}`);
+    return true;
+}
+
+// ==================== SCREEN & WEBCAM ====================
+
+/**
+ * Capture screen
+ */
+export function captureScreen() {
+    if (!window.gateway) {
+        console.error('[Logic] Gateway chưa sẵn sàng');
+        return false;
+    }
+    
+    if (!window.CONFIG || !window.CONFIG.CMD) {
+        console.error('[Logic] CONFIG not ready');
+        return false;
+    }
+
+    console.log('[Logic] Sending SCREENSHOT command');
+    window.gateway.send(window.CONFIG.CMD.SCREENSHOT, "");
+    return true;
+}
+
+/**
+ * Chụp ảnh webcam
+ */
+export function captureWebcam() {
+    if (!window.gateway) {
+        console.error('[Logic] Gateway chưa sẵn sàng');
+        return false;
+    }
+    
+    if (!window.CONFIG || !window.CONFIG.CMD) {
+        console.error('[Logic] CONFIG not ready');
+        return false;
+    }
+
+    console.log('[Logic] Sending CAMSHOT command');
+    window.gateway.send(window.CONFIG.CMD.CAMSHOT, "");
+    return true;
+}
+
+/**
+ * Record screen
+ * @param {number} duration - Recording duration (seconds), max 15
+ */
+export function recordScreen(duration = 5) {
+    if (!window.gateway) {
+        console.error('[Logic] Gateway chưa sẵn sàng');
+        return false;
+    }
+    
+    if (!window.CONFIG || !window.CONFIG.CMD) {
+        console.error('[Logic] CONFIG not ready');
+        return false;
+    }
+
+    const finalDuration = Math.min(Math.max(parseInt(duration, 10) || 5, 1), 15);
+    console.log('[Logic] Sending SCR_RECORD command with duration:', finalDuration);
+    window.gateway.send(window.CONFIG.CMD.SCR_RECORD, String(finalDuration));
+    return true;
+}
+
+/**
+ * Quay webcam
+ * @param {number} duration - Thời gian quay (giây), tối đa 15
+ */
+export function recordWebcam(duration = 5) {
+    if (!window.gateway) {
+        console.error('[Logic] Gateway chưa sẵn sàng');
+        return false;
+    }
+    
+    if (!window.CONFIG || !window.CONFIG.CMD) {
+        console.error('[Logic] CONFIG not ready');
+        return false;
+    }
+
+    const finalDuration = Math.min(Math.max(parseInt(duration, 10) || 5, 1), 15);
+    console.log('[Logic] Sending CAM_RECORD command with duration:', finalDuration);
+    window.gateway.send(window.CONFIG.CMD.CAM_RECORD, String(finalDuration));
+    return true;
+}
+
+// ==================== KEYLOGGER ====================
+
+/**
+ * Start keylogger
+ * @param {number} interval - Data send interval (seconds), default 0.1
+ */
+export function startKeylog(interval = 0.1) {
+    if (!window.gateway) {
+        console.warn('[Logic] Gateway not found');
+        return false;
+    }
+    
+    if (!window.gateway.ws || window.gateway.ws.readyState !== WebSocket.OPEN) {
+        console.warn('[Logic] Gateway not connected');
+        return false;
+    }
+
+    if (!window.gateway.isAuthenticated) {
+        console.warn('[Logic] Gateway not authenticated');
+        return false;
+    }
+
+    if (!window.CONFIG || !window.CONFIG.CMD) {
+        console.error('[Logic] CONFIG not ready');
+        return false;
+    }
+
+    console.log('[Logic] Starting keylogger with interval:', interval);
+    window.gateway.send(window.CONFIG.CMD.START_KEYLOG, JSON.stringify({ interval }));
+    return true;
+}
+
+/**
+ * Dừng keylogger
+ */
+export function stopKeylog() {
+    if (!window.gateway) {
+        console.warn('[Logic] Gateway not found');
+        return false;
+    }
+
+    if (!window.CONFIG || !window.CONFIG.CMD) {
+        console.error('[Logic] CONFIG not ready');
+        return false;
+    }
+
+    console.log('[Logic] Stopping keylogger');
+    window.gateway.send(window.CONFIG.CMD.STOP_KEYLOG, "");
+    return true;
+}
+
+// ==================== POWER CONTROL ====================
+
+/**
+ * Shutdown agent
+ */
+export function shutdownAgent() {
+    if (!window.gateway) {
+        console.warn('[Logic] Gateway not found');
+        return false;
+    }
+    
+    if (!window.CONFIG || !window.CONFIG.CMD) {
+        console.error('[Logic] CONFIG not ready');
+        return false;
+    }
+
+    window.gateway.send(window.CONFIG.CMD.SHUTDOWN, "");
+    return true;
+}
+
+/**
+ * Restart agent
+ */
+export function restartAgent() {
+    if (!window.gateway) {
+        console.warn('[Logic] Gateway not found');
+        return false;
+    }
+    
+    if (!window.CONFIG || !window.CONFIG.CMD) {
+        console.error('[Logic] CONFIG not ready');
+        return false;
+    }
+
+    window.gateway.send(window.CONFIG.CMD.RESTART, "");
+    return true;
+}
+
+/**
+ * Put agent to sleep
+ */
+export function sleepAgent() {
+    if (!window.gateway) {
+        console.warn('[Logic] Gateway not found');
+        return false;
+    }
+    
+    if (!window.CONFIG || !window.CONFIG.CMD) {
+        console.error('[Logic] CONFIG not ready');
+        return false;
+    }
+
+    if (!window.CONFIG.CMD.SLEEP) {
+        console.error('[Logic] SLEEP command not available in CONFIG.CMD');
+        console.log('[Logic] Available commands:', Object.keys(window.CONFIG.CMD));
+        return false;
+    }
+
+    console.log('[Logic] Sending SLEEP command');
+    window.gateway.send(window.CONFIG.CMD.SLEEP, "");
+    return true;
+}
+
+// ==================== FILE SYSTEM ====================
+
+/**
+ * List files in directory
+ * @param {string} path - Directory path
+ */
+export function listFiles(path = "") {
+    if (!window.gateway) {
+        console.warn('[Logic] Gateway not found');
+        return false;
+    }
+
+    if (path === "") {
+        path = "/";
+    }
+
+    console.log(`[Logic] Listing files in: ${path}`);
+    window.gateway.listFiles(path);
+    return true;
+}
+
+// ==================== UTILITY COMMANDS ====================
+
+/**
+ * Get agent machine information
+ */
+export function whoami() {
+    if (!window.gateway || !window.CONFIG) {
+        console.warn('[Logic] Gateway or CONFIG not found');
+        return false;
+    }
+    window.gateway.send(window.CONFIG.CMD.WHOAMI, "");
+    return true;
+}
+
+/**
+ * Send echo message to agent
+ * @param {string} text - Message content
+ */
+export function echo(text) {
+    if (!window.gateway || !window.CONFIG) {
+        console.warn('[Logic] Gateway or CONFIG not found');
+        return false;
+    }
+    window.gateway.send(window.CONFIG.CMD.ECHO, text);
+    return true;
+}
+
+// ==================== DATA PROCESSING ====================
+
+/**
+ * Process received keylog data
+ * @param {string} dataString - Received character string
+ * @param {string} senderId - Sender agent ID
+ * @returns {Object} - Object containing processed characters
+ */
+export function processKeylogData(dataString, senderId) {
+    if (!dataString) return { chars: [], processed: false };
+    
+    const chars = dataString.split('');
+    return {
+        chars: chars,
+        processed: true,
+        senderId: senderId
+    };
+}
+
+/**
+ * Get formatted app list from cache
+ */
+export function getFormattedAppList() {
+    if (!window.gateway) {
+        return [];
+    }
+    return window.gateway.getFormattedAppList() || [];
+}
+
+/**
+ * Get formatted process list from cache
+ */
+export function getFormattedProcessList() {
+    if (!window.gateway) {
+        return [];
+    }
+    return window.gateway.getFormattedProcessList() || [];
+}
+
+/**
+ * Check and get app list cache update
+ */
+export function checkAppListUpdate() {
+    if (!window.gateway || !Array.isArray(window.gateway.appListCache)) {
+        return null;
+    }
+    return window.gateway.getFormattedAppList() || [];
+}
+
+/**
+ * Check and get process list cache update
+ */
+export function checkProcessListUpdate() {
+    if (!window.gateway || !Array.isArray(window.gateway.processListCache)) {
+        return null;
+    }
+    return window.gateway.getFormattedProcessList() || [];
+}
+
+export default {
+    // Agent Management
+    getAgentList,
+    authenticate,
+    setTarget,
+    initAgentTargetFromURL,
+    
+    // Application Management
+    fetchAppList,
+    startApp,
+    stopApp,
+    
+    // Process Management
+    fetchProcessList,
+    startProcess,
+    killProcess,
+    
+    // Screen & Webcam
+    captureScreen,
+    captureWebcam,
+    recordScreen,
+    recordWebcam,
+    
+    // Keylogger
+    startKeylog,
+    stopKeylog,
+    
+    // Power Control
+    shutdownAgent,
+    restartAgent,
+    sleepAgent,
+    
+    // File System
+    listFiles,
+    
+    // Utility
+    whoami,
+    echo,
+    
+    // Data Processing
+    processKeylogData,
+    getFormattedAppList,
+    getFormattedProcessList,
+    checkAppListUpdate,
+    checkProcessListUpdate
+};

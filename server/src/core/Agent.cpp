@@ -104,8 +104,17 @@ void Agent::connect() {
             this->onDisconnected();
         };
 
-        client_->onError = [this](boost::beast::error_code ec) {
+        client_->onError = [this, host, port](boost::beast::error_code ec) {
             std::cerr << "[Network] Connection error: " << ec.message() << " (code: " << ec.value() << ")\n" << std::flush;
+            if (ec.value() == 60 || ec == boost::beast::net::error::timed_out) {
+                std::cerr << "[Network] Connection timeout to " << host << ":" << port << "\n" << std::flush;
+                std::cerr << "[Network] Possible causes:\n" << std::flush;
+                std::cerr << "  1. Gateway server is not running\n" << std::flush;
+                std::cerr << "  2. Gateway server is not listening on port " << port << "\n" << std::flush;
+                std::cerr << "  3. Firewall is blocking port " << port << "\n" << std::flush;
+                std::cerr << "  4. Network connectivity issue\n" << std::flush;
+                std::cerr << "[Network] Please verify Gateway is running and accessible\n" << std::flush;
+            }
             this->onDisconnected();
         };
         cout << "[Network] Initiating WebSocket connection...\n" << std::flush;

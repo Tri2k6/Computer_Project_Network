@@ -1,31 +1,19 @@
-// Lấy tham số từ URL
-const urlParams = new URLSearchParams(window.location.search);
-const mode = urlParams.get('mode'); // "app" hoặc "process"
 
-// --- 1. Logic Render dữ liệu & Phân trang ---
-const exeListContent = document.getElementById('exe-list-content');
+import * as Logic from './logic.js';
 
-// Cấu hình phân trang
-const ITEMS_PER_PAGE = 5; // Số exe hiển thị trên 1 trang (bạn có thể đổi thành 5 tùy ý)
+// Global variables
+let exeListContent;
+let prevBtn;
+let nextBtn;
+let pageIndicator;
+let searchInput;
+let screenText;
+let typingInterval;
+let exeData = [];
 let currentPage = 1;
-
-// Các phần tử DOM cần thiết cho phân trang
-const prevBtn = document.querySelector('.prev-btn');
-const nextBtn = document.querySelector('.next-btn');
-const pageIndicator = document.getElementById('page-indicator');
-const searchInput = document.getElementById('search-input');
-
-// Giả lập dữ liệu
-const mockExeData = [
-    { name: "Discord", pid: "123123" },
-    { name: "Discord", pid: "123123" },
-    { name: "Discord", pid: "123123" },
-    { name: "Discord", pid: "123123" },
-    { name: "Discord", pid: "123123" },
-    { name: "Discord", pid: "123123" },
-    { name: "Discord", pid: "123123" },
-    { name: "Discord", pid: "123123" }
-];
+let mode;
+const ITEMS_PER_PAGE = 5;
+const defaultText = "What to do?";
 
 // Hàm chính: Tính toán và Render theo trang
 function reloadExes() {
@@ -37,25 +25,48 @@ function delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-async function fetchAndRenderExes() {
-    exeListContent.innerHTML = ''; // Xóa list hiện tại ngay khi bắt đầu fetch
+async function fetchAndRenderExes(isInitialLoad = false) {
+    if (!exeListContent) return;
+    exeListContent.innerHTML = '<li class="exe-item">Loading...</li>';
 
-    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-    const endIndex = startIndex + ITEMS_PER_PAGE;
+    // Fetch data from gateway based on mode
+    let data = null;
+    if (mode === 'app') {
+        data = await Logic.fetchAppList(isInitialLoad);
+        if (data) {
+            exeData = data.map((app, idx) => ({
+                name: app.name || 'Unknown',
+                pid: app.id || idx,
+                id: app.id || idx
+            }));
+        }
+    } else if (mode === 'process') {
+        data = await Logic.fetchProcessList(isInitialLoad);
+        if (data) {
+            exeData = data.map((proc, idx) => ({
+                name: proc.name || 'Unknown',
+                pid: proc.pid || proc.id || idx,
+                id: proc.id || idx
+            }));
+        }
+    }
 
-    const currentExes = mockExeData.slice(startIndex, endIndex);
-
-    if (currentExes.length === 0) {
-        exeListContent.innerHTML = '<li class="exe-item">No exes found.</li>';
+    if (!data || exeData.length === 0) {
+        exeListContent.innerHTML = '<li class="exe-item">No items found.</li>';
         updateFooterUI();
         return;
     }
 
-    // Thêm từng item với delay 0.5s
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    const endIndex = startIndex + ITEMS_PER_PAGE;
+    const currentExes = exeData.slice(startIndex, endIndex);
+
+    exeListContent.innerHTML = '';
+
+    // Render all items at once for faster display (removed delay)
     for (const exe of currentExes) {
         const item = createExeItem(exe);
         exeListContent.appendChild(item);
-        await delay(50);
     }
 
     updateFooterUI();
@@ -72,17 +83,21 @@ function createExeItem(exe) {
     item.style.borderTop = '1px solid rgba(0, 0, 0, 0.1)';
     item.style.borderBottom = '1px solid rgba(0, 0, 0, 0.1)';
 
+    const escapedName = exe.name.replace(/'/g, "\\'").replace(/"/g, '&quot;');
+    const displayLabel = mode === 'process' ? 'PID' : 'ID';
+    const displayValue = mode === 'process' ? (exe.pid || exe.id) : exe.id;
+    
     item.innerHTML = `
     <span class="exe-ip" style="flex: 0 0 55%; font-weight: 500;">
-        IP: ${exe.name}
+        ${escapedName}
     </span>
 
     <span class="exe-port" style="flex: 0 0 30%; color: #555;">
-        Port: ${exe.pid}
+        ${displayLabel}: ${displayValue}
     </span>
 
     <button class="start-icon"
-        onclick="startExe('${exe.name}', ${exe.pid})"
+        onclick="window.startExe('${escapedName}', ${exe.id})"
         style="
             background: none;
             border: none;
@@ -96,7 +111,7 @@ function createExeItem(exe) {
     </button>
 
     <button class="pause-icon"
-        onclick="stopExe('${exe.name}', ${exe.pid})"
+        onclick="window.stopExe('${escapedName}', ${exe.id})"
         style="
             background: none;
             border: none;
@@ -113,32 +128,48 @@ function createExeItem(exe) {
 }
 
 function startExe(name, pid) {
+    let success = false;
     if (mode === 'app') {
-        // Xử lý cho App
-        typeEffect('Starting app...');
-    
+        // Xử lý cho App - sử dụng logic.js
+        const appId = parseInt(pid, 10);
+        if (!isNaN(appId)) {
+            success = Logic.startApp(appId);
+            typeEffect(success ? 'Starting app...' : 'Failed to start app');
+        }
     } else if (mode === 'process') {
-        // Xử lý cho Process
-        typeEffect('Starting process...');
-        
+        // Xử lý cho Process - sử dụng logic.js
+        const processId = parseInt(pid, 10);
+        if (!isNaN(processId)) {
+            success = Logic.startProcess(processId);
+            typeEffect(success ? 'Starting process...' : 'Failed to start process');
+        }
     }
 }
 
 function stopExe(name, pid) {
+    let success = false;
     if (mode === 'app') {
-        // Xử lý cho App
-        typeEffect('Stopping app...');
-    
+        // Xử lý cho App - sử dụng logic.js
+        const appId = parseInt(pid, 10);
+        if (!isNaN(appId)) {
+            success = Logic.stopApp(appId);
+            typeEffect(success ? 'Stopping app...' : 'Failed to stop app');
+        }
     } else if (mode === 'process') {
-        // Xử lý cho Process
-        typeEffect('Stopping process...');
-        
+        // Xử lý cho Process - sử dụng logic.js
+        const processId = parseInt(pid, 10);
+        if (!isNaN(processId)) {
+            success = Logic.killProcess(processId);
+            typeEffect(success ? 'Stopping process...' : 'Failed to stop process');
+        }
     }
 }
 
 // Hàm phụ: Cập nhật Footer (Số trang, ẩn hiện nút Next/Prev)
 function updateFooterUI() {
-    const totalPages = Math.ceil(mockExeData.length / ITEMS_PER_PAGE);
+    if (!pageIndicator || !prevBtn || !nextBtn) return;
+    
+    const totalPages = Math.ceil(exeData.length / ITEMS_PER_PAGE) || 1;
     
     // Cập nhật text "Page 1/3"
     pageIndicator.textContent = `Page ${currentPage}/${totalPages}`;
@@ -146,7 +177,7 @@ function updateFooterUI() {
     // Xử lý nút Prev (ẩn nếu ở trang 1)
     if (currentPage === 1) {
         prevBtn.disabled = true;
-        prevBtn.style.opacity = '0.5'; // Làm mờ
+        prevBtn.style.opacity = '0.5';
     } else {
         prevBtn.disabled = false;
         prevBtn.style.opacity = '1';
@@ -155,54 +186,81 @@ function updateFooterUI() {
     // Xử lý nút Next (ẩn nếu ở trang cuối)
     if (currentPage === totalPages) {
         nextBtn.disabled = true;
-        nextBtn.style.opacity = '0.5'; // Làm mờ
+        nextBtn.style.opacity = '0.5';
     } else {
         nextBtn.disabled = false;
         nextBtn.style.opacity = '1';
     }
 }
 
-// --- 2. Sự kiện chuyển trang ---
-
-// Nút lùi
-prevBtn.addEventListener('click', () => {
-    if (currentPage > 1) {
-        currentPage--;
-        fetchAndRenderExes();
-    }
-});
-
-// Nút tiến
-nextBtn.addEventListener('click', () => {
-    const totalPages = Math.ceil(mockExeData.length / ITEMS_PER_PAGE);
-    if (currentPage < totalPages) {
-        currentPage++;
-        fetchAndRenderExes();
-    }
-});
-
-// --- 3. Sự kiện mở menu ---
+// --- Initialize on page load ---
 
 document.addEventListener('DOMContentLoaded', () => {
-    fetchAndRenderExes();
+    // Get mode from URL
+    const urlParams = new URLSearchParams(window.location.search);
+    mode = urlParams.get('mode'); // "app" hoặc "process"
 
-    const startBtn = document.getElementById('link-icon');
-    if (goMenuBtn) {
-        goMenuBtn.addEventListener('click', () => {
-            window.location.href = 'feature_menu.html';
+    // Initialize DOM elements
+    exeListContent = document.getElementById('exe-list-content');
+    prevBtn = document.querySelector('.prev-btn');
+    nextBtn = document.querySelector('.next-btn');
+    pageIndicator = document.getElementById('page-indicator');
+    searchInput = document.getElementById('search-input');
+    screenText = document.querySelector('.screen-text');
+
+    // Initialize typing effect
+    typeEffect(defaultText);
+
+    // Setup pagination buttons
+    if (prevBtn) {
+        prevBtn.addEventListener('click', () => {
+            if (currentPage > 1) {
+                currentPage--;
+                fetchAndRenderExes();
+            }
         });
     }
+
+    if (nextBtn) {
+        nextBtn.addEventListener('click', () => {
+            const totalPages = Math.ceil(exeData.length / ITEMS_PER_PAGE) || 1;
+            if (currentPage < totalPages) {
+                currentPage++;
+                fetchAndRenderExes();
+            }
+        });
+    }
+
+    // Wait for gateway to be ready, then initialize and load data
+    const waitForGatewayAndLoad = () => {
+        if (window.gateway && window.gateway.isAuthenticated) {
+            // Initialize agent target from URL
+            Logic.initAgentTargetFromURL(() => {
+                // Fetch and render data after target is set (or if no target)
+                // Use longer timeout for initial load when switching tabs
+                setTimeout(() => {
+                    fetchAndRenderExes(true); // Pass true for initial load
+                }, 200);
+            });
+        } else {
+            // Retry after 200ms if gateway not ready (faster check)
+            setTimeout(waitForGatewayAndLoad, 200);
+        }
+    };
+    
+    // Start waiting for gateway
+    waitForGatewayAndLoad();
+
+    // Export functions to window for HTML onclick
+    window.reloadExes = reloadExes;
+    window.backToMenu = backToMenu;
+    window.startExe = startExe;
+    window.stopExe = stopExe;
 });
 
-// --- 4. Dòng chữ trên laptop ---
-
-const screenText = document.querySelector('.screen-text');
-const defaultText = "What to do?";
-let typingInterval;
-
-typeEffect(defaultText);
-
 function typeEffect(text) {
+    if (!screenText) return;
+    
     screenText.classList.add('typing-effect');
     screenText.style.width = 'auto';
 
@@ -225,5 +283,5 @@ function typeEffect(text) {
 // ================== BACK TO MENU ==================
 
 function backToMenu() {
-    window.location.href = 'feature_menu.html';
+    window.location.href = 'Feature_menu.html';
 }

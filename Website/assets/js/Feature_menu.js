@@ -1,3 +1,5 @@
+import * as Logic from './logic.js';
+
 document.addEventListener("DOMContentLoaded", () => {
     /* =========================================
        1. CẤU HÌNH LIÊN KẾT (Bạn điền link vào đây)
@@ -22,29 +24,7 @@ document.addEventListener("DOMContentLoaded", () => {
     typeEffect(defaultText);
 
     // Đọc agent ID từ URL và tự động setTarget
-    const urlParams = new URLSearchParams(window.location.search);
-    const agentId = urlParams.get('id');
-    if (agentId) {
-        // Đợi gateway sẵn sàng rồi setTarget
-        const checkAndSetTarget = () => {
-            if (window.gateway && window.gateway.isAuthenticated) {
-                // Đợi agents list được load trước
-                if (window.gateway.agentsList && window.gateway.agentsList.length > 0) {
-                    window.gateway.setTarget(agentId);
-                    console.log(`[Feature_menu] Đã setTarget đến agent: ${agentId}`);
-                } else {
-                    // Nếu agents list chưa có, đợi thêm
-                    setTimeout(checkAndSetTarget, 500);
-                }
-            } else {
-                // Nếu gateway chưa sẵn sàng, đợi thêm
-                setTimeout(checkAndSetTarget, 500);
-            }
-        };
-        
-        // Đợi một chút để main.js load xong
-        setTimeout(checkAndSetTarget, 1000);
-    }
+    Logic.initAgentTargetFromURL();
 
     /* =========================================
        3. HÀM XỬ LÝ HIỆU ỨNG GÕ CHỮ (TYPING)

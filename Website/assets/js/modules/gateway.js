@@ -357,6 +357,60 @@ export class Gateway{
                                 this.processListCache = [];
                             }
                         }
+                    } else if (typeof msg.data === 'string' && msg.data.trim()) {
+                        // Parse string format: "PID: X | Name: Y" or "0. PID: X | Name: Y"
+                        console.log('[Gateway] Parsing PROC_LIST string format...');
+                        const lines = msg.data.split('\n').filter(line => line.trim());
+                        this.processListCache = lines.map((line, index) => {
+                            // Try format: "PID: X | Name: Y"
+                            let match = line.match(/PID:\s*(\d+)\s*\|\s*Name:\s*(.+)$/);
+                            if (match) {
+                                const pid = parseInt(match[1], 10);
+                                const name = match[2].trim();
+                                return {
+                                    id: index,
+                                    name: name,
+                                    pid: pid,
+                                    index: index
+                                };
+                            }
+                            
+                            // Try format: "0. PID: X | Name: Y"
+                            match = line.match(/^(\d+)\.\s*PID:\s*(\d+)\s*\|\s*Name:\s*(.+)$/);
+                            if (match) {
+                                const id = parseInt(match[1], 10);
+                                const pid = parseInt(match[2], 10);
+                                const name = match[3].trim();
+                                return {
+                                    id: id,
+                                    name: name,
+                                    pid: pid,
+                                    index: id
+                                };
+                            }
+                            
+                            // Try format: "0. Name: Process Name"
+                            match = line.match(/^(\d+)\.\s*Name:\s*(.+)$/);
+                            if (match) {
+                                const id = parseInt(match[1], 10);
+                                const name = match[2].trim();
+                                return {
+                                    id: id,
+                                    name: name,
+                                    pid: null,
+                                    index: id
+                                };
+                            }
+                            
+                            // Fallback: use line as name, index as id
+                            return {
+                                id: index,
+                                name: line.trim(),
+                                pid: null,
+                                index: index
+                            };
+                        });
+                        console.log('[Gateway] Parsed', this.processListCache.length, 'processes from string');
                     } else {
                         this.processListCache = [];
                     }
@@ -394,6 +448,31 @@ export class Gateway{
                                 this.appListCache = [];
                             }
                         }
+                    } else if (typeof msg.data === 'string' && msg.data.trim()) {
+                        // Parse string format: "0. Name: App Name\n1. Name: Another App\n..."
+                        console.log('[Gateway] Parsing APP_LIST string format...');
+                        const lines = msg.data.split('\n').filter(line => line.trim());
+                        this.appListCache = lines.map((line, index) => {
+                            // Parse format: "0. Name: App Name" or "0. Name: App Name\n"
+                            const match = line.match(/^(\d+)\.\s*Name:\s*(.+)$/);
+                            if (match) {
+                                const id = parseInt(match[1], 10);
+                                const name = match[2].trim();
+                                return {
+                                    id: id,
+                                    name: name,
+                                    index: id
+                                };
+                            } else {
+                                // Fallback: use line as name, index as id
+                                return {
+                                    id: index,
+                                    name: line.trim(),
+                                    index: index
+                                };
+                            }
+                        });
+                        console.log('[Gateway] Parsed', this.appListCache.length, 'apps from string');
                     } else {
                         this.appListCache = [];
                     }
@@ -421,6 +500,26 @@ export class Gateway{
                     break;
                 case CONFIG.CMD.SCREENSHOT:
                     if (msg.data && msg.data.status === 'ok') {
+                        // Chỉ xử lý response từ agent đã chọn
+                        if (senderId && this.targetId && this.targetId !== 'ALL') {
+                            // So sánh senderId với targetId (có thể là ID, machineId, hoặc IP)
+                            const targetAgent = this.agentsList.find(a => 
+                                a.id === this.targetId || 
+                                a.machineId === this.targetId || 
+                                a.ip === this.targetId
+                            );
+                            const senderAgent = this.agentsList.find(a => 
+                                a.id === senderId || 
+                                a.machineId === senderId || 
+                                a.ip === senderId
+                            );
+                            
+                            // Nếu không tìm thấy target agent hoặc sender không khớp với target
+                            if (!targetAgent || !senderAgent || targetAgent.id !== senderAgent.id) {
+                                console.log(`[Gateway] Ignoring screenshot from ${senderId} (target is ${this.targetId})`);
+                                return;
+                            }
+                        }
                         console.log(`[Gateway] Screenshot received from ${senderId}`);
                         if (this.callbacks.onScreenshot) {
                             this.callbacks.onScreenshot(msg.data.data, senderId);
@@ -435,6 +534,24 @@ export class Gateway{
                     break;
                 case CONFIG.CMD.CAM_RECORD:
                     if (msg.data && msg.data.status === 'ok') {
+                        // Chỉ xử lý response từ agent đã chọn
+                        if (senderId && this.targetId && this.targetId !== 'ALL') {
+                            const targetAgent = this.agentsList.find(a => 
+                                a.id === this.targetId || 
+                                a.machineId === this.targetId || 
+                                a.ip === this.targetId
+                            );
+                            const senderAgent = this.agentsList.find(a => 
+                                a.id === senderId || 
+                                a.machineId === senderId || 
+                                a.ip === senderId
+                            );
+                            
+                            if (!targetAgent || !senderAgent || targetAgent.id !== senderAgent.id) {
+                                console.log(`[Gateway] Ignoring camera video from ${senderId} (target is ${this.targetId})`);
+                                return;
+                            }
+                        }
                         console.log(`[Gateway] Camera video received from ${senderId}`);
                         if (this.callbacks.onCamera) {
                             this.callbacks.onCamera(msg.data.data, senderId);
@@ -449,6 +566,24 @@ export class Gateway{
                     break;
                 case CONFIG.CMD.CAMSHOT:
                     if (msg.data && msg.data.status === 'ok') {
+                        // Chỉ xử lý response từ agent đã chọn
+                        if (senderId && this.targetId && this.targetId !== 'ALL') {
+                            const targetAgent = this.agentsList.find(a => 
+                                a.id === this.targetId || 
+                                a.machineId === this.targetId || 
+                                a.ip === this.targetId
+                            );
+                            const senderAgent = this.agentsList.find(a => 
+                                a.id === senderId || 
+                                a.machineId === senderId || 
+                                a.ip === senderId
+                            );
+                            
+                            if (!targetAgent || !senderAgent || targetAgent.id !== senderAgent.id) {
+                                console.log(`[Gateway] Ignoring camera shot from ${senderId} (target is ${this.targetId})`);
+                                return;
+                            }
+                        }
                         console.log(`[Gateway] Camera shot received from ${senderId}`);
                         if (this.callbacks.onScreenshot) {
                             this.callbacks.onScreenshot(msg.data.data, senderId);
@@ -463,6 +598,24 @@ export class Gateway{
                     break;
                 case CONFIG.CMD.SCR_RECORD:
                     if (msg.data && msg.data.status === 'ok') {
+                        // Chỉ xử lý response từ agent đã chọn
+                        if (senderId && this.targetId && this.targetId !== 'ALL') {
+                            const targetAgent = this.agentsList.find(a => 
+                                a.id === this.targetId || 
+                                a.machineId === this.targetId || 
+                                a.ip === this.targetId
+                            );
+                            const senderAgent = this.agentsList.find(a => 
+                                a.id === senderId || 
+                                a.machineId === senderId || 
+                                a.ip === senderId
+                            );
+                            
+                            if (!targetAgent || !senderAgent || targetAgent.id !== senderAgent.id) {
+                                console.log(`[Gateway] Ignoring screen recording from ${senderId} (target is ${this.targetId})`);
+                                return;
+                            }
+                        }
                         console.log(`[Gateway] Screen recording received from ${senderId}`);
                         if (this.callbacks.onCamera) {
                             this.callbacks.onCamera(msg.data.data, senderId);

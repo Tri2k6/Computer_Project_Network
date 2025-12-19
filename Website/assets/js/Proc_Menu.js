@@ -72,7 +72,13 @@ function renderData() {
             procId = startIndex + idx;
         }
         
-        const procName = proc.name || proc.processName || 'Unknown Process';
+        let procName = proc.name || proc.processName || 'Unknown Process';
+        
+        // Clean up name if it contains "PID: X | Name: Y" format
+        // Remove any "PID: X | Name: " prefix if present
+        procName = procName.replace(/^\d+\.\s*PID:\s*\d+\s*\|\s*Name:\s*/i, '');
+        procName = procName.replace(/^PID:\s*\d+\s*\|\s*Name:\s*/i, '');
+        procName = procName.trim();
         
         // Escape procName cho HTML display
         const escapedProcName = procName.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
@@ -86,7 +92,7 @@ function renderData() {
                 <span class="proc-name">${escapedProcName}</span>
             </div>
             
-            <span class="proc-pid">PID: ${proc.pid !== undefined ? proc.pid : (proc.PID !== undefined ? proc.PID : '-')}</span>
+            <span class="proc-pid">${proc.pid !== undefined && proc.pid !== null ? proc.pid : (proc.PID !== undefined && proc.PID !== null ? proc.PID : '-')}</span>
 
             <div class="proc-actions">
                 <button class="action-btn ${startClass}" data-proc-id="${procId}" data-action="start" data-proc-name="${escapedProcName}" title="Start ${escapedProcName}">

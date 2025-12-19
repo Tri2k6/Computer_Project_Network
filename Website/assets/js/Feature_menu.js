@@ -3,8 +3,8 @@ document.addEventListener("DOMContentLoaded", () => {
        1. CẤU HÌNH LIÊN KẾT (Bạn điền link vào đây)
        ========================================= */
     const urlMap = {
-        "Application Control": "./App_Menu.html",
-        "Process Control":     "./Proc_Menu.html",
+        "Application Control": "./app_process.html?mode=app",
+        "Process Control":     "./app_process.html?mode=process",
         "Keylog Control":      "./keylog.html",
         "Screen Control":      "./screen_webcam.html?mode=screen",
         "Webcam Control":      "./screen_webcam.html?mode=webcam",
@@ -64,8 +64,6 @@ document.addEventListener("DOMContentLoaded", () => {
                 i++;
             } else {
                 clearInterval(typingInterval);
-                // giữ nhấp nháy hoặc tắt class:
-                // screenText.classList.remove('typing-effect');
             }
         }, speed);
     }

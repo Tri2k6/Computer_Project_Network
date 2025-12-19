@@ -27,47 +27,80 @@
             </nav>
         </header>
 
-        <main class="proc-main">
-            <div class="proc-content-wrapper">
+        <main class="page-content">
+            <div class="page-content-wrapper">
                 
                 <div class="left-panel">
                     <div class="laptop-wrapper">
-                        <img src="./assets/images/laptop.png" alt="Laptop Successful" class="laptop-img">
+                        <img src="./assets/images/laptop.png" alt="Laptop" class="laptop-img">
                         <div class="screen-overlay">
-                            <div class="code-text typing-effect"></div>
+                            <div class="screen-text typing-effect"></div>
                         </div>
                     </div>
                 </div>
 
                 <div class="right-panel">
-                    <div class="control-card">
-                        
-                        <div class="search-header">
-                            <div class="search-bar-container">
-                                <input type="text" id="search-input" placeholder="Find app..." autocomplete="off">
+                    <div id="exe-list-overlay">
+                        <div class="exe-list-container">
+                            <div class="list-header">
+                                <div class="icon-btn">
+                                    <img src="./assets/images/server.png" alt="Server">
+                                </div>
+                                <h2>Available servers</h2>
+
+                                <div class="header-actions">
+                                    <button
+                                        id="reload-btn"
+                                        class="btn-temp"
+                                        onclick="reloadExes()"
+                                    >
+                                        <img src="./assets/images/reload.png" alt="Reload">
+                                    </button>
+
+                                    <button
+                                        id="return-btn"
+                                        class="btn-temp"
+                                        onclick="backToMenu()"
+                                    >
+                                        <img src="./assets/images/return.png" alt="Return">
+                                    </button>
+                                </div>
                             </div>
-                            <button class="btn-undo" onclick="resetSearch()">
-                                <img src="./assets/images/return.png" alt="Reset">
-                            </button>
-                        </div>
 
-                        <div class="process-list-container">
-                            <ul id="process-list" class="process-list">
-                                <li class="loading-text">Loading...</li>
-                            </ul>
-                        </div>
+                            <div class="exe-items-wrapper">
+                                <ul
+                                    id="exe-list-content"
+                                    class="exe-list"
+                                >
+                                    <li class="exe-item">
+                                        Loading exes...
+                                    </li>
+                                </ul>
+                            </div>
 
-                        <div class="card-footer">
-                            <button class="nav-square prev-btn">
-                                <img src="./assets/images/left.png" alt="">
-                            </button>
-                            <span id="page-indicator">Page 1/1</span>
-                            <button class="nav-square next-btn">
-                                <img src="./assets/images/right.png" alt="">
-                            </button>
+                            <div class="change_page">
+                                <button class="nav-btn prev-btn">
+                                    <img
+                                        src="./assets/images/left.png"
+                                        alt=""
+                                        class="left_img"
+                                    >
+                                </button>
+
+                                <span id="page-indicator">Page 1/1</span>
+
+                                <button class="nav-btn next-btn">
+                                    <img
+                                        src="./assets/images/right.png"
+                                        alt=""
+                                        class="right_img"
+                                    >
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
+
             </div>
         </main>
     </div>

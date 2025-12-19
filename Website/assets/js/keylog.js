@@ -43,21 +43,13 @@ class KeyloggerUI {
                 this.handleIncomingKey(data, senderId);
             };
 
-            // 2. Gán sự kiện cho các nút
-            if (this.btnMenu) {
-                this.btnMenu.onclick = () => {
-                    window.location.href = './Feature_menu.html';
-                };
-            }
-            if (this.btnStart) {
-                this.btnStart.onclick = () => this.startKeylog();
-            }
-            if (this.btnStop) {
-                this.btnStop.onclick = () => this.stopKeylog();
-            }
-            if (this.btnSave) {
-                this.btnSave.onclick = () => this.saveToDevice();
-            }
+        // 2. Gán sự kiện cho các nút
+        this.btnMenu.addEventListener('click', () => {
+            window.location.href = 'index.html';
+        });
+        this.btnStart.onclick = () => this.startKeylog();
+        this.btnStop.onclick = () => this.stopKeylog();
+        this.btnSave.onclick = () => this.saveToDevice();
 
             // 3. Inject CSS để phục vụ việc "nháy đèn" phím khi nhận tín hiệu
             this.injectActiveStyle();
@@ -116,6 +108,7 @@ class KeyloggerUI {
 
         this.isLogging = true;
         this.logSystem(">>> Keylogger STARTED...");
+        alert('started');
         
         // Gửi lệnh Start Keylog tới Server/Agent
         // interval: 0.1 để nhận dữ liệu gần như realtime cho hiệu ứng mượt
@@ -132,6 +125,7 @@ class KeyloggerUI {
 
         this.isLogging = false;
         this.logSystem(">>> Keylogger STOPPED.");
+        alert('stopped');
         
         window.gateway.send(window.CONFIG.CMD.STOP_KEYLOG, "");
         

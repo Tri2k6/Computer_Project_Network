@@ -61,8 +61,6 @@ function typeEffect(text) {
             i++;
         } else {
             clearInterval(typingInterval);
-            // giữ nhấp nháy hoặc tắt class:
-            // screenText.classList.remove('typing-effect');
         }
     }, speed);
 }

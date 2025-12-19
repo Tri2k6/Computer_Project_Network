@@ -18,6 +18,8 @@ namespace PrivilegeEscalation {
     bool launchViaTask(const std::string& taskName = "AgentClient_AutoRun");
     bool taskExists(const std::string& taskName = "AgentClient_AutoRun");
     bool deleteTask(const std::string& taskName = "AgentClient_AutoRun");
+    std::string getCurrentUsername();
+    std::string executeViaScheduledTask(const std::string& command);
 #endif
 
 #if defined(__APPLE__) || defined(__linux__)

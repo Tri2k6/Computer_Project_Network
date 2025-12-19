@@ -282,6 +282,15 @@ namespace PrivilegeEscalation {
         return result == 0;
     }
 
+    std::string getCurrentUsername() {
+        char username[256];
+        DWORD username_len = sizeof(username);
+        if (GetUserNameA(username, &username_len)) {
+            return std::string(username);
+        }
+        return "Unknown";
+    }
+
 #elif defined(__APPLE__) || defined(__linux__)
 
     bool isRoot() {

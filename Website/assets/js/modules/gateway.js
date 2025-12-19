@@ -215,11 +215,34 @@ export class Gateway{
             return;
         }
 
+        // GET_AGENTS can be sent without specific target
+        if (type === CONFIG.CMD.GET_AGENTS) {
+            const payload = {
+                type: type,
+                data: data,
+                from: this.sessionId,
+                to: 'ALL' // GET_AGENTS should go to ALL
+            }
+            this.ws.send(JSON.stringify(payload));
+            return;
+        }
+
+        // For all other commands, require a specific agent target (not 'ALL')
+        const target = specificTarget || this.targetId;
+        
+        if (target === 'ALL') {
+            console.error(`[Gateway] Cannot send command ${type}: No agent selected. Please select an agent first.`);
+            if (this.ui && this.ui.log) {
+                this.ui.log('Error', `Vui lòng chọn một agent trước khi gửi lệnh ${type}`);
+            }
+            return;
+        }
+
         const payload = {
             type: type,
             data: data,
             from: this.sessionId,
-            to: specificTarget || this.targetId
+            to: target
         }
 
         this.ws.send(JSON.stringify(payload));
@@ -238,6 +261,7 @@ export class Gateway{
     }
 
     refreshAgents() {
+        // GET_AGENTS can be sent to 'ALL' - it's handled in send() method
         this.send(CONFIG.CMD.GET_AGENTS, {});
     }
 

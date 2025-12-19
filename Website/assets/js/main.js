@@ -118,11 +118,22 @@ const gateway = new Gateway({
     onAgentListUpdate: (agentList) => {
         ui.log("System", `Cập nhật danh sách Agent: ${agentList.length} thiết bị.`);
         appState.agents = agentList;
+        
+        // Check if current target is still online
         if (appState.currentTarget !== 'ALL' && !agentList.find(a => a.id === appState.currentTarget)) {
-            ui.warn("System", `Target ${appState.currentTarget} đã offline. Reset về 'ALL'.`);
+            ui.warn("System", `Target ${appState.currentTarget} đã offline.`);
             appState.currentTarget = 'ALL';
-            gateway.setTarget('ALL');
+            gateway.targetId = 'ALL';
         }
+        
+        // Auto-select first agent if no target is selected and agents are available
+        if (appState.currentTarget === 'ALL' && agentList.length > 0) {
+            const firstAgent = agentList[0];
+            appState.currentTarget = firstAgent.id;
+            gateway.setTarget(firstAgent.id);
+            ui.log("System", `Tự động chọn agent: ${firstAgent.name || firstAgent.id}`);
+        }
+        
         ui.updateAgentList(agentList);
         
         // Trigger render agent list nếu overlay đang mở

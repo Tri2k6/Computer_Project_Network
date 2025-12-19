@@ -27,41 +27,28 @@ if (!mode || (mode !== 'screen' && mode !== 'webcam')) {
 console.log('[Screen_Webcam] Mode:', mode);
 console.log('[Screen_Webcam] URL:', window.location.href);
 console.log('[Screen_Webcam] Search:', searchString);
-// Biến lưu directory handle đã chọn
-let selectedDirectoryHandle = null;
-let selectedDirectoryName = null; // Lưu tên thư mục để hiển thị
-
 
 // ===============================================
 // 1. LOGIC CHỌN THƯ MỤC
 // ===============================================
 
-async function triggerSelectFolder() {
-    // Kiểm tra xem File System Access API có khả dụng không
-    if ('showDirectoryPicker' in window) {
-        try {
-            // Hiển thị dialog chọn thư mục
-            selectedDirectoryHandle = await window.showDirectoryPicker();
-            
-            // Lưu tên thư mục
-            selectedDirectoryName = selectedDirectoryHandle.name;
-            
-            // Cập nhật hiển thị đường dẫn với tên thư mục đã chọn
-            const folderLabel = document.getElementById('display-folder-path');
-            folderLabel.innerText = selectedDirectoryName + '/';
-            folderLabel.style.color = 'var(--text-orange)';
-            
-            console.log('Directory selected:', selectedDirectoryName);
-        } catch (error) {
-            // Người dùng hủy dialog
-            if (error.name !== 'AbortError') {
-                console.error('Error selecting directory:', error);
-                alert('Lỗi khi chọn thư mục: ' + error.message);
-            }
-        }
-    } else {
-        // Fallback: Thông báo không hỗ trợ
-        alert('Trình duyệt không hỗ trợ chọn thư mục. Vui lòng sử dụng Chrome, Edge hoặc trình duyệt Chromium khác.');
+function triggerSelectFolder() {
+    const hiddenInput = document.getElementById('hidden-folder-input');
+    hiddenInput.click();
+}
+
+function onFolderSelected(input) {
+    if (input.files && input.files.length > 0) {
+
+        const relativePath = input.files[0].webkitRelativePath;
+        
+        const folderName = relativePath.split('/')[0];
+
+        const folderLabel = document.getElementById('display-folder-path');
+        
+        folderLabel.innerText = `D:/User/Projects/${folderName}/`;
+        
+        input.value = ''; 
     }
 }
 
@@ -69,7 +56,7 @@ async function triggerSelectFolder() {
 // 2. LOGIC LƯU FILE (NÚT SAVE TO DEVICE)
 // ===============================================
 
-async function handleSaveAction() {
+function handleSaveAction() {
     const cameraFeed = document.getElementById('camera-feed');
     const img = cameraFeed.querySelector('img');
     const video = cameraFeed.querySelector('video');
@@ -79,6 +66,7 @@ async function handleSaveAction() {
         return;
     }
 
+    const folderPath = document.getElementById('display-folder-path').innerText;
     let fileName = document.getElementById('input-file-name').value;
     
     if (!fileName || fileName.trim() === "") {
@@ -86,63 +74,21 @@ async function handleSaveAction() {
         document.getElementById('input-file-name').value = fileName;
     }
 
-    // Kiểm tra xem File System Access API có khả dụng không
-    if ('showDirectoryPicker' in window) {
-        // Kiểm tra xem đã chọn thư mục chưa
-        if (!selectedDirectoryHandle) {
-            alert('Vui lòng chọn thư mục lưu file trước (nhấn vào đường dẫn ở góc dưới)');
-            return;
-        }
+    const fullPath = folderPath + fileName;
 
-        try {
-            // Lấy dữ liệu từ img hoặc video
-            let blob;
-            if (img) {
-                // Chuyển đổi base64 image sang blob
-                const response = await fetch(img.src);
-                blob = await response.blob();
-            } else if (video) {
-                // Chuyển đổi base64 video sang blob
-                const response = await fetch(video.src);
-                blob = await response.blob();
-            }
-
-            // Tạo file trong thư mục đã chọn
-            const fileHandle = await selectedDirectoryHandle.getFileHandle(fileName, { create: true });
-            const writable = await fileHandle.createWritable();
-            await writable.write(blob);
-            await writable.close();
-
-            // Cập nhật hiển thị (giữ nguyên tên thư mục đã chọn)
-            const folderLabel = document.getElementById('display-folder-path');
-            if (selectedDirectoryName) {
-                folderLabel.innerText = selectedDirectoryName + '/';
-                folderLabel.style.color = 'var(--text-blue)';
-            }
-
-            console.log("File saved successfully to:", fileName);
-            alert('Đã lưu file: ' + fileName);
-        } catch (error) {
-            console.error('Error saving file:', error);
-            alert('Lỗi khi lưu file: ' + error.message);
-        }
-    } else {
-        // Fallback: Sử dụng phương thức download truyền thống
-        if (img) {
-            const link = document.createElement('a');
-            link.href = img.src;
-            link.download = fileName;
-            link.click();
-        } else if (video) {
-            const link = document.createElement('a');
-            link.href = video.src;
-            link.download = fileName;
-            link.click();
-        }
-
-        console.log("File downloaded (fallback method)");
-        alert('Trình duyệt không hỗ trợ chọn thư mục. File sẽ được lưu vào thư mục Downloads mặc định.');
+    if (img) {
+        const link = document.createElement('a');
+        link.href = img.src;
+        link.download = fileName;
+        link.click();
+    } else if (video) {
+        const link = document.createElement('a');
+        link.href = video.src;
+        link.download = fileName;
+        link.click();
     }
+
+    console.log("Saving to:", fullPath);
 }
 
 function capture() {
@@ -188,9 +134,6 @@ function capture() {
         alert('Lỗi khi capture: ' + error.message);
     }
 }
-
-// Expose functions to window object ngay sau khi định nghĩa để đảm bảo có thể truy cập từ HTML
-// Đặt ở đây để đảm bảo các function đã được định nghĩa trước khi expose
 
 function record() {
     try {
@@ -423,9 +366,3 @@ window.handleCaptureError = function(errorMessage) {
     // Vẫn hiển thị alert để đảm bảo người dùng nhận được thông báo
     alert('❌ Lỗi Capture\n\n' + errorMessage);
 };
-
-// Expose functions to window object ở cuối file để đảm bảo tất cả đã được định nghĩa
-window.capture = capture;
-window.record = record;
-window.handleSaveAction = handleSaveAction;
-window.triggerSelectFolder = triggerSelectFolder;

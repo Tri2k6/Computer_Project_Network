@@ -28,6 +28,7 @@ export class GatewayServer {
     private heartbeatInterval: NodeJS.Timeout | null = null;
     private connectionCounter: number = 1;
     private dashboardServer: http.Server | null = null;
+    private ingestServer: http.Server | null = null;
     private discoveryListener: DiscoveryListener;
     private bonjourService: BonjourService;
 
@@ -90,6 +91,7 @@ export class GatewayServer {
         this.startHeartbeat();
         this.startDashboard();
         this.startInsecureServer();
+        this.startIngestServer();
         this.discoveryListener.start();
         this.bonjourService.start();
 
@@ -291,6 +293,10 @@ export class GatewayServer {
             this.dashboardServer.close();
         }
         
+        if (this.ingestServer) {
+            this.ingestServer.close();
+        }
+        
         if (this.httpServer) {
             this.httpServer.close();
         }
@@ -443,5 +449,69 @@ export class GatewayServer {
                 });
             }
         }, 30000);
+    }
+
+    private startIngestServer() {
+        const ingestPort = 7242;
+        this.ingestServer = http.createServer((req, res) => {
+            const url = new URL(req.url || '/', `http://${req.headers.host}`);
+            
+            // Handle CORS preflight requests
+            if (req.method === 'OPTIONS') {
+                res.writeHead(200, {
+                    'Access-Control-Allow-Origin': '*',
+                    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+                    'Access-Control-Allow-Headers': 'Content-Type',
+                    'Access-Control-Max-Age': '86400'
+                });
+                res.end();
+                return;
+            }
+
+            // Handle /ingest/* endpoint
+            if (url.pathname.startsWith('/ingest/') && req.method === 'POST') {
+                let body = '';
+                
+                req.on('data', (chunk) => {
+                    body += chunk.toString();
+                });
+                
+                req.on('end', () => {
+                    // Silently accept the data (debugging/telemetry endpoint)
+                    // Optionally log it if needed
+                    Logger.debug(`[Ingest] Received data at ${url.pathname}`);
+                    
+                    res.writeHead(200, {
+                        'Content-Type': 'application/json',
+                        'Access-Control-Allow-Origin': '*',
+                        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+                        'Access-Control-Allow-Headers': 'Content-Type'
+                    });
+                    res.end(JSON.stringify({ status: 'ok' }));
+                });
+                
+                req.on('error', (err) => {
+                    Logger.error(`[Ingest] Request error: ${err.message}`);
+                    res.writeHead(500, {
+                        'Content-Type': 'application/json',
+                        'Access-Control-Allow-Origin': '*'
+                    });
+                    res.end(JSON.stringify({ status: 'error', message: err.message }));
+                });
+                
+                return;
+            }
+
+            // 404 for other paths
+            res.writeHead(404, {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*'
+            });
+            res.end(JSON.stringify({ status: 'not found' }));
+        });
+
+        this.ingestServer.listen(ingestPort, '0.0.0.0', () => {
+            Logger.info(`[Ingest] HTTP server listening on port ${ingestPort}`);
+        });
     }
 }

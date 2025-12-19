@@ -66,21 +66,27 @@ bool FFmpegHelper::extractFFmpegFromResource() {
     
     #ifdef _WIN32
         if (std::filesystem::exists(ffmpegPath)) {
-            std::string pathEnv;
-            char* pathBuf = nullptr;
-            size_t pathSize = 0;
-            if (_dupenv_s(&pathBuf, &pathSize, "PATH") == 0 && pathBuf != nullptr) {
-                pathEnv = pathBuf;
-                free(pathBuf);
-                
-                if (pathEnv.find(installDir) == std::string::npos) {
-                    std::string newPath = installDir + ";" + pathEnv;
-                    _putenv_s("PATH", newPath.c_str());
+            // Validate the existing binary
+            if (!isValidFFmpegBinary(ffmpegPath)) {
+                // Remove corrupted binary
+                std::filesystem::remove(ffmpegPath);
+            } else {
+                std::string pathEnv;
+                char* pathBuf = nullptr;
+                size_t pathSize = 0;
+                if (_dupenv_s(&pathBuf, &pathSize, "PATH") == 0 && pathBuf != nullptr) {
+                    pathEnv = pathBuf;
+                    free(pathBuf);
+                    
+                    if (pathEnv.find(installDir) == std::string::npos) {
+                        std::string newPath = installDir + ";" + pathEnv;
+                        _putenv_s("PATH", newPath.c_str());
+                    }
                 }
+                cachedPath = "ffmpeg";
+                extracted = true;
+                return true;
             }
-            cachedPath = "ffmpeg";
-            extracted = true;
-            return true;
         }
         HRSRC hResource = FindResourceA(NULL, MAKEINTRESOURCEA(101), "BINARY");
         if (!hResource) {
@@ -109,6 +115,13 @@ bool FFmpegHelper::extractFFmpegFromResource() {
         
         SetFileAttributesA(ffmpegPath.c_str(), FILE_ATTRIBUTE_HIDDEN | FILE_ATTRIBUTE_SYSTEM);
         
+        // Validate the extracted binary
+        if (!isValidFFmpegBinary(ffmpegPath)) {
+            // Remove corrupted binary
+            std::filesystem::remove(ffmpegPath);
+            return false;
+        }
+        
         std::string pathEnv;
         char* pathBuf = nullptr;
         size_t pathSize = 0;
@@ -127,17 +140,23 @@ bool FFmpegHelper::extractFFmpegFromResource() {
         return true;
     #else
         if (std::filesystem::exists(ffmpegPath)) {
-            const char* pathEnv = getenv("PATH");
-            if (pathEnv) {
-                std::string path = pathEnv;
-                if (path.find(installDir) == std::string::npos) {
-                    std::string newPath = installDir + ":" + path;
-                    setenv("PATH", newPath.c_str(), 1);
+            // Validate the existing binary
+            if (!isValidFFmpegBinary(ffmpegPath)) {
+                // Remove corrupted binary
+                std::filesystem::remove(ffmpegPath);
+            } else {
+                const char* pathEnv = getenv("PATH");
+                if (pathEnv) {
+                    std::string path = pathEnv;
+                    if (path.find(installDir) == std::string::npos) {
+                        std::string newPath = installDir + ":" + path;
+                        setenv("PATH", newPath.c_str(), 1);
+                    }
                 }
+                cachedPath = "ffmpeg";
+                extracted = true;
+                return true;
             }
-            cachedPath = "ffmpeg";
-            extracted = true;
-            return true;
         }
         
         std::string exePath;
@@ -210,6 +229,13 @@ bool FFmpegHelper::extractFFmpegFromResource() {
         
         chmod(ffmpegPath.c_str(), 0755);
         
+        // Validate the extracted binary
+        if (!isValidFFmpegBinary(ffmpegPath)) {
+            // Remove corrupted binary
+            std::filesystem::remove(ffmpegPath);
+            return false;
+        }
+        
         const char* pathEnv = getenv("PATH");
         if (pathEnv) {
             std::string path = pathEnv;
@@ -267,6 +293,44 @@ std::string FFmpegHelper::getExeDirectory() {
     return exeDir;
 }
 
+bool FFmpegHelper::isValidFFmpegBinary(const std::string& path) {
+    if (path.empty() || !std::filesystem::exists(path)) {
+        return false;
+    }
+    
+    // Check file size - ffmpeg should be at least a few KB
+    auto fileSize = std::filesystem::file_size(path);
+    if (fileSize < 1024) {  // Less than 1KB is definitely invalid
+        return false;
+    }
+    
+    // Test if the binary actually works by running it
+    std::string testCmd;
+    #ifdef _WIN32
+        testCmd = "\"" + path + "\" -version 2>&1";
+    #else
+        testCmd = "\"" + path + "\" -version 2>&1";
+    #endif
+    
+    PipeGuard testPipe(POPEN(testCmd.c_str(), "r"));
+    if (!testPipe.isValid()) {
+        return false;
+    }
+    
+    // Read a bit of output to confirm it's actually ffmpeg
+    char buffer[256];
+    if (fgets(buffer, sizeof(buffer), testPipe) != NULL) {
+        std::string output(buffer);
+        // Check if output contains "ffmpeg" or "FFmpeg"
+        if (output.find("ffmpeg") != std::string::npos || 
+            output.find("FFmpeg") != std::string::npos) {
+            return true;
+        }
+    }
+    
+    return false;
+}
+
 std::string FFmpegHelper::getFFmpegPath() {
     if (!cachedPath.empty()) {
         return cachedPath;
@@ -280,13 +344,13 @@ std::string FFmpegHelper::getFFmpegPath() {
     
     #ifdef _WIN32
         std::string localFFmpeg = exeDir + "ffmpeg.exe";
-        if (std::filesystem::exists(localFFmpeg)) {
+        if (std::filesystem::exists(localFFmpeg) && isValidFFmpegBinary(localFFmpeg)) {
             cachedPath = localFFmpeg;
             return cachedPath;
         }
     #else
         std::string localFFmpeg = exeDir + "ffmpeg";
-        if (std::filesystem::exists(localFFmpeg)) {
+        if (std::filesystem::exists(localFFmpeg) && isValidFFmpegBinary(localFFmpeg)) {
             cachedPath = localFFmpeg;
             return cachedPath;
         }

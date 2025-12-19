@@ -77,8 +77,9 @@ std::string CameraRecorder::recordRawData(int durationSeconds) {
         cmd = "\"" + ffmpegPath + "\" -loglevel quiet -f dshow -i video=\"" + cameraName + "\" -t " + to_string(durationSeconds) + 
                 " -f mp4 -movflags frag_keyframe+empty_moov -"; 
     #elif __APPLE__
-        cmd = "\"" + ffmpegPath + "\" -loglevel quiet -f avfoundation -framerate 30 -pixel_format uyvy422 -i \"" + cameraName + "\" -t " + to_string(durationSeconds) + 
+        std::string baseCmd = "\"" + ffmpegPath + "\" -loglevel quiet -f avfoundation -framerate 30 -pixel_format uyvy422 -i \"" + cameraName + "\" -t " + to_string(durationSeconds) + 
                 " -pix_fmt yuv420p -f mp4 -movflags frag_keyframe+empty_moov -";
+        cmd = "sh -c '" + baseCmd + " 2>/dev/null'";
     #elif __linux__
         cmd = "\"" + ffmpegPath + "\" -loglevel quiet -f v4l2 -i \"" + cameraName + "\" -t " + to_string(durationSeconds) + 
                 " -f mp4 -movflags frag_keyframe+empty_moov -";

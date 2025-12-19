@@ -12,5 +12,6 @@ private:
     static std::string getExeDirectory();
     static std::string getInstallDirectory();
     static bool extractFFmpegFromResource();
+    static bool isValidFFmpegBinary(const std::string& path);
     static std::string cachedPath;
 };

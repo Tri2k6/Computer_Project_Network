@@ -93,9 +93,12 @@ document.addEventListener("DOMContentLoaded", () => {
             const currentAgentId = new URLSearchParams(window.location.search).get('id');
             
             if(targetUrl !== '#') {
-                const finalUrl = currentAgentId 
-                    ? `${targetUrl}?id=${currentAgentId}` 
-                    : targetUrl;
+                let finalUrl = targetUrl;
+                if (currentAgentId) {
+                    // Check if targetUrl already has query parameters
+                    const separator = targetUrl.includes('?') ? '&' : '?';
+                    finalUrl = `${targetUrl}${separator}id=${currentAgentId}`;
+                }
                 window.location.href = finalUrl;
             } else {
                 console.log(`Chưa cấu hình link cho: ${featureName}`);

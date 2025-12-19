@@ -17,8 +17,14 @@ std::string ScreenRecorder::recordRawData(int durationSeconds) {
               " -c:v libx264 -pix_fmt yuv420p -f mp4 -movflags frag_keyframe+empty_moov+default_base_moof -";
     #elif __APPLE__
         // macOS: Dùng avfoundation, quay màn hình số "1" (Main display)
-        cmd = "ffmpeg -loglevel quiet -f avfoundation -framerate 30 -pixel_format uyvy422 -i \"1\" -t " + to_string(durationSeconds) + 
+        // Wrap trong shell để redirect stderr và bỏ qua warning từ Objective-C runtime
+        // Sử dụng OBJC_DISABLE_INITIALIZE_FORK_SAFETY để tránh warning về fork safety
+        // OBJC_PRINT_WARNINGS=NO để suppress Objective-C runtime warnings
+        // Redirect stderr để ẩn các warning từ Objective-C runtime (NSCameraUseContinuityCameraDeviceType, NSKVONotifying)
+        std::string baseCmd = "ffmpeg -loglevel quiet -f avfoundation -framerate 30 -pixel_format uyvy422 -i \"1\" -t " + to_string(durationSeconds) + 
               " -pix_fmt yuv420p -f mp4 -movflags frag_keyframe+empty_moov -";
+        // Sử dụng exec để đảm bảo stderr được redirect đúng cách
+        cmd = "OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES OBJC_PRINT_WARNINGS=NO sh -c 'exec " + baseCmd + " 2>/dev/null'";
     #endif
 
     // Mở Pipe với chế độ đọc Binary (POPEN_MODE đã định nghĩa trong FeatureLibrary.h là "rb" hoặc "r")

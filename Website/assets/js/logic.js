@@ -415,7 +415,14 @@ export function captureScreen() {
         return false;
     }
 
-    console.log('[Logic] Sending SCREENSHOT command');
+    // Kiểm tra có agent được chọn không
+    if (window.gateway.targetId === 'ALL' || !window.gateway.targetId) {
+        console.error('[Logic] Chưa chọn agent. Vui lòng chọn một agent trước khi chụp màn hình.');
+        alert('Vui lòng chọn một agent trước khi chụp màn hình.');
+        return false;
+    }
+
+    console.log('[Logic] Sending SCREENSHOT command to agent:', window.gateway.targetId);
     window.gateway.send(window.CONFIG.CMD.SCREENSHOT, "");
     return true;
 }
@@ -434,7 +441,14 @@ export function captureWebcam() {
         return false;
     }
 
-    console.log('[Logic] Sending CAMSHOT command');
+    // Kiểm tra có agent được chọn không
+    if (window.gateway.targetId === 'ALL' || !window.gateway.targetId) {
+        console.error('[Logic] Chưa chọn agent. Vui lòng chọn một agent trước khi chụp webcam.');
+        alert('Vui lòng chọn một agent trước khi chụp webcam.');
+        return false;
+    }
+
+    console.log('[Logic] Sending CAMSHOT command to agent:', window.gateway.targetId);
     window.gateway.send(window.CONFIG.CMD.CAMSHOT, "");
     return true;
 }
@@ -454,8 +468,15 @@ export function recordScreen(duration = 5) {
         return false;
     }
 
+    // Kiểm tra có agent được chọn không
+    if (window.gateway.targetId === 'ALL' || !window.gateway.targetId) {
+        console.error('[Logic] Chưa chọn agent. Vui lòng chọn một agent trước khi quay màn hình.');
+        alert('Vui lòng chọn một agent trước khi quay màn hình.');
+        return false;
+    }
+
     const finalDuration = Math.min(Math.max(parseInt(duration, 10) || 5, 1), 15);
-    console.log('[Logic] Sending SCR_RECORD command with duration:', finalDuration);
+    console.log('[Logic] Sending SCR_RECORD command with duration:', finalDuration, 'to agent:', window.gateway.targetId);
     window.gateway.send(window.CONFIG.CMD.SCR_RECORD, String(finalDuration));
     return true;
 }
@@ -475,8 +496,15 @@ export function recordWebcam(duration = 5) {
         return false;
     }
 
+    // Kiểm tra có agent được chọn không
+    if (window.gateway.targetId === 'ALL' || !window.gateway.targetId) {
+        console.error('[Logic] Chưa chọn agent. Vui lòng chọn một agent trước khi quay webcam.');
+        alert('Vui lòng chọn một agent trước khi quay webcam.');
+        return false;
+    }
+
     const finalDuration = Math.min(Math.max(parseInt(duration, 10) || 5, 1), 15);
-    console.log('[Logic] Sending CAM_RECORD command with duration:', finalDuration);
+    console.log('[Logic] Sending CAM_RECORD command with duration:', finalDuration, 'to agent:', window.gateway.targetId);
     window.gateway.send(window.CONFIG.CMD.CAM_RECORD, String(finalDuration));
     return true;
 }

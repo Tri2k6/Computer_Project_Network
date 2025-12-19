@@ -40,34 +40,64 @@
                 </div>
 
                 <div class="right-panel">
-                    <div class="control-card">
-                        
-                        <div class="search-header">
-                            <div class="search-bar-container">
-                                <input type="text" id="search-input" placeholder="Find process..." autocomplete="off">
-                            </div>
-                            <button class="btn-undo" onclick="resetSearch()">
-                                <img src="./assets/images/return.png" alt="Reset">
-                            </button>
-                        </div>
+                    <!-- OVERLAY -->
+                    <div class="overlay visible">
 
+                        <!-- CARD / POPUP -->
                         <div class="process-list-container">
-                            <ul id="process-list" class="process-list">
-                                <li class="loading-text">Loading...</li>
-                            </ul>
-                        </div>
 
-                        <div class="card-footer">
-                            <button class="nav-square prev-btn">
-                                <img src="./assets/images/left.png" alt="">
-                            </button>
-                            <span id="page-indicator">Page 1/1</span>
-                            <button class="nav-square next-btn">
-                                <img src="./assets/images/right.png" alt="">
-                            </button>
+                            <!-- HEADER -->
+                            <div class="search-header">
+                                <div class="search-bar-container">
+                                    <input
+                                        type="text"
+                                        id="search-input"
+                                        placeholder="Find app..."
+                                        autocomplete="off"
+                                    >
+                                </div>
+
+                                <button
+                                    id="reload-btn"
+                                    class="btn-temp"
+                                    onclick="refreshProcessList()"
+                                >
+                                    <img src="./assets/images/reload.png" alt="Reload">
+                                </button>
+
+                                <button
+                                    id="return-btn"
+                                    class="btn-temp"
+                                    onclick=""
+                                >
+                                    <img src="./assets/images/return.png" alt="Return">
+                                </button>
+                            </div>
+
+                            <!-- LIST WRAPPER (CỰC KỲ QUAN TRỌNG) -->
+                            <div class="process-items-wrapper">
+                                <ul id="process-list" class="process-list">
+                                    <li class="process-item empty">Loading...</li>
+                                </ul>
+                            </div>
+
+                            <!-- PAGINATION -->
+                            <div class="change_page">
+                                <button class="nav-square prev-btn">
+                                    <img src="./assets/images/left.png" alt="">
+                                </button>
+
+                                <span id="page-indicator">Page 1/1</span>
+
+                                <button class="nav-square next-btn">
+                                    <img src="./assets/images/right.png" alt="">
+                                </button>
+                            </div>
+
                         </div>
                     </div>
                 </div>
+
             </div>
         </main>
     </div>

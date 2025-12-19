@@ -5,12 +5,8 @@ export const CONFIG = {
     LOCAL_STORAGE_GATEWAY_KEY: 'gateway_ip',
 
     DEFAULT_GATEWAYS: [
-        {ip: '10.217.11.213', port: 8080, protocol: 'wss'},
-        {ip: '10.217.11.213', port: 8082, protocol: 'ws'},
-        {ip: 'rat-gateway.local', port: 8080, protocol: 'wss'},
-        {ip: 'rat-gateway.local', port: 8082, protocol: 'ws'},
-        {ip: 'localhost', port: 8080, protocol: 'wss'},
-        {ip: 'localhost', port: 8082, protocol: 'ws'}
+        {ip: '192.168.2.10', port: 8080, protocol: 'wss'},
+        {ip: '192.168.2.10', port: 8082, protocol: 'ws'},
     ],
 
     CMD: {

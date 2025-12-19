@@ -1,5 +1,19 @@
 import * as Logic from './logic.js';
 
+// ================== BACK TO MENU ==================
+
+document.addEventListener('DOMContentLoaded', () => {
+    const returnBtn = document.getElementById('return-btn');
+    if (!returnBtn) {
+        console.warn('[Proc_Menu] return-btn not found');
+        return;
+    }
+
+    returnBtn.addEventListener('click', () => {
+        window.location.href = './Feature_menu.html';
+    });
+});
+
 // --- 1. Dữ liệu ---
 const mockProcessData = [
     { id: 1, name: "YouTube", pid: 1234, status: 'running' },
@@ -30,7 +44,7 @@ const prevBtn = document.querySelector('.prev-btn');
 const nextBtn = document.querySelector('.next-btn');
 
 // --- 4. Render ---
-function renderData() {
+async function renderData() {
     listContainer.innerHTML = ''; 
 
     const totalPages = Math.ceil(currentData.length / ITEMS_PER_PAGE) || 1;
@@ -43,35 +57,40 @@ function renderData() {
     const itemsToShow = currentData.slice(startIndex, endIndex);
 
     if (itemsToShow.length === 0) {
-        listContainer.innerHTML = '<li style="text-align:center; padding:20px; color:#555;">No app found.</li>';
+        listContainer.innerHTML = '<li class="process-item empty">No app found.</li>';
         updatePagination(0);
         return;
     }
 
     // Luôn sử dụng currentData đã được filter/paginate
-    itemsToShow.forEach((app, idx) => {
+    for (let idx = 0; idx < itemsToShow.length; idx++) {
+        const app = itemsToShow[idx];
+
         const li = document.createElement('li');
         li.className = 'process-item';
 
-        // Đường dẫn ảnh
-        const playSrc = './assets/images/start.png'; 
+        const playSrc = './assets/images/start.png';
         const pauseSrc = './assets/images/pause.png';
 
-        // Lấy app ID (ưu tiên app.id, sau đó là index trong danh sách hiện tại)
-        // Ensure appId is always a number (server uses 0-based index)
-        let appId = startIndex + idx; // Default to index in current page
+        // ===================== APP ID =====================
+        let appId = startIndex + idx; // default index hiện tại (0-based)
         if (app.id !== undefined && app.id !== null) {
             const numId = typeof app.id === 'number' ? app.id : parseInt(app.id, 10);
             if (!isNaN(numId) && numId >= 0) {
                 appId = numId;
             }
         }
-        const appName = app.name || app.appName || 'Unknown App';
-        
-        // Escape appName cho HTML display
-        const escapedAppName = appName.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
-        // Logic Toggle Class - dựa trên status
+        // ===================== APP NAME =====================
+        const appName = app.name || app.appName || 'Unknown App';
+
+        const escapedAppName = appName
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+
+        // ===================== STATUS =====================
         const startClass = app.status === 'running' ? 'active' : 'inactive';
         const pauseClass = app.status === 'paused' ? 'active' : 'inactive';
 
@@ -81,47 +100,55 @@ function renderData() {
             </div>
 
             <div class="proc-actions">
-                <button class="action-btn ${startClass}" data-app-id="${appId}" data-action="start" data-app-name="${escapedAppName}" title="Start ${escapedAppName}">
+                <button class="action-btn ${startClass}"
+                    data-app-id="${appId}"
+                    data-action="start"
+                    data-app-name="${escapedAppName}"
+                    title="Start ${escapedAppName}">
                     <img src="${playSrc}" alt="Start" width="24" height="24">
                 </button>
-                <button class="action-btn ${pauseClass}" data-app-id="${appId}" data-action="stop" data-app-name="${escapedAppName}" title="Stop ${escapedAppName}">
+
+                <button class="action-btn ${pauseClass}"
+                    data-app-id="${appId}"
+                    data-action="stop"
+                    data-app-name="${escapedAppName}"
+                    title="Stop ${escapedAppName}">
                     <img src="${pauseSrc}" alt="Stop" width="24" height="24">
                 </button>
             </div>
         `;
-        
-        // Add event listeners instead of inline onclick
+
+        // ===================== EVENTS =====================
         const startBtn = li.querySelector('[data-action="start"]');
         const stopBtn = li.querySelector('[data-action="stop"]');
-        
+
         if (startBtn) {
             startBtn.addEventListener('click', () => {
-                const idStr = startBtn.getAttribute('data-app-id');
-                const id = parseInt(idStr, 10);
-                const name = startBtn.getAttribute('data-app-name');
+                const id = parseInt(startBtn.dataset.appId, 10);
+                const name = startBtn.dataset.appName;
                 if (!isNaN(id) && id >= 0) {
                     controlApp(id, 'start', name);
                 } else {
-                    console.error('[App_Menu] Invalid app ID:', idStr);
+                    console.error('[App_Menu] Invalid app ID:', startBtn.dataset.appId);
                 }
             });
         }
-        
+
         if (stopBtn) {
             stopBtn.addEventListener('click', () => {
-                const idStr = stopBtn.getAttribute('data-app-id');
-                const id = parseInt(idStr, 10);
-                const name = stopBtn.getAttribute('data-app-name');
+                const id = parseInt(stopBtn.dataset.appId, 10);
+                const name = stopBtn.dataset.appName;
                 if (!isNaN(id) && id >= 0) {
                     controlApp(id, 'stop', name);
                 } else {
-                    console.error('[App_Menu] Invalid app ID:', idStr);
+                    console.error('[App_Menu] Invalid app ID:', stopBtn.dataset.appId);
                 }
             });
         }
-        
+
         listContainer.appendChild(li);
-    });
+        await delay(50);
+    }
 
     updatePagination(totalPages);
 }
@@ -310,22 +337,40 @@ document.addEventListener('DOMContentLoaded', () => {
     // Typing Effect
     const textElement = document.querySelector('.code-text');
     if (textElement) {
-        const fullText = "Successful!";
-        const typingSpeed = 150;
-        let charIndex = 0;
-        textElement.textContent = ''; 
-
-        function typeWriter() {
-            if (charIndex < fullText.length) {
-                textElement.textContent += fullText.charAt(charIndex);
-                charIndex++;
-                setTimeout(typeWriter, typingSpeed);
-            }
-        }
-        setTimeout(typeWriter, 500);
+        typeEffect('Successful');
     }
 });
 
 // Export for manual refresh
 window.refreshAppList = refreshAppList;
 window.controlApp = controlApp;
+
+// hiệu ứng gõ chữ và delay khi refresh (cho đẹp)
+
+function typeEffect(text) {
+    if (!screenText) return;
+    
+    screenText.classList.add('typing-effect');
+    screenText.style.width = 'auto';
+
+    clearInterval(typingInterval);
+    screenText.textContent = "";
+
+    let i = 0;
+    const speed = 50;
+
+    typingInterval = setInterval(() => {
+        if (i < text.length) {
+            screenText.textContent += text.charAt(i);
+            i++;
+        } else {
+            clearInterval(typingInterval);
+        }
+    }, speed);
+}
+
+function delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+

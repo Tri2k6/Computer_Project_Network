@@ -33,6 +33,8 @@
     width: fit-content; /* Khung ôm sát kích thước ảnh */
     display: flex; /* Loại bỏ khoảng trắng thừa dưới chân ảnh */
     justify-content: center;
+    margin-top: 50px;
+    margin-right: 100px;
 }
 
 .laptop-img {
@@ -58,25 +60,16 @@
 
 /* Style chữ Code */
 .code-text {
-    font-family: 'Courier New', Courier, monospace;
-    font-size: 28px;
+    font-family: 'Courier Prime', monospace;
+    font-size: 27px; 
+    color: var(--text-blue);
     font-weight: 700;
-    color: #3A6DAF;
-    text-shadow: 0px 1px 1px rgba(255, 255, 255, 0.5);
-    white-space: nowrap; 
-}
+    transform: translateY(20px);
 
-/* Con trỏ nhấp nháy */
-.code-text::after {
-    content: '|';
-    margin-left: 2px;
-    color: #3A6DAF;
-    animation: blink-cursor 0.8s infinite;
-}
-
-@keyframes blink-cursor {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0; }
+    display: inline-block;
+    white-space: nowrap;
+    width: auto;
+    min-width: 0;
 }
 
 /* --- RIGHT PANEL (LIST) --- */
@@ -86,32 +79,40 @@
     justify-content: flex-start;
 }
 
-.control-card {
-    background-color: #EFB062;
-    width: 100%;
-    max-width: 550px;
-    border-radius: 18px;
-    padding: 25px;
-    box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+.overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 99;
+
     display: flex;
-    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+
+    margin-left: 250px;
 }
 
 /* Search Bar */
 .search-header {
     display: flex;
+    justify-content: space-between;
     align-items: center;
-    gap: 15px;
-    margin-bottom: 20px;
+    margin-bottom: 15px;
+    border-bottom: 2px solid rgba(20, 35, 76, 0.1);
+    padding-bottom: 10px;
+    gap: 10px;
 }
 
 .search-bar-container {
     flex-grow: 1;
-    background-color: #DCDCDC;
+    background-color: var(--panel-bg);
     border-radius: 25px;
     padding: 8px 20px;
-    border: 2px solid #7D9AC0; 
+    border: 2px solid var(--text-blue); 
     box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
+    margin-right: 5px;
 }
 
 #search-input {
@@ -120,50 +121,65 @@
     border: none;
     outline: none;
     font-size: 16px;
-    color: #555;
-    font-weight: 500;
+    color: var(--disabled);
+    font-weight: 600;
 }
 
-.btn-undo {
-    background: none;
-    border: none;
-    cursor: pointer;
-    transition: transform 0.2s;
+.return_img {
+    width: 40px;
+    height: 40px;
 }
 
-.btn-undo:hover {
-    transform: scale(1.1);
-}
-
-.btn-undo img {
-    width: 28px; height: 28px;
-    filter: brightness(0) invert(1); /* Chuyển icon sang trắng */
+.reload_img {
+    width: 40px;
+    height: 40px;
 }
 
 /* List Items */
 .process-list-container {
-    background-color: #E8DFD3;
+    width: 600px;
+    height: 500px;
+    background-color: var(--nav-bg);
     border-radius: 12px;
-    padding: 10px 25px;
-    margin-bottom: 20px;
-    min-height: 320px;
-    border: 1px solid rgba(255,255,255,0.3);
+    box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+
+    display: flex;
+    flex-direction: column;
+    padding: 20px;
+
+    font-family: 'Inter', sans-serif;
+    color: white;
+
+    margin-top: 60px;
 }
 
-.process-list { list-style: none; padding: 0; margin: 0; }
+.process-items-wrapper {
+    flex-grow: 1;
+    background-color: var(--bg-color); /* Màu nền nhạt cho list */
+    border-radius: 8px;
+    padding: 10px;
+    overflow-y: auto; /* Cho phép cuộn nếu danh sách dài */
+}
+
+.process-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
 
 .process-item {
+    padding: 10px;
+    border-bottom: 1px solid #ddd;
     display: flex;
-    align-items: center;
     justify-content: space-between;
-    padding: 14px 0;
-    border-bottom: 2px solid #6FA0BF; 
-    color: #14234C;
-    font-weight: 600;
-    font-size: 15px;
+    align-items: center;
+    font-size: 14px;
+    color: var(--text-dark);
 }
 
-.process-item:last-child { border-bottom: none; }
+.process-item:last-child {
+    border-bottom: none;
+}
 
 .proc-left {
     display: flex; align-items: center; flex: 2; gap: 5px; color: #14234C;
@@ -185,7 +201,7 @@
 
 .action-btn.active {
     transform: scale(1.15);
-    filter: drop-shadow(0 2px 4px rgba(229, 125, 54, 0.4));
+    filter: drop-shadow(0 2px 4px rgba(255, 255, 255, 0.4));
 }
 
 .action-btn.inactive img {
@@ -194,22 +210,62 @@
 }
 
 /* Footer Pagination */
-.card-footer {
-    display: flex; justify-content: center; align-items: center; gap: 15px;
-    font-weight: 600; color: #14234C; margin-top: auto;
+.change_page {
+    display: flex;
+    align-items: center;      /* căn giữa theo chiều dọc */
+    justify-content: center;  /* căn giữa theo chiều ngang */
+    gap: 15px;                /* khoảng cách giữa các phần tử */
+    margin-top: 20px;
 }
 
 .nav-square {
-    width: 30px; height: 30px;
-    background-color: #EBCFB2;
-    border: none; border-radius: 6px;
+    border: none;
+    display: flex;
+    justify-content: center; /* căn giữa ngang */
+    align-items: center;     /* căn giữa dọc */
+    border: none !important;
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
     cursor: pointer;
-    display: flex; justify-content: center; align-items: center;
+    background-color: transparent;
+    color: var(--text-dark);
+    font-weight: bold;
 }
 
-.nav-square:hover:not(:disabled) { background-color: #fff; }
-.nav-square:disabled { opacity: 0.5; cursor: default; }
-.nav-square img { width: 60%; height: auto; }
+.nav-square:disabled {
+    cursor: not-allowed;
+    pointer-events: none; /* Không cho click */
+    background-color: var(--disabled);
+    border-color: var(--disabled);
+    opacity: 0.5;
+}
+
+.nav-square:focus {
+    outline: none;
+}
+
+.left_img {
+    width: 30px;
+    height: 30px;
+    transform: translateY(-2px);
+}
+
+.right_img {
+    width: 30px;
+    height: 30px;
+    transform: translateY(-2px);
+}
+
+#page-indicator {
+    flex-grow: 1;  
+    max-width: 100px;
+    text-align: center;
+    user-select: none;
+    white-space: nowrap;
+    font-weight: 600;
+    color: var(--text-dark);
+}
 
 /* Responsive */
 @media (max-width: 900px) {

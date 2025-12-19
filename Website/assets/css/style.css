@@ -283,7 +283,7 @@ body {
 }
 
 .wire.active .wire-base {
-    animation: wire-fill 1.2s ease forwards;
+    animation: wire-fill 1s ease forwards;
 }
 
 .wire.off .wire-base {
@@ -352,6 +352,7 @@ body {
     margin: 0;
     font-size: 20px;
     font-weight: 700;
+    margin-right: 220px;
 }
 
 .header-actions {
@@ -372,7 +373,6 @@ body {
     object-fit: contain;
     display: block;
 }
-
 
 /* Khu vực chứa danh sách */
 .server-items-wrapper {
@@ -399,22 +399,31 @@ body {
     color: var(--text-dark)
 }
 
-/* Link icon styling - màu cam và kích thước lớn hơn */
-.link-icon {
-    background-color: var(--text-orange);
-    border-radius: 4px;
-    padding: 6px;
-    transition: background-color 0.2s ease, opacity 0.2s ease;
+.server-item.empty {
+    font-size: 18px;
+    font-weight: 700;
+    border-bottom: none;
+    text-align: center;
+    color: var(--text-dark);
+    padding: 20px 20px;
 }
 
-.link-icon img {
-    filter: brightness(0) invert(1);
-    transition: opacity 0.2s ease;
+/* Link icon styling - màu cam và kích thước lớn hơn */
+.link-icon {
+    background: none;
+    border: none;
+    padding: 0;
+    margin-left: auto;
+    cursor: pointer;
+    appearance: none;
+    -webkit-appearance: none;
+    outline: none;
+
+    transition: filter 0.2s ease;
 }
 
 .link-icon:hover {
-    background-color: #D46D2A;
-    opacity: 0.9;
+    filter: brightness(1.1);
 }
 
 /* Footer phân trang */
@@ -431,13 +440,8 @@ body {
     display: flex;
     justify-content: center; /* căn giữa ngang */
     align-items: center;     /* căn giữa dọc */
-    width: 30px;
-    height: 30px;
-    border: none !important;
     width: 20px;
     height: 20px;
-    background-color: var(--text-orange);
-    border: 1px solid var(--text-orange);
     border-radius: 4px;
     cursor: pointer;
     background-color: transparent;
@@ -446,13 +450,13 @@ body {
 }
 
 .return_img {
-    width: 50px;
-    height: 50px;
+    width: 40px;
+    height: 40px;
 }
 
 .reload_img {
-    width: 34.81px;
-    height: 32px;
+    width: 40px;
+    height: 40px;
 }
 
 .nav-btn:disabled {

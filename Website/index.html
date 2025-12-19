@@ -106,38 +106,51 @@
         </main>
     </div>
 
+    <!-- ================= SERVER LIST OVERLAY ================= -->
     <div id="server-list-overlay" class="overlay hidden">
         <div class="server-list-container">
+
             <div class="list-header">
+                <div class="icon-btn">
+                    <img src="./assets/images/server.png" alt="Server">
+                </div>
                 <h2>Available agents</h2>
+
                 <div class="header-actions">
                     <button
                         id="reload-btn"
                         class="btn-temp"
+                        onclick="reloadServers()"
                     >
                         <img src="./assets/images/reload.png" alt="Reload">
                     </button>
-                    <button class="icon-btn back-btn" onclick="closeAgentList()">
-                        <img src="./assets//images/return.png" alt="" class = "return_img">
+
+                    <button
+                        id="return-btn"
+                        class="btn-temp"
+                        onclick="closeAgentList()"
+                    >
+                        <img src="./assets/images/return.png" alt="Return">
                     </button>
                 </div>
             </div>
 
             <div class="server-items-wrapper">
                 <ul id="server-list-content" class="server-list">
-                    <li class="server-item">Loading agents...</li> 
+                    <li class="server-item">Loading agents...</li>
                 </ul>
             </div>
 
+            <!-- PAGINATION -->
             <div class="change_page">
                 <button class="nav-btn prev-btn">
-                    <
+                    <img src="./assets/images/left.png" class="left_img" alt="">
                 </button>
 
                 <span id="page-indicator">Page 1/1</span>
 
                 <button class="nav-btn next-btn">
-                    >
+                    <img src="./assets/images/right.png" class="right_img" alt="">
                 </button>
             </div>
         </div>

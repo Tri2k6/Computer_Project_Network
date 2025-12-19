@@ -25,7 +25,8 @@ function openAgentList() {
         window.gateway.refreshAgents();
     } else {
         // Nếu chưa kết nối, hiển thị message
-        serverListContent.innerHTML = '<li class="server-item">Please connect to gateway first.</li>';
+        serverListContent.innerHTML = 
+        '<li class="server-item empty">Please connect to gateway first.</li>';
     }
     
     // Render agents nếu có
@@ -79,51 +80,62 @@ function fetchAndRenderAgents() {
     updateFooterUI(agents.length);
 }
 
-function renderList(agents) {
-    serverListContent.innerHTML = ''; 
+function delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+} // thêm hiệu ứng hiện lên lần lượt cho đẹp
+
+async function renderList(agents) {
+    serverListContent.innerHTML = '';
 
     if (agents.length === 0) {
-        serverListContent.innerHTML = '<li class="server-item">No agents found.</li>';
+        serverListContent.innerHTML =
+            '<li class="server-item empty">No agents found.</li>';
         return;
     }
 
-    agents.forEach((agent, index) => {
+    for (const [index, agent] of agents.entries()) {
         const li = document.createElement('li');
         li.className = 'server-item';
 
         li.style.display = 'flex';
         li.style.alignItems = 'center';
         li.style.padding = '12px 5px';
-        
+
         if (index < agents.length - 1) {
             li.style.borderBottom = '1px solid rgba(0, 0, 0, 0.1)';
         }
 
         li.innerHTML = `
-            <span class="server-machineid" style="flex: 0 0 40%; font-weight: 500; font-size: 16px; text-align: center;">
+            <span class="server-machineid"
+                style="flex: 0 0 40%; font-weight: 500; font-size: 16px; text-align: center;">
                 ${agent.machineId || 'N/A'}
             </span>
 
-            <span class="server-ip" style="flex: 0 0 40%; color: #555; font-size: 16px; text-align: center;">
+            <span class="server-ip"
+                style="flex: 0 0 40%; color: #555; font-size: 16px; text-align: center;">
                 IP: ${agent.ip}
             </span>
 
-            <button class="link-icon" data-agent-id="${agent.id}" style="margin-left: auto; border: none; cursor: pointer;">
-                <img src="./assets/images/link.png" width="32px" height="32px" style="display: block;">
+            <button class="link-icon"
+                data-agent-id="${agent.id}"
+                style="margin-left: auto; border: none; cursor: pointer;">
+                <img src="./assets/images/link.png"
+                     width="32" height="32" style="display: block;">
             </button>
         `;
-        
-        // Thêm event listener cho link icon
-        const linkBtn = li.querySelector('.link-icon');
-        linkBtn.addEventListener('click', () => {
+
+        li.querySelector('.link-icon').addEventListener('click', () => {
             if (agent.id) {
-                window.location.href = './Feature_menu.html?id=' + agent.id;
+                window.location.href =
+                    './Feature_menu.html?id=' + agent.id;
             }
         });
-        
+
         serverListContent.appendChild(li);
-    });
+        await delay(50);
+    }
 }
+
 
 function updateFooterUI(totalAgents) {
     const totalPages = Math.ceil(totalAgents / ITEMS_PER_PAGE) || 1;

@@ -1,5 +1,19 @@
 import * as Logic from './logic.js';
 
+// ================== BACK TO MENU ==================
+
+document.addEventListener('DOMContentLoaded', () => {
+    const returnBtn = document.getElementById('return-btn');
+    if (!returnBtn) {
+        console.warn('[Proc_Menu] return-btn not found');
+        return;
+    }
+
+    returnBtn.addEventListener('click', () => {
+        window.location.href = './Feature_menu.html';
+    });
+});
+
 // --- 1. Dữ liệu (Mock Data) ---
 const mockProcessData = [
     { id: 1, name: "YouTube", pid: 1234, status: 'running' },
@@ -30,7 +44,7 @@ const prevBtn = document.querySelector('.prev-btn');
 const nextBtn = document.querySelector('.next-btn');
 
 // --- 4. Render ---
-function renderData() {
+async function renderData() {
     listContainer.innerHTML = ''; 
 
     const totalPages = Math.ceil(currentData.length / ITEMS_PER_PAGE) || 1;
@@ -43,47 +57,47 @@ function renderData() {
     const itemsToShow = currentData.slice(startIndex, endIndex);
 
     if (itemsToShow.length === 0) {
-        listContainer.innerHTML = '<li style="text-align:center; padding:20px; color:#555;">No process found.</li>';
+        listContainer.innerHTML = '<li class="process-item empty">No process found.</li>';
         updatePagination(0);
         return;
     }
 
-    itemsToShow.forEach((proc, idx) => {
+    for (let idx = 0; idx < itemsToShow.length; idx++) {
+        const proc = itemsToShow[idx];
+
         const li = document.createElement('li');
         li.className = 'process-item';
-        
-        // Đường dẫn ảnh
-        const playSrc = './assets/images/start.png'; 
+
+        const playSrc = './assets/images/start.png';
         const pauseSrc = './assets/images/pause.png';
 
-        // Lấy process ID - Server uses index (0-based) to get process from list
-        // IMPORTANT: Must use proc.id (which is the index), NOT proc.pid!
-        // getFormattedProcessList() already sets id = index (0-based)
-        let procId = proc.id; // Use the index from formatted list
+        // ===================== PROC ID =====================
+        let procId = proc.id;
         if (procId === undefined || procId === null) {
-            // Fallback: use index in originalData if id not available
             const globalIndex = originalData.indexOf(proc);
             procId = globalIndex >= 0 ? globalIndex : (startIndex + idx);
         }
-        // Ensure procId is a number
+
         procId = typeof procId === 'number' ? procId : parseInt(procId, 10);
         if (isNaN(procId) || procId < 0) {
             console.warn('[Proc_Menu] Invalid proc.id, using fallback index:', proc);
             procId = startIndex + idx;
         }
-        
+
+        // ===================== PROC NAME =====================
         let procName = proc.name || proc.processName || 'Unknown Process';
-        
-        // Clean up name if it contains "PID: X | Name: Y" format
-        // Remove any "PID: X | Name: " prefix if present
+
         procName = procName.replace(/^\d+\.\s*PID:\s*\d+\s*\|\s*Name:\s*/i, '');
         procName = procName.replace(/^PID:\s*\d+\s*\|\s*Name:\s*/i, '');
         procName = procName.trim();
-        
-        // Escape procName cho HTML display
-        const escapedProcName = procName.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
-        // Logic Toggle Class
+        const escapedProcName = procName
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+
+        // ===================== STATUS CLASS =====================
         const startClass = proc.status === 'running' ? 'active' : 'inactive';
         const pauseClass = proc.status === 'paused' ? 'active' : 'inactive';
 
@@ -91,51 +105,61 @@ function renderData() {
             <div class="proc-left">
                 <span class="proc-name">${escapedProcName}</span>
             </div>
-            
-            <span class="proc-pid">${proc.pid !== undefined && proc.pid !== null ? proc.pid : (proc.PID !== undefined && proc.PID !== null ? proc.PID : '-')}</span>
+
+            <span class="proc-pid">
+                ${proc.pid ?? proc.PID ?? '-'}
+            </span>
 
             <div class="proc-actions">
-                <button class="action-btn ${startClass}" data-proc-id="${procId}" data-action="start" data-proc-name="${escapedProcName}" title="Start ${escapedProcName}">
+                <button class="action-btn ${startClass}"
+                    data-proc-id="${procId}"
+                    data-action="start"
+                    data-proc-name="${escapedProcName}"
+                    title="Start ${escapedProcName}">
                     <img src="${playSrc}" alt="Start" width="24" height="24">
                 </button>
-                <button class="action-btn ${pauseClass}" data-proc-id="${procId}" data-action="stop" data-proc-name="${escapedProcName}" title="Stop ${escapedProcName}">
+
+                <button class="action-btn ${pauseClass}"
+                    data-proc-id="${procId}"
+                    data-action="stop"
+                    data-proc-name="${escapedProcName}"
+                    title="Stop ${escapedProcName}">
                     <img src="${pauseSrc}" alt="Stop" width="24" height="24">
                 </button>
             </div>
         `;
-        
-        // Add event listeners instead of inline onclick
+
+        // ===================== EVENTS =====================
         const startBtn = li.querySelector('[data-action="start"]');
         const stopBtn = li.querySelector('[data-action="stop"]');
-        
+
         if (startBtn) {
             startBtn.addEventListener('click', () => {
-                const idStr = startBtn.getAttribute('data-proc-id');
-                const id = parseInt(idStr, 10);
-                const name = startBtn.getAttribute('data-proc-name');
+                const id = parseInt(startBtn.dataset.procId, 10);
+                const name = startBtn.dataset.procName;
                 if (!isNaN(id) && id >= 0) {
                     controlProcess(id, 'running', name);
                 } else {
-                    console.error('[Proc_Menu] Invalid process ID:', idStr);
+                    console.error('[Proc_Menu] Invalid process ID:', startBtn.dataset.procId);
                 }
             });
         }
-        
+
         if (stopBtn) {
             stopBtn.addEventListener('click', () => {
-                const idStr = stopBtn.getAttribute('data-proc-id');
-                const id = parseInt(idStr, 10);
-                const name = stopBtn.getAttribute('data-proc-name');
+                const id = parseInt(stopBtn.dataset.procId, 10);
+                const name = stopBtn.dataset.procName;
                 if (!isNaN(id) && id >= 0) {
                     controlProcess(id, 'paused', name);
                 } else {
-                    console.error('[Proc_Menu] Invalid process ID:', idStr);
+                    console.error('[Proc_Menu] Invalid process ID:', stopBtn.dataset.procId);
                 }
             });
         }
-        
+
+        await delay(50);
         listContainer.appendChild(li);
-    });
+    }
 
     updatePagination(totalPages);
 }
@@ -309,22 +333,38 @@ document.addEventListener('DOMContentLoaded', () => {
     // Typing Effect
     const textElement = document.querySelector('.code-text');
     if (textElement) {
-        const fullText = "Successful!";
-        const typingSpeed = 150;
-        let charIndex = 0;
-        textElement.textContent = ''; 
-
-        function typeWriter() {
-            if (charIndex < fullText.length) {
-                textElement.textContent += fullText.charAt(charIndex);
-                charIndex++;
-                setTimeout(typeWriter, typingSpeed);
-            }
-        }
-        setTimeout(typeWriter, 500);
+        typeEffect('Successful');
     }
 });
 
 // Export for manual refresh
 window.refreshProcessList = refreshProcessList;
 window.controlProcess = controlProcess;
+
+// hiệu ứng gõ chữ và delay khi refresh (cho đẹp)
+
+function typeEffect(text) {
+    if (!screenText) return;
+    
+    screenText.classList.add('typing-effect');
+    screenText.style.width = 'auto';
+
+    clearInterval(typingInterval);
+    screenText.textContent = "";
+
+    let i = 0;
+    const speed = 50;
+
+    typingInterval = setInterval(() => {
+        if (i < text.length) {
+            screenText.textContent += text.charAt(i);
+            i++;
+        } else {
+            clearInterval(typingInterval);
+        }
+    }, speed);
+}
+
+function delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}

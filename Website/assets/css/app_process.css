@@ -1,0 +1,219 @@
+/* --- LAYOUT CHUNG --- */
+.proc-main {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 0 5%;
+    position: relative;
+    max-width: 1400px;
+    margin: 0 auto;
+    width: 100%;
+    justify-content: center;
+}
+
+.proc-content-wrapper {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 60px; /* Khoảng cách giữa 2 cột */
+    padding: 40px 0;
+}
+
+/* --- LEFT PANEL (LAPTOP) --- */
+.left-panel {
+    flex: 1;
+    display: flex;
+    justify-content: flex-end; /* Đẩy ảnh về phía bảng */
+    align-items: center;
+}
+
+/* KHUNG BAO QUANH ẢNH LAPTOP (QUAN TRỌNG ĐỂ CĂN CHỮ) */
+.laptop-wrapper {
+    position: relative;
+    width: fit-content; /* Khung ôm sát kích thước ảnh */
+    display: flex; /* Loại bỏ khoảng trắng thừa dưới chân ảnh */
+    justify-content: center;
+}
+
+.laptop-img {
+    width: 100%;
+    max-width: 480px; /* Giới hạn độ to của ảnh */
+    height: auto;
+    display: block;
+    filter: drop-shadow(0 20px 20px rgba(0,0,0,0.25));
+}
+
+/* Lớp phủ chứa chữ */
+.screen-overlay {
+    position: absolute;
+    /* Căn chỉnh vị trí chữ dựa trên khung wrapper */
+    top: 35%; /* 35% từ trên xuống là tâm của màn hình xanh (tránh bàn phím) */
+    left: 50%; 
+    transform: translate(-50%, -50%); /* Dịch chuyển để tâm chữ trùng tâm điểm neo */
+    
+    width: 80%; /* Vùng an toàn cho chữ */
+    text-align: center;
+    z-index: 10;
+}
+
+/* Style chữ Code */
+.code-text {
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 28px;
+    font-weight: 700;
+    color: #3A6DAF;
+    text-shadow: 0px 1px 1px rgba(255, 255, 255, 0.5);
+    white-space: nowrap; 
+}
+
+/* Con trỏ nhấp nháy */
+.code-text::after {
+    content: '|';
+    margin-left: 2px;
+    color: #3A6DAF;
+    animation: blink-cursor 0.8s infinite;
+}
+
+@keyframes blink-cursor {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+}
+
+/* --- RIGHT PANEL (LIST) --- */
+.right-panel {
+    flex: 1;
+    display: flex;
+    justify-content: flex-start;
+}
+
+.control-card {
+    background-color: #EFB062;
+    width: 100%;
+    max-width: 550px;
+    border-radius: 18px;
+    padding: 25px;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.1);
+    display: flex;
+    flex-direction: column;
+}
+
+/* Search Bar */
+.search-header {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.search-bar-container {
+    flex-grow: 1;
+    background-color: #DCDCDC;
+    border-radius: 25px;
+    padding: 8px 20px;
+    border: 2px solid #7D9AC0; 
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
+}
+
+#search-input {
+    width: 100%;
+    background: transparent;
+    border: none;
+    outline: none;
+    font-size: 16px;
+    color: #555;
+    font-weight: 500;
+}
+
+.btn-undo {
+    background: none;
+    border: none;
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+
+.btn-undo:hover {
+    transform: scale(1.1);
+}
+
+.btn-undo img {
+    width: 28px; height: 28px;
+    filter: brightness(0) invert(1); /* Chuyển icon sang trắng */
+}
+
+/* List Items */
+.process-list-container {
+    background-color: #E8DFD3;
+    border-radius: 12px;
+    padding: 10px 25px;
+    margin-bottom: 20px;
+    min-height: 320px;
+    border: 1px solid rgba(255,255,255,0.3);
+}
+
+.process-list { list-style: none; padding: 0; margin: 0; }
+
+.process-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 0;
+    border-bottom: 2px solid #6FA0BF; 
+    color: #14234C;
+    font-weight: 600;
+    font-size: 15px;
+}
+
+.process-item:last-child { border-bottom: none; }
+
+.proc-left {
+    display: flex; align-items: center; flex: 2; gap: 5px; color: #14234C;
+}
+
+.bullet { font-weight: 700; color: #14234C; }
+
+.proc-pid {
+    flex: 1.5; text-align: right; color: #14234C; font-weight: 500; margin-right: 30px;
+}
+
+.proc-actions { display: flex; gap: 15px; align-items: center; }
+
+/* CSS Toggle Buttons */
+.action-btn {
+    background: none; border: none; cursor: pointer; padding: 0;
+    transition: all 0.3s ease; opacity: 1;
+}
+
+.action-btn.active {
+    transform: scale(1.15);
+    filter: drop-shadow(0 2px 4px rgba(229, 125, 54, 0.4));
+}
+
+.action-btn.inactive img {
+    filter: brightness(0) invert(1);
+    opacity: 0.6;
+}
+
+/* Footer Pagination */
+.card-footer {
+    display: flex; justify-content: center; align-items: center; gap: 15px;
+    font-weight: 600; color: #14234C; margin-top: auto;
+}
+
+.nav-square {
+    width: 30px; height: 30px;
+    background-color: #EBCFB2;
+    border: none; border-radius: 6px;
+    cursor: pointer;
+    display: flex; justify-content: center; align-items: center;
+}
+
+.nav-square:hover:not(:disabled) { background-color: #fff; }
+.nav-square:disabled { opacity: 0.5; cursor: default; }
+.nav-square img { width: 60%; height: auto; }
+
+/* Responsive */
+@media (max-width: 900px) {
+    .proc-content-wrapper { flex-direction: column; }
+    .left-panel { justify-content: center; margin-bottom: 30px; }
+    .code-text { font-size: 22px; }
+}

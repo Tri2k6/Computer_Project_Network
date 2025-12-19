@@ -1,154 +1,229 @@
-// --- 1. Dữ liệu (Mock Data) ---
-const mockProcessData = [
-    { id: 1, name: "YouTube", pid: 1234, status: 'running' },
-    { id: 2, name: "Chrome", pid: 4521, status: 'running' },
-    { id: 3, name: "VS Code", pid: 8892, status: 'paused' },
-    { id: 4, name: "Spotify", pid: 3321, status: 'running' },
-    { id: 5, name: "Discord", pid: 1102, status: 'paused' },
-    { id: 6, name: "Task Mgr", pid: 2121, status: 'running' },
-    { id: 7, name: "Node.js", pid: 9928, status: 'paused' },
-    { id: 8, name: "Python", pid: 2211, status: 'running' },
-    { id: 9, name: "Docker", pid: 5543, status: 'running' },
-    { id: 10, name: "Figma", pid: 7765, status: 'paused' },
-    { id: 11, name: "Word", pid: 1212, status: 'running' },
-    { id: 12, name: "Excel", pid: 3434, status: 'paused' }
-];
+// Lấy tham số từ URL
+const urlParams = new URLSearchParams(window.location.search);
+const mode = urlParams.get('mode'); // "app" hoặc "process"
 
-// --- 2. Cấu hình ---
-const ITEMS_PER_PAGE = 6;
+// --- 1. Logic Render dữ liệu & Phân trang ---
+const exeListContent = document.getElementById('exe-list-content');
+
+// Cấu hình phân trang
+const ITEMS_PER_PAGE = 5; // Số exe hiển thị trên 1 trang (bạn có thể đổi thành 5 tùy ý)
 let currentPage = 1;
-let currentData = [...mockProcessData];
 
-// --- 3. DOM Elements ---
-const listContainer = document.getElementById('process-list');
-const searchInput = document.getElementById('search-input');
-const pageIndicator = document.getElementById('page-indicator');
+// Các phần tử DOM cần thiết cho phân trang
 const prevBtn = document.querySelector('.prev-btn');
 const nextBtn = document.querySelector('.next-btn');
+const pageIndicator = document.getElementById('page-indicator');
+const searchInput = document.getElementById('search-input');
 
-// --- 4. Render ---
-function renderData() {
-    listContainer.innerHTML = ''; 
+// Giả lập dữ liệu
+const mockExeData = [
+    { name: "Discord", pid: "123123" },
+    { name: "Discord", pid: "123123" },
+    { name: "Discord", pid: "123123" },
+    { name: "Discord", pid: "123123" },
+    { name: "Discord", pid: "123123" },
+    { name: "Discord", pid: "123123" },
+    { name: "Discord", pid: "123123" },
+    { name: "Discord", pid: "123123" }
+];
 
-    const totalPages = Math.ceil(currentData.length / ITEMS_PER_PAGE) || 1;
-    
-    if (currentPage > totalPages) currentPage = totalPages;
-    if (currentPage < 1) currentPage = 1;
+// Hàm chính: Tính toán và Render theo trang
+function reloadExes() {
+    currentPage = 1;
+    fetchAndRenderExes();
+}
+
+function delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function fetchAndRenderExes() {
+    exeListContent.innerHTML = ''; // Xóa list hiện tại ngay khi bắt đầu fetch
 
     const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
     const endIndex = startIndex + ITEMS_PER_PAGE;
-    const itemsToShow = currentData.slice(startIndex, endIndex);
 
-    if (itemsToShow.length === 0) {
-        listContainer.innerHTML = '<li style="text-align:center; padding:20px; color:#555;">No app found.</li>';
-        updatePagination(0);
+    const currentExes = mockExeData.slice(startIndex, endIndex);
+
+    if (currentExes.length === 0) {
+        exeListContent.innerHTML = '<li class="exe-item">No exes found.</li>';
+        updateFooterUI();
         return;
     }
 
-    itemsToShow.forEach((proc) => {
-        const li = document.createElement('li');
-        li.className = 'process-item';
-        
-        // Đường dẫn ảnh
-        const playSrc = './assets/images/start.png'; 
-        const pauseSrc = './assets/images/pause.png';
+    // Thêm từng item với delay 0.5s
+    for (const exe of currentExes) {
+        const item = createExeItem(exe);
+        exeListContent.appendChild(item);
+        await delay(50);
+    }
 
-        // Logic Toggle Class
-        const startClass = proc.status === 'running' ? 'active' : 'inactive';
-        const pauseClass = proc.status === 'paused' ? 'active' : 'inactive';
-
-        li.innerHTML = `
-            <div class="proc-left">
-                <span class="bullet">${proc.id}.</span> 
-                <span class="proc-name">${proc.name}</span>
-            </div>
-            
-            <span class="proc-pid">PID: ${proc.pid}</span>
-
-            <div class="proc-actions">
-                <button class="action-btn ${startClass}" onclick="controlProcess(${proc.id}, 'running', '${proc.name}')">
-                    <img src="${playSrc}" alt="Start" width="24" height="24">
-                </button>
-                <button class="action-btn ${pauseClass}" onclick="controlProcess(${proc.id}, 'paused', '${proc.name}')">
-                    <img src="${pauseSrc}" alt="Stop" width="24" height="24">
-                </button>
-            </div>
-        `;
-        listContainer.appendChild(li);
-    });
-
-    updatePagination(totalPages);
+    updateFooterUI();
 }
 
-// --- 5. Pagination Logic ---
-function updatePagination(totalPages) {
+// Tạo từng phần tử exe theo style bạn có
+function createExeItem(exe) {
+    const item = document.createElement('li');  // Thay vì <item>, dùng <li> hợp chuẩn hơn
+    item.className = 'exe-item';
+
+    item.style.display = 'flex';
+    item.style.alignItems = 'center';
+    item.style.padding = '12px 5px';
+    item.style.borderTop = '1px solid rgba(0, 0, 0, 0.1)';
+    item.style.borderBottom = '1px solid rgba(0, 0, 0, 0.1)';
+
+    item.innerHTML = `
+    <span class="exe-ip" style="flex: 0 0 55%; font-weight: 500;">
+        IP: ${exe.name}
+    </span>
+
+    <span class="exe-port" style="flex: 0 0 30%; color: #555;">
+        Port: ${exe.pid}
+    </span>
+
+    <button class="start-icon"
+        onclick="startExe('${exe.name}', ${exe.pid})"
+        style="
+            background: none;
+            border: none;
+            padding: 0;
+            margin-left: auto;
+            cursor: pointer;
+            appearance: none;
+            -webkit-appearance: none;
+            outline: none;">
+        <img src="./assets/images/start.png" width="34px" height="34px" style="display: block;">
+    </button>
+
+    <button class="pause-icon"
+        onclick="stopExe('${exe.name}', ${exe.pid})"
+        style="
+            background: none;
+            border: none;
+            padding: 0;
+            margin-left: auto;
+            cursor: pointer;
+            appearance: none;
+            -webkit-appearance: none;
+            outline: none;">
+        <img src="./assets/images/pause.png" width="34px" height="34px" style="display: block;">
+    </button>
+    `;
+    return item;
+}
+
+function startExe(name, pid) {
+    if (mode === 'app') {
+        // Xử lý cho App
+        typeEffect('Starting app...');
+    
+    } else if (mode === 'process') {
+        // Xử lý cho Process
+        typeEffect('Starting process...');
+        
+    }
+}
+
+function stopExe(name, pid) {
+    if (mode === 'app') {
+        // Xử lý cho App
+        typeEffect('Stopping app...');
+    
+    } else if (mode === 'process') {
+        // Xử lý cho Process
+        typeEffect('Stopping process...');
+        
+    }
+}
+
+// Hàm phụ: Cập nhật Footer (Số trang, ẩn hiện nút Next/Prev)
+function updateFooterUI() {
+    const totalPages = Math.ceil(mockExeData.length / ITEMS_PER_PAGE);
+    
+    // Cập nhật text "Page 1/3"
     pageIndicator.textContent = `Page ${currentPage}/${totalPages}`;
-    prevBtn.disabled = (currentPage === 1);
-    nextBtn.disabled = (currentPage === totalPages || totalPages === 0);
-}
 
-// --- 6. Search Logic ---
-searchInput.addEventListener('input', (e) => {
-    const keyword = e.target.value.toLowerCase();
-    currentData = mockProcessData.filter(item => 
-        item.name.toLowerCase().includes(keyword) || 
-        item.pid.toString().includes(keyword)
-    );
-    currentPage = 1;
-    renderData();
-});
+    // Xử lý nút Prev (ẩn nếu ở trang 1)
+    if (currentPage === 1) {
+        prevBtn.disabled = true;
+        prevBtn.style.opacity = '0.5'; // Làm mờ
+    } else {
+        prevBtn.disabled = false;
+        prevBtn.style.opacity = '1';
+    }
 
-function resetSearch() {
-    searchInput.value = '';
-    currentData = [...mockProcessData];
-    currentPage = 1;
-    renderData();
-}
-
-// --- 7. Toggle Control ---
-function controlProcess(id, newStatus, procName) {
-    const index = mockProcessData.findIndex(p => p.id === id);
-    if (index !== -1 && mockProcessData[index].status !== newStatus) {
-        mockProcessData[index].status = newStatus;
-        
-        // Update mảng search nếu cần
-        const searchIndex = currentData.findIndex(p => p.id === id);
-        if (searchIndex !== -1) currentData[searchIndex].status = newStatus;
-
-        console.log(`[Message Sent] Target: ${procName} | Command: ${newStatus.toUpperCase()}`);
-        renderData();
+    // Xử lý nút Next (ẩn nếu ở trang cuối)
+    if (currentPage === totalPages) {
+        nextBtn.disabled = true;
+        nextBtn.style.opacity = '0.5'; // Làm mờ
+    } else {
+        nextBtn.disabled = false;
+        nextBtn.style.opacity = '1';
     }
 }
 
-// --- 8. Event Listeners ---
+// --- 2. Sự kiện chuyển trang ---
+
+// Nút lùi
 prevBtn.addEventListener('click', () => {
-    if (currentPage > 1) { currentPage--; renderData(); }
-});
-
-nextBtn.addEventListener('click', () => {
-    const totalPages = Math.ceil(currentData.length / ITEMS_PER_PAGE);
-    if (currentPage < totalPages) { currentPage++; renderData(); }
-});
-
-// --- 9. Init & Typing Effect ---
-document.addEventListener('DOMContentLoaded', () => {
-    renderData();
-
-    // Typing Effect
-    const textElement = document.querySelector('.code-text');
-    if (textElement) {
-        const fullText = "Successful!";
-        const typingSpeed = 150;
-        let charIndex = 0;
-        textElement.textContent = ''; 
-
-        function typeWriter() {
-            if (charIndex < fullText.length) {
-                textElement.textContent += fullText.charAt(charIndex);
-                charIndex++;
-                setTimeout(typeWriter, typingSpeed);
-            }
-        }
-        setTimeout(typeWriter, 500);
+    if (currentPage > 1) {
+        currentPage--;
+        fetchAndRenderExes();
     }
 });
+
+// Nút tiến
+nextBtn.addEventListener('click', () => {
+    const totalPages = Math.ceil(mockExeData.length / ITEMS_PER_PAGE);
+    if (currentPage < totalPages) {
+        currentPage++;
+        fetchAndRenderExes();
+    }
+});
+
+// --- 3. Sự kiện mở menu ---
+
+document.addEventListener('DOMContentLoaded', () => {
+    fetchAndRenderExes();
+
+    const startBtn = document.getElementById('link-icon');
+    if (goMenuBtn) {
+        goMenuBtn.addEventListener('click', () => {
+            window.location.href = 'feature_menu.html';
+        });
+    }
+});
+
+// --- 4. Dòng chữ trên laptop ---
+
+const screenText = document.querySelector('.screen-text');
+const defaultText = "What to do?";
+let typingInterval;
+
+typeEffect(defaultText);
+
+function typeEffect(text) {
+    screenText.classList.add('typing-effect');
+    screenText.style.width = 'auto';
+
+    clearInterval(typingInterval);
+    screenText.textContent = "";
+
+    let i = 0;
+    const speed = 50;
+
+    typingInterval = setInterval(() => {
+        if (i < text.length) {
+            screenText.textContent += text.charAt(i);
+            i++;
+        } else {
+            clearInterval(typingInterval);
+        }
+    }, speed);
+}
+
+// ================== BACK TO MENU ==================
+
+function backToMenu() {
+    window.location.href = 'feature_menu.html';
+}

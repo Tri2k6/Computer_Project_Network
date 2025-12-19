@@ -16,7 +16,15 @@ export class GatewayDiscovery {
         this.isDiscovering = true;
         let found = false;
         
-        // Try rat-gateway.local first (fixed gateway)
+        // Try default gateways first (includes 10.217.11.213 as first entry)
+        if (onProgress) onProgress("Trying default gateways...");
+        const defaultResult = await this.discoverViaDefaultGateways(onFound, onProgress);
+        if (defaultResult) {
+            this.isDiscovering = false;
+            return true;
+        }
+        
+        // Fallback to rat-gateway.local (mDNS)
         const bonjourHost = 'rat-gateway.local';
         // #region agent log
         fetch('http://127.0.0.1:7242/ingest/10c16e71-75ba-4efd-b6cb-47716d67b948',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'discovery.js:20',message:'Starting rat-gateway.local discovery',data:{hostname:bonjourHost,serverPort:CONFIG.SERVER_PORT},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
@@ -53,14 +61,6 @@ export class GatewayDiscovery {
             return true;
         } else {
             if (onProgress) onProgress(`✗ Connection failed to ${bonjourHost}`);
-        }
-        
-        // Fallback to default gateways
-        if (onProgress) onProgress("Trying fallback gateways...");
-        const defaultResult = await this.discoverViaDefaultGateways(onFound, onProgress);
-        if (defaultResult) {
-            this.isDiscovering = false;
-            return true;
         }
         
         if (onProgress) onProgress("Gateway not found. Please ensure Gateway is running and Bonjour/mDNS is installed.");

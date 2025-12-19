@@ -207,11 +207,7 @@ class KeyloggerUI {
         
         const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
         a.href = url;
-<<<<<<< HEAD
-        a.download = `simulation_log_${timestamp}.txt`;
-=======
         a.download = `keylog_${timestamp}.txt`;
->>>>>>> origin/website_khang
         document.body.appendChild(a);
         a.click();
         

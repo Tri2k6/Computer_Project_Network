@@ -179,11 +179,38 @@ if (refreshBtn) {
     });
 }
 
+// Hàm reloadServers để refresh agents (được gọi từ nút refresh trong dashboard)
+function reloadServers() {
+    // Reset về page 1 khi refresh
+    resetToFirstPage();
+    
+    if (window.gateway && window.gateway.ws && window.gateway.ws.readyState === WebSocket.OPEN && window.gateway.isAuthenticated) {
+        // Gọi refreshAgents từ gateway để fetch dữ liệu mới nhất
+        window.gateway.refreshAgents();
+    } else {
+        // Nếu chưa kết nối, vẫn render lại với data hiện tại
+        fetchAndRenderAgents();
+    }
+}
+
+// Export hàm vào window ngay lập tức để có thể gọi từ bất kỳ đâu
+window.reloadServers = reloadServers;
+
+// Event listener cho nút reload - sử dụng event delegation để đảm bảo luôn hoạt động
+document.addEventListener('click', (e) => {
+    // Kiểm tra nếu click vào nút reload-btn hoặc phần tử con của nó
+    if (e.target.closest('#reload-btn')) {
+        e.preventDefault();
+        reloadServers();
+    }
+});
+
 // Export functions for main.js to use
 window.openAgentList = openAgentList;
 window.closeAgentList = closeAgentList;
 window.fetchAndRenderAgents = fetchAndRenderAgents;
 window.resetAgentListPage = resetToFirstPage;
+// reloadServers đã được export ở trên
 
 // --- 5. Sự kiện mở menu ---
 

@@ -5,8 +5,10 @@ document.addEventListener("DOMContentLoaded", () => {
        1. CẤU HÌNH LIÊN KẾT (Bạn điền link vào đây)
        ========================================= */
     const urlMap = {
-        "Application Control": "./app_process.html?mode=app",
-        "Process Control":     "./app_process.html?mode=process",
+        // "Application Control": "./app_process.html?mode=app",
+        // "Process Control":     "./app_process.html?mode=process",
+        "Application Control": "./app_menu.html",
+        "Process Control":     "./proc_menu.html",
         "Keylog Control":      "./keylog.html",
         "Screen Control":      "./screen_webcam.html?mode=screen",
         "Webcam Control":      "./screen_webcam.html?mode=webcam",

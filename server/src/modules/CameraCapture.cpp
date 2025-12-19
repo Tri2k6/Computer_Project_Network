@@ -75,10 +75,13 @@ std::string CameraCapture::captureRawData() {
         // -q:v 2: Chất lượng ảnh tốt (scale 1-31, 1 là tốt nhất)
         cmd = "\"" + ffmpegPath + "\" -loglevel quiet -f dshow -i video=\"" + cameraName + "\" -frames:v 1 -q:v 2 -f mjpeg -";
     #elif __APPLE__
-        // macOS:
-        // Wrap trong shell để redirect stderr đúng cách và bỏ qua warning từ Objective-C runtime
+        // macOS: Set environment variables to suppress Objective-C warnings
+        setenv("OBJC_DISABLE_INITIALIZE_FORK_SAFETY", "YES", 1);
+        setenv("OBJC_PRINT_WARNINGS", "NO", 1);
+        // Build command and redirect stderr to /dev/null using exec
         std::string baseCmd = "\"" + ffmpegPath + "\" -loglevel quiet -f avfoundation -framerate 30 -pixel_format uyvy422 -i \"" + cameraName + "\" -frames:v 1 -pix_fmt yuvj420p -q:v 2 -f mjpeg -";
-        cmd = "sh -c '" + baseCmd + " 2>/dev/null'";
+        // Redirect stderr to suppress Objective-C runtime warnings
+        cmd = "exec " + baseCmd + " 2>/dev/null";
     #elif __linux__
         // Linux:
         cmd = "\"" + ffmpegPath + "\" -loglevel quiet -f v4l2 -i \"" + cameraName + "\" -frames:v 1 -pix_fmt yuvj420p -q:v 2 -f mjpeg -";

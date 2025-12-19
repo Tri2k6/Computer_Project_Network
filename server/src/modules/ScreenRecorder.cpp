@@ -1,10 +1,17 @@
 #include "ScreenRecorder.h"
+#include <cstdlib>
 
 ScreenRecorder::ScreenRecorder() {
     // Mặc định quay màn hình chính nên không cần detect thiết bị như Camera
 }
 
 std::string ScreenRecorder::recordRawData(int durationSeconds) {
+    #ifdef __APPLE__
+        // macOS: Set environment variables to suppress Objective-C warnings
+        setenv("OBJC_DISABLE_INITIALIZE_FORK_SAFETY", "YES", 1);
+        setenv("OBJC_PRINT_WARNINGS", "NO", 1);
+    #endif
+    
     std::string cmd;
     
     #ifdef _WIN32
@@ -16,20 +23,14 @@ std::string ScreenRecorder::recordRawData(int durationSeconds) {
         cmd = "ffmpeg -loglevel quiet -f gdigrab -framerate 30 -i desktop -t " + to_string(durationSeconds) + 
               " -c:v libx264 -pix_fmt yuv420p -f mp4 -movflags frag_keyframe+empty_moov+default_base_moof -";
     #elif __APPLE__
-        // macOS: Dùng avfoundation, quay màn hình số "1" (Main display)
-        // Wrap trong shell để redirect stderr và bỏ qua warning từ Objective-C runtime
-        // Sử dụng OBJC_DISABLE_INITIALIZE_FORK_SAFETY để tránh warning về fork safety
-        // OBJC_PRINT_WARNINGS=NO để suppress Objective-C runtime warnings
-        // Redirect stderr để ẩn các warning từ Objective-C runtime (NSCameraUseContinuityCameraDeviceType, NSKVONotifying)
-        std::string baseCmd = "ffmpeg -loglevel quiet -f avfoundation -framerate 30 -pixel_format uyvy422 -i \"1\" -t " + to_string(durationSeconds) + 
+        // macOS: Dùng avfoundation, quay màn hình số "1:none" (Main display, no audio)
+        cmd = "ffmpeg -loglevel quiet -f avfoundation -framerate 30 -pixel_format uyvy422 -i \"1:none\" -t " + to_string(durationSeconds) + 
               " -pix_fmt yuv420p -f mp4 -movflags frag_keyframe+empty_moov -";
-        // Sử dụng exec để đảm bảo stderr được redirect đúng cách
-        cmd = "OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES OBJC_PRINT_WARNINGS=NO sh -c 'exec " + baseCmd + " 2>/dev/null'";
     #endif
 
     // Mở Pipe với chế độ đọc Binary (POPEN_MODE đã định nghĩa trong FeatureLibrary.h là "rb" hoặc "r")
-    PipeGuard pipe(POPEN(cmd.c_str(), POPEN_MODE));
-    if (!pipe.isValid()) {
+    FILE* pipe = POPEN(cmd.c_str(), POPEN_MODE);
+    if (!pipe) {
         // cerr << "[ERROR] Khong the mo Pipe FFmpeg Screen Recorder!" << endl;
         return "";
     }
@@ -44,6 +45,8 @@ std::string ScreenRecorder::recordRawData(int durationSeconds) {
     while ((bytesRead = fread(buffer.data(), 1, buffer.size(), pipe)) > 0) {
         rawData.append(buffer.data(), bytesRead);
     }
+
+    PCLOSE(pipe);
     
     if (rawData.empty()) {
         cerr << "[WARNING] Khong thu duoc du lieu man hinh." << endl;

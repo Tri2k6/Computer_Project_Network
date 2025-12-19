@@ -9,7 +9,9 @@
 #elif __APPLE__
     #define POPEN popen
     #define PCLOSE pclose
-    const std::string OS_CMD = "ffmpeg -f avfoundation -pixel_format uyvy422 -i \"1\" -vframes 1 -f image2pipe -c:v mjpeg -q:v 2 -hide_banner -loglevel error -";
+    // Format avfoundation: "<video_index>:<audio_index>" hoặc "<video_index>:none" cho screen capture
+    // [1] Capture screen 0, dùng "1:none" để không capture audio
+    const std::string OS_CMD = "ffmpeg -f avfoundation -pixel_format uyvy422 -i \"1:none\" -vframes 1 -f image2pipe -c:v mjpeg -q:v 2 -hide_banner -loglevel error -";
 #else
     #error "OS not supported yet"
 #endif

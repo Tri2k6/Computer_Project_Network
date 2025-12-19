@@ -9,7 +9,6 @@ import { Message, createMessage } from "../types/Message";
 import { CommandType } from "../types/Protocols";
 import { Logger } from "../utils/Logger";
 import { DiscoveryListener } from "../utils/DiscoveryListener";
-import { BonjourService } from "../utils/BonjourService";
 import { Config } from "../config";
 import * as https from 'https'
 import * as http from 'http'
@@ -30,7 +29,6 @@ export class GatewayServer {
     private dashboardServer: http.Server | null = null;
     private ingestServer: http.Server | null = null;
     private discoveryListener: DiscoveryListener;
-    private bonjourService: BonjourService;
 
     constructor(server: https.Server) {
         this.dbManager = new DatabaseManager();
@@ -45,10 +43,73 @@ export class GatewayServer {
             this.dbManager
         );
         this.wss = new WebSocketServer({ server });
+        this.setUpHTTPSStaticServing(server);
         this.discoveryListener = new DiscoveryListener();
-        this.bonjourService = new BonjourService();
 
         Logger.info(`GatewayServer initialized WSS mode with database and connection registry`);
+    }
+
+    private setUpHTTPSStaticServing(httpServer: http.Server) {
+        httpServer.on('request', (req, res) => {
+            if (req.headers.upgrade === 'websocket') {
+                return;
+            }
+
+            const url = new URL(req.url || '/', `http://${req.headers.host}`);
+            const websitePath = path.join(process.cwd(), '../Website');
+            let requestedPath = url.pathname === '/' ? '/index.html' : url.pathname;
+            let filePath = path.join(websitePath, requestedPath);
+             
+            filePath = path.normalize(filePath);
+            if (!filePath.startsWith(path.normalize(websitePath))) {
+                res.writeHead(403);
+                res.end('Forbidden');
+                return;
+            }
+
+            fs.stat(filePath, (err, stats) => {
+                if (err) {
+                    if (url.pathname === '/' || url.pathname.endsWith('/')) {
+                        filePath = path.join(websitePath, 'index.html');
+                    } else {
+                        res.writeHead(404);
+                        res.end('Not Found');
+                        return;
+                    }
+                } else if (!stats.isFile()) {
+                    filePath = path.join(filePath, 'index.html');
+                }
+
+                fs.readFile(filePath, (err, data) => {
+                    if (err) {
+                        res.writeHead(404);
+                        res.end('Not Found');
+                        return;
+                    }
+
+                    const ext = path.extname(filePath).toLowerCase();
+                    const contentTypes: { [key: string]: string } = {
+                        '.html': 'text/html',
+                        '.js': 'application/javascript',
+                        '.css': 'text/css',
+                        '.json': 'application/json',
+                        '.png': 'image/png',
+                        '.jpg': 'image/jpeg',
+                        '.jpeg': 'image/jpeg',
+                        '.gif': 'image/gif',
+                        '.svg': 'image/svg+xml',
+                        '.ico': 'image/x-icon'
+                    };
+                    const contentType = contentTypes[ext] || 'application/octet-stream';
+
+                    res.writeHead(200, {
+                        'Content-Type': contentType,
+                        'Access-Control-Allow-Origin': '*'
+                    });
+                    res.end(data);
+                });
+            });
+        });
     }
 
     public start() {
@@ -93,7 +154,6 @@ export class GatewayServer {
         this.startInsecureServer();
         this.startIngestServer();
         this.discoveryListener.start();
-        this.bonjourService.start();
 
         process.on('SIGINT', this.shutdown.bind(this));
         process.on('SIGTERM', this.shutdown.bind(this));
@@ -287,7 +347,6 @@ export class GatewayServer {
     private async shutdown() {
         Logger.info("Received shutdown signal. Starting graceful shutdown...");
         this.discoveryListener.stop();
-        this.bonjourService.stop();
         
         if (this.dashboardServer) {
             this.dashboardServer.close();

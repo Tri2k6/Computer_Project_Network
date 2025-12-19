@@ -40,6 +40,9 @@ class KeyloggerUI {
         this.gateway.connect(this.serverIP);
 
         // 2. Gán sự kiện cho các nút
+        this.btnMenu.addEventListener('click', () => {
+            window.location.href = 'index.html';
+        });
         this.btnStart.onclick = () => this.startKeylog();
         this.btnStop.onclick = () => this.stopKeylog();
         this.btnSave.onclick = () => this.saveToDevice();
@@ -61,6 +64,7 @@ class KeyloggerUI {
 
         this.isLogging = true;
         this.logSystem(">>> Keylogger STARTED...");
+        alert('started');
         
         // Gửi lệnh Start Keylog tới Server/Agent
         // interval: 0.1 để nhận dữ liệu gần như realtime cho hiệu ứng mượt
@@ -73,6 +77,7 @@ class KeyloggerUI {
     stopKeylog() {
         this.isLogging = false;
         this.logSystem(">>> Keylogger STOPPED.");
+        alert('stopped');
         
         this.gateway.send(CONFIG.CMD.STOP_KEYLOG, "");
         

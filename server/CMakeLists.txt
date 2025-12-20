@@ -140,8 +140,8 @@ if(WIN32)
     find_program(MT_EXECUTABLE mt.exe PATHS
         "$ENV{ProgramFiles}/Windows Kits/10/bin/x64"
         "$ENV{ProgramFiles}/Windows Kits/10/bin/x86"
-        "$ENV{ProgramFiles(x86)}/Windows Kits/10/bin/x64"
-        "$ENV{ProgramFiles(x86)}/Windows Kits/10/bin/x86"
+        "$ENV{ProgramFiles\(x86\)}/Windows Kits/10/bin/x64"
+        "$ENV{ProgramFiles\(x86\)}/Windows Kits/10/bin/x86"
     )
     if(MT_EXECUTABLE AND EXISTS ${MANIFEST_FILE})
         add_custom_command(TARGET agent POST_BUILD

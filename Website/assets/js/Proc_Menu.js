@@ -53,6 +53,7 @@ const ITEMS_PER_PAGE = 6;
 let currentPage = 1;
 let currentData = [];
 let originalData = []; // Store original unfiltered data for search
+let isRendering = false; // Flag to prevent concurrent renders
 
 // --- 3. DOM Elements ---
 const listContainer = document.getElementById('process-list');
@@ -63,30 +64,43 @@ const nextBtn = document.querySelector('.next-btn');
 
 // --- 4. Render ---
 async function renderData() {
-    listContainer.innerHTML = ''; 
-
-    const totalPages = Math.ceil(currentData.length / ITEMS_PER_PAGE) || 1;
+    if (!listContainer) return;
     
-    if (currentPage > totalPages) currentPage = totalPages;
-    if (currentPage < 1) currentPage = 1;
-
-    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-    const endIndex = startIndex + ITEMS_PER_PAGE;
-    const itemsToShow = currentData.slice(startIndex, endIndex);
-
-    if (itemsToShow.length === 0) {
-        listContainer.innerHTML = '<li class="process-item empty">No process found.</li>';
-        updatePagination(0);
+    // Prevent concurrent renders
+    if (isRendering) {
+        console.log('[Proc_Menu] Render already in progress, skipping...');
         return;
     }
+    
+    isRendering = true;
+    
+    try {
+        // Clear list completely before rendering to prevent accumulation
+        listContainer.innerHTML = ''; 
 
-    for (let idx = 0; idx < itemsToShow.length; idx++) {
+        const totalPages = Math.ceil(currentData.length / ITEMS_PER_PAGE) || 1;
+        
+        if (currentPage > totalPages) currentPage = totalPages;
+        if (currentPage < 1) currentPage = 1;
+
+        const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+        const endIndex = startIndex + ITEMS_PER_PAGE;
+        const itemsToShow = currentData.slice(startIndex, endIndex);
+
+        if (itemsToShow.length === 0) {
+            listContainer.innerHTML = '<li class="process-item empty">No process found.</li>';
+            updatePagination(0);
+            return;
+        }
+
+        // Render exactly the sliced items (max ITEMS_PER_PAGE)
+        for (let idx = 0; idx < itemsToShow.length; idx++) {
         const proc = itemsToShow[idx];
 
         const li = document.createElement('li');
         li.className = 'process-item';
 
-        const playSrc = './assets/images/start.png';
+        const playSrc = './assets/images/play.png';
         const pauseSrc = './assets/images/pause.png';
 
         // ===================== PROC ID =====================
@@ -175,11 +189,23 @@ async function renderData() {
             });
         }
 
-        await delay(50);
-        listContainer.appendChild(li);
-    }
+            await delay(50);
+            listContainer.appendChild(li);
+        }
 
-    updatePagination(totalPages);
+        // Verify we didn't render more than expected (safety check)
+        const renderedItems = listContainer.querySelectorAll('.process-item:not(.empty)').length;
+        if (renderedItems > ITEMS_PER_PAGE) {
+            console.error(`[Proc_Menu] ERROR: Rendered ${renderedItems} items, expected max ${ITEMS_PER_PAGE}. Forcing correction.`);
+            // Force correction: remove excess items
+            const items = Array.from(listContainer.querySelectorAll('.process-item:not(.empty)'));
+            items.slice(ITEMS_PER_PAGE).forEach(item => item.remove());
+        }
+
+        updatePagination(totalPages);
+    } finally {
+        isRendering = false;
+    }
 }
 
 // --- 5. Pagination Logic ---

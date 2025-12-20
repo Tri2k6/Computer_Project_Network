@@ -52,7 +52,8 @@ const mockProcessData = [
 const ITEMS_PER_PAGE = 6;
 let currentPage = 1;
 let currentData = [];
-let originalData = []; // Store original unfiltered data for search
+let originalData = []; 
+let isRendering = false; 
 
 // --- 3. DOM Elements ---
 const listContainer = document.getElementById('process-list');
@@ -63,31 +64,39 @@ const nextBtn = document.querySelector('.next-btn');
 
 // --- 4. Render ---
 async function renderData() {
-    listContainer.innerHTML = ''; 
-
-    const totalPages = Math.ceil(currentData.length / ITEMS_PER_PAGE) || 1;
-    
-    if (currentPage > totalPages) currentPage = totalPages;
-    if (currentPage < 1) currentPage = 1;
-
-    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-    const endIndex = startIndex + ITEMS_PER_PAGE;
-    const itemsToShow = currentData.slice(startIndex, endIndex);
-
-    if (itemsToShow.length === 0) {
-        listContainer.innerHTML = '<li class="process-item empty">No app found.</li>';
-        updatePagination(0);
+    if (!listContainer) return;
+    if (isRendering) {
+        console.log('[App_Menu] Render already in progress, skipping...');
         return;
     }
+    
+    isRendering = true;
+    
+    try {
+        listContainer.innerHTML = ''; 
 
-    // Luôn sử dụng currentData đã được filter/paginate
-    for (let idx = 0; idx < itemsToShow.length; idx++) {
+        const totalPages = Math.ceil(currentData.length / ITEMS_PER_PAGE) || 1;
+        
+        if (currentPage > totalPages) currentPage = totalPages;
+        if (currentPage < 1) currentPage = 1;
+
+        const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+        const endIndex = startIndex + ITEMS_PER_PAGE;
+        const itemsToShow = currentData.slice(startIndex, endIndex);
+
+        if (itemsToShow.length === 0) {
+            listContainer.innerHTML = '<li class="process-item empty">No app found.</li>';
+            updatePagination(0);
+            return;
+        }
+
+        for (let idx = 0; idx < itemsToShow.length; idx++) {
         const app = itemsToShow[idx];
 
         const li = document.createElement('li');
         li.className = 'process-item';
 
-        const playSrc = './assets/images/start.png';
+        const playSrc = './assets/images/play.png';
         const pauseSrc = './assets/images/pause.png';
 
         // ===================== APP ID =====================
@@ -164,11 +173,21 @@ async function renderData() {
             });
         }
 
-        listContainer.appendChild(li);
-        await delay(50);
-    }
+            listContainer.appendChild(li);
+            await delay(50);
+        }
 
-    updatePagination(totalPages);
+        const renderedItems = listContainer.querySelectorAll('.process-item:not(.empty)').length;
+        if (renderedItems > ITEMS_PER_PAGE) {
+            console.error(`[App_Menu] ERROR: Rendered ${renderedItems} items, expected max ${ITEMS_PER_PAGE}. Forcing correction.`);
+            const items = Array.from(listContainer.querySelectorAll('.process-item:not(.empty)'));
+            items.slice(ITEMS_PER_PAGE).forEach(item => item.remove());
+        }
+
+        updatePagination(totalPages);
+    } finally {
+        isRendering = false;
+    }
 }
 
 // --- 5. Pagination Logic ---

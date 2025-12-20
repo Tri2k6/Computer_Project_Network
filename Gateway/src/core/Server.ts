@@ -122,12 +122,12 @@ export class GatewayServer {
 
             ws.isAlive = true;
             
-            // const autoAuthTimer = setTimeout(() => {
-            //     if (!ws.role) {
-            //         //this.autoAuthenticateAgent(ws, sessionId, ip, port);
-            //         Logger.debug(`[Server] No message received after 1s, waiting for AUTH message from client`);
-            //     }
-            // }, 1000);
+            const autoAuthTimer = setTimeout(() => {
+                if (!ws.role) {
+                    //this.autoAuthenticateAgent(ws, sessionId, ip, port);
+                    Logger.debug(`[Server] No message received after 1s, waiting for AUTH message from client`);
+                }
+            }, 1000);
 
             ws.on('message', (data) => {
                 // clearTimeout(autoAuthTimer);
@@ -374,18 +374,20 @@ export class GatewayServer {
         process.exit(0);
     }
 
-    private handleMessage(ws: WebSocket, data:any) {
+    private handleMessage(ws: WebSocket, data: any) {
         try {
             const rawString = data.toString();
-            const message:  Message = JSON.parse(rawString);
-
+            const message: Message = JSON.parse(rawString);
+    
             Logger.debug(`[Server] Received message from ${ws.id}: type=${message.type}, role=${ws.role || 'unauthenticated'}`);
             this.router.handle(ws, message);
         } catch (error) {
             Logger.error(`[Server] Invalid Message format from ${ws.id}: ${(error as Error).message}`);
-            Logger.error(`[Server] Raw data: ${data.toString().substring(0, 100)}`);
-
-            if (ws.readyState === WebSocket.OPEN) {
+            Logger.error(`[Server] Raw data: ${data.toString().substring(0, 200)}`);
+            
+            // Only close if connection is already authenticated and this is not an AUTH message
+            // Allow unauthenticated connections to retry
+            if (ws.role && ws.readyState === WebSocket.OPEN) {
                 ws.send(JSON.stringify({
                     type: CommandType.ERROR,
                     data: {msg: "Invalid JSON format"}
@@ -411,6 +413,17 @@ export class GatewayServer {
     }
 
     private autoAuthenticateAgent(ws: WebSocket, sessionId: string, ip: string) {
+            // Check if already authenticated
+        if (ws.role === 'AGENT') {
+            Logger.debug(`[Server] Connection ${sessionId} already authenticated as AGENT`);
+            return;
+        }
+        // Check if connection is still open
+        if (ws.readyState !== WebSocket.OPEN) {
+            Logger.warn(`[Server] Cannot auto-authenticate: Connection ${sessionId} is not OPEN (state: ${ws.readyState})`);
+            return;
+        }
+        
         const machineId = `AGENT-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
         const name = `Agent-${machineId.substring(machineId.length - 6)}`;
         const port = (ws as any).socket?.remotePort || 0;

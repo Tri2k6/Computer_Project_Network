@@ -84,7 +84,19 @@ void Agent::connectToGateway() {
 
         client_->onError = [this, host, port](boost::beast::error_code ec) {
             std::cerr << "[Network] Connection error: " << ec.message() << " (code: " << ec.value() << ")\n" << std::flush;
-            if (ec.value() == 60 || ec == boost::beast::net::error::timed_out) {
+            
+            // Special handling for operation canceled (code 89)
+            if (ec.value() == 89 || ec == boost::beast::net::error::operation_aborted) {
+                std::cerr << "[Network] ⚠ Connection was canceled (code 89)\n" << std::flush;
+                std::cerr << "[Network] This usually happens when:\n" << std::flush;
+                std::cerr << "  - Connection timeout (10 seconds) - Gateway may not be reachable\n" << std::flush;
+                std::cerr << "  - Firewall is blocking TCP port " << port << " (UDP discovery worked, but TCP blocked)\n" << std::flush;
+                std::cerr << "  - Gateway IP " << host << " is not reachable from this machine\n" << std::flush;
+                std::cerr << "[Network] SOLUTION: Open Windows Firewall on Gateway machine:\n" << std::flush;
+                std::cerr << "  1. Open Windows Defender Firewall\n" << std::flush;
+                std::cerr << "  2. Advanced Settings → Inbound Rules → New Rule\n" << std::flush;
+                std::cerr << "  3. Port → TCP → Specific local ports: " << port << " → Allow\n" << std::flush;
+            } else if (ec.value() == 60 || ec == boost::beast::net::error::timed_out) {
                 std::cerr << "[Network] Connection timeout to " << host << ":" << port << "\n" << std::flush;
                 std::cerr << "[Network] Possible causes:\n" << std::flush;
                 std::cerr << "  1. Gateway server is not running\n" << std::flush;
@@ -92,6 +104,9 @@ void Agent::connectToGateway() {
                 std::cerr << "  3. Firewall is blocking port " << port << "\n" << std::flush;
                 std::cerr << "  4. Network connectivity issue\n" << std::flush;
                 std::cerr << "[Network] Please verify Gateway is running and accessible\n" << std::flush;
+            } else {
+                std::cerr << "[Network] Connection failed to " << host << ":" << port << "\n" << std::flush;
+                std::cerr << "[Network] Error: " << ec.message() << " (code: " << ec.value() << ")\n" << std::flush;
             }
             this->onDisconnected();
         };

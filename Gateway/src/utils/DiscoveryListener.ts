@@ -20,18 +20,48 @@ export class DiscoveryListener {
 
     private getLocalIP(): string {
         const interfaces = os.networkInterfaces();
+        const privateIPs: string[] = [];
+        const publicIPs: string[] = [];
         
+        // Collect all IPs first
         for (const name of Object.keys(interfaces)) {
             const nets = interfaces[name];
             if (!nets) continue;
             
             for (const net of nets) {
                 if (net.family === 'IPv4' && !net.internal && net.address) {
-                    return net.address;
+                    const addr = net.address;
+                    // Check if it's a private IP (LAN)
+                    if (addr.startsWith('10.') || 
+                        addr.startsWith('192.168.') || 
+                        (addr.startsWith('172.') && 
+                         parseInt(addr.split('.')[1]) >= 16 && 
+                         parseInt(addr.split('.')[1]) <= 31)) {
+                        privateIPs.push(addr);
+                        Logger.info(`[Discovery] Found private IP: ${addr} on interface ${name}`);
+                    } else {
+                        publicIPs.push(addr);
+                        Logger.info(`[Discovery] Found public/external IP: ${addr} on interface ${name}`);
+                    }
                 }
             }
         }
         
+        // Prioritize private IPs (LAN) over public IPs
+        if (privateIPs.length > 0) {
+            const selectedIP = privateIPs[0];
+            Logger.info(`[Discovery] Selected LAN IP: ${selectedIP} (from ${privateIPs.length} private IPs)`);
+            return selectedIP;
+        }
+        
+        // Fallback to public IP if no private IP found
+        if (publicIPs.length > 0) {
+            const selectedIP = publicIPs[0];
+            Logger.warn(`[Discovery] No private IP found, using public IP: ${selectedIP}`);
+            return selectedIP;
+        }
+        
+        Logger.warn(`[Discovery] No external IP found, using localhost`);
         return "127.0.0.1";
     }
 
@@ -70,18 +100,95 @@ export class DiscoveryListener {
         Logger.info(`[Discovery] Received message from ${rinfo.address}:${rinfo.port} - "${message}"`);
         
         if (message === DISCOVERY_REQUEST) {
-            const response = `${DISCOVERY_RESPONSE_PREFIX} ${this.gatewayIP}:${this.gatewayPort}`;
+            // Get the IP address of the interface that received this request
+            // This ensures we return an IP that is reachable from the requesting agent
+            const responseIP = this.getResponseIP(rinfo.address);
+            const response = `${DISCOVERY_RESPONSE_PREFIX} ${responseIP}:${this.gatewayPort}`;
+            
+            Logger.info(`[Discovery] Agent at ${rinfo.address} requested Gateway - responding with ${responseIP}:${this.gatewayPort}`);
             
             this.server?.send(response, rinfo.port, rinfo.address, (err) => {
                 if (err) {
                     Logger.error(`[Discovery] Failed to send response: ${err.message}`);
                 } else {
-                    Logger.info(`[Discovery] Responded to ${rinfo.address}:${rinfo.port} - Gateway at ${this.gatewayIP}:${this.gatewayPort}`);
+                    Logger.info(`[Discovery] Responded to ${rinfo.address}:${rinfo.port} - Gateway at ${responseIP}:${this.gatewayPort}`);
                 }
             });
         } else {
             Logger.warn(`[Discovery] Received unknown message: "${message}"`);
         }
+    }
+
+    private getResponseIP(requesterIP: string): string {
+        // Try to find an IP in the same subnet as the requester
+        const interfaces = os.networkInterfaces();
+        const requesterParts = requesterIP.split('.');
+        
+        if (requesterParts.length === 4) {
+            // Check if requester is in private network range
+            const isPrivate = requesterIP.startsWith('10.') || 
+                             requesterIP.startsWith('192.168.') || 
+                             requesterIP.startsWith('172.16.') || 
+                             requesterIP.startsWith('172.17.') ||
+                             requesterIP.startsWith('172.18.') ||
+                             requesterIP.startsWith('172.19.') ||
+                             requesterIP.startsWith('172.20.') ||
+                             requesterIP.startsWith('172.21.') ||
+                             requesterIP.startsWith('172.22.') ||
+                             requesterIP.startsWith('172.23.') ||
+                             requesterIP.startsWith('172.24.') ||
+                             requesterIP.startsWith('172.25.') ||
+                             requesterIP.startsWith('172.26.') ||
+                             requesterIP.startsWith('172.27.') ||
+                             requesterIP.startsWith('172.28.') ||
+                             requesterIP.startsWith('172.29.') ||
+                             requesterIP.startsWith('172.30.') ||
+                             requesterIP.startsWith('172.31.');
+            
+            if (isPrivate) {
+                // Find IP in same subnet (same first 3 octets for class C)
+                const subnetPrefix = requesterParts.slice(0, 3).join('.');
+                
+                for (const name of Object.keys(interfaces)) {
+                    const nets = interfaces[name];
+                    if (!nets) continue;
+                    
+                    for (const net of nets) {
+                        if (net.family === 'IPv4' && !net.internal && net.address) {
+                            const gatewayParts = net.address.split('.');
+                            if (gatewayParts.length === 4) {
+                                const gatewaySubnet = gatewayParts.slice(0, 3).join('.');
+                                // If same subnet, use this IP
+                                if (gatewaySubnet === subnetPrefix) {
+                                    Logger.info(`[Discovery] Found matching subnet IP: ${net.address} (same subnet as ${requesterIP})`);
+                                    return net.address;
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // If no exact subnet match, find any private IP
+                for (const name of Object.keys(interfaces)) {
+                    const nets = interfaces[name];
+                    if (!nets) continue;
+                    
+                    for (const net of nets) {
+                        if (net.family === 'IPv4' && !net.internal && net.address) {
+                            const addr = net.address;
+                            if (addr.startsWith('10.') || addr.startsWith('192.168.') || addr.startsWith('172.')) {
+                                Logger.info(`[Discovery] Using private IP: ${addr} (requester is in private network)`);
+                                return addr;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Fallback to default gateway IP
+        Logger.info(`[Discovery] Using default gateway IP: ${this.gatewayIP}`);
+        return this.gatewayIP;
     }
 
     public stop(): void {

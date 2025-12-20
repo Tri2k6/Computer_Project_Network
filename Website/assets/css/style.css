@@ -404,6 +404,7 @@ body {
     font-size: 18px;
     font-weight: 700;
     border-bottom: none;
+    border-top: none;
     text-align: center;
     color: var(--text-dark);
     padding: 20px 20px;

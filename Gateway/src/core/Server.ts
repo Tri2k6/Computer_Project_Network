@@ -9,6 +9,7 @@ import { Message, createMessage } from "../types/Message";
 import { CommandType } from "../types/Protocols";
 import { Logger } from "../utils/Logger";
 import { DiscoveryListener } from "../utils/DiscoveryListener";
+import { BonjourService } from "../utils/BonjourService";
 import { Config } from "../config";
 import * as https from 'https'
 import * as http from 'http'
@@ -29,6 +30,7 @@ export class GatewayServer {
     private dashboardServer: http.Server | null = null;
     private ingestServer: http.Server | null = null;
     private discoveryListener: DiscoveryListener;
+    private bonjourService: BonjourService;
 
     constructor(server: https.Server) {
         this.dbManager = new DatabaseManager();
@@ -43,8 +45,8 @@ export class GatewayServer {
             this.dbManager
         );
         this.wss = new WebSocketServer({ server });
-        this.setUpHTTPSStaticServing(server);
         this.discoveryListener = new DiscoveryListener();
+        this.bonjourService = new BonjourService();
 
         Logger.info(`GatewayServer initialized WSS mode with database and connection registry`);
     }
@@ -154,6 +156,7 @@ export class GatewayServer {
         this.startInsecureServer();
         this.startIngestServer();
         this.discoveryListener.start();
+        this.bonjourService.start();
 
         process.on('SIGINT', this.shutdown.bind(this));
         process.on('SIGTERM', this.shutdown.bind(this));
@@ -348,6 +351,7 @@ export class GatewayServer {
     private async shutdown() {
         Logger.info("Received shutdown signal. Starting graceful shutdown...");
         this.discoveryListener.stop();
+        this.bonjourService.stop();
         
         if (this.dashboardServer) {
             this.dashboardServer.close();

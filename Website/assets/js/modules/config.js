@@ -54,40 +54,13 @@ export const CONFIG = {
 export function loadDefaultGateways() {
     const gateways = [...CONFIG.DEFAULT_GATEWAYS];
     
-    const urlGateway = getGatewayFromURL();
-
-    if (urlGateway) {
-        gateways.unshift (
-            {ip: urlGateway.ip, port: urlGateway.port, protocol: urlGateway.protocol}
-        );
-        console.log(`[Config] Using gateway from URL: ${urlGateway.ip}:${urlGateway.port} (${urlGateway.protocol})`);
-    }
-
-    const cacheIp = localStorage.getItem(CONFIG.LOCAL_STORAGE_GATEWAY_KEY);
-
-    if (cacheIp && cacheIp !== 'localhost') {
+    const cachedIp = localStorage.getItem(CONFIG.LOCAL_STORAGE_GATEWAY_KEY);
+    if (cachedIp && cachedIp !== 'localhost' && cachedIp !== 'rat-gateway.local') {
         gateways.unshift(
-            {ip: cacheIp, port: 8080, protocol: 'wss'},
-            {ip: cacheIp, port: 8082, protocol: 'ws'}
+            {ip: cachedIp, port: 8080, protocol: 'wss'},
+            {ip: cachedIp, port: 8082, protocol: 'ws'}
         );
-        console.log(`[Config] Using cached gateway: ${cacheIp}:8080 (wss) and ${cacheIp}:8082 (ws)`);
     }
     
     return gateways;
-}
-
-export function getGatewayFromURL() {
-    const hostname = window.location.hostname;
-    if (!hostname || hostname === 'localhost' || hostname === '127.0.01') {
-        return null;
-    }
-
-    const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
-    const port = window.location.port || (protocol === 'wss' ? 8080 : 8082);
-
-    return {
-        ip:hostname,
-        port: parseInt(port),
-        protocol: protocol
-    };
 }

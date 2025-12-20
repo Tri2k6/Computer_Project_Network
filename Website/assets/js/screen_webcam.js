@@ -451,6 +451,7 @@ window.handleCaptureError = function(errorMessage) {
         // Kiểm tra xem đã có error message chưa
         let errorDiv = cameraFeed.querySelector('.error-message');
         if (!errorDiv) {
+            cameraFeed.innerHTML = '';
             errorDiv = document.createElement('div');
             errorDiv.className = 'error-message';
             errorDiv.style.cssText = `
@@ -528,7 +529,7 @@ window.handleCaptureError = function(errorMessage) {
         };
         
         errorDiv.innerHTML = `
-            <div style="font-weight: bold; margin-bottom: 10px; font-size: 16px;">⚠️ Lỗi Capture</div>
+            <div style="font-weight: bold; margin-bottom: 10px; font-size: 16px;">! Lỗi Capture</div>
             <div style="font-size: 13px; white-space: pre-line; line-height: 1.6; text-align: left; max-height: 400px; overflow-y: auto;">${escapeHtml(friendlyMessage)}</div>
         `;
         
@@ -541,6 +542,7 @@ window.handleCaptureError = function(errorMessage) {
                     const placeholder = document.createElement('span');
                     placeholder.className = 'placeholder-text';
                     placeholder.textContent = 'this is a preview';
+                    cameraFeed.innerHTML = '';
                     cameraFeed.appendChild(placeholder);
                 }
             }

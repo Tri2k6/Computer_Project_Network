@@ -391,7 +391,8 @@ body {
 
 .server-item {
     padding: 10px;
-    border-bottom: 1px solid #ddd;
+    border-bottom: 0.5px solid var(--text-blue);
+    border-top: 0.5px solid var(--text-blue);
     display: flex;
     justify-content: space-between;
     align-items: center;

@@ -3,9 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Com.net - App Process Control</title>
+    <title>Com.net - Process Control</title>
     <link rel="stylesheet" href="assets/css/style.css">
-    <link rel="stylesheet" href="assets/css/App_Menu.css">
+    <link rel="stylesheet" href="assets/css/Feature_menu.css">
+    <link rel="stylesheet" href="assets/css/App_Process.css">
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -40,61 +41,70 @@
                 </div>
 
                 <div class="right-panel">
-                    <!-- OVERLAY -->
-                    <div class="overlay visible">
+                    <!-- CARD / POPUP -->
+                    <div class="process-list-container">
 
-                        <!-- CARD / POPUP -->
-                        <div class="process-list-container">
-
-                            <!-- HEADER -->
-                            <div class="search-header">
-                                <div class="search-bar-container">
-                                    <input
-                                        type="text"
-                                        id="search-input"
-                                        placeholder="Find app..."
-                                        autocomplete="off"
-                                    >
-                                </div>
-
-                                <button
-                                    id="reload-btn"
-                                    class="btn-temp"
-                                    onclick="refreshProcessList()"
+                        <!-- HEADER -->
+                        <div class="search-header">
+                            <div class="search-bar-container">
+                                <!-- Search icon -->
+                                <img 
+                                    src="./assets/images/search.png" 
+                                    class="search-icon" 
+                                    alt="Search"
                                 >
-                                    <img src="./assets/images/reload.png" alt="Reload">
-                                </button>
 
-                                <button
-                                    id="return-btn"
-                                    class="btn-temp"
-                                    onclick=""
+                                <!-- Input -->
+                                <input
+                                    type="text"
+                                    id="search-input"
+                                    placeholder="Find process..."
+                                    autocomplete="off"
                                 >
-                                    <img src="./assets/images/return.png" alt="Return">
+
+                                <!-- Clear button -->
+                                <button id="clear-btn" class="clear-btn" title="Clear">
+                                    ✕
                                 </button>
                             </div>
 
-                            <!-- LIST WRAPPER (CỰC KỲ QUAN TRỌNG) -->
-                            <div class="process-items-wrapper">
-                                <ul id="process-list" class="process-list">
-                                    <li class="process-item empty">Loading...</li>
-                                </ul>
-                            </div>
+                            <button
+                                id="reload-btn"
+                                class="btn-temp"
+                                onclick="refreshProcessList()"
+                            >
+                                <img src="./assets/images/reload.png" alt="Reload">
+                            </button>
 
-                            <!-- PAGINATION -->
-                            <div class="change_page">
-                                <button class="nav-square prev-btn">
-                                    <img src="./assets/images/left.png" alt="">
-                                </button>
-
-                                <span id="page-indicator">Page 1/1</span>
-
-                                <button class="nav-square next-btn">
-                                    <img src="./assets/images/right.png" alt="">
-                                </button>
-                            </div>
-
+                            <button
+                                id="return-btn"
+                                class="btn-temp"
+                                onclick=""
+                            >
+                                <img src="./assets/images/return.png" alt="Return">
+                            </button>
                         </div>
+
+                        <!-- LIST WRAPPER (CỰC KỲ QUAN TRỌNG) -->
+                        <div class="process-items-wrapper">
+                            <ul id="process-list" class="process-list">
+                                <li class="process-item empty">Loading...</li>
+                            </ul>
+                        </div>
+
+                        <!-- PAGINATION -->
+                        <div class="change_page">
+                            <button class="nav-square prev-btn">
+                                <img src="./assets/images/left.png" alt="">
+                            </button>
+
+                            <span id="page-indicator">Page 1/1</span>
+
+                            <button class="nav-square next-btn">
+                                <img src="./assets/images/right.png" alt="">
+                            </button>
+                        </div>
+
                     </div>
                 </div>
 

@@ -4,15 +4,33 @@ import * as Logic from './logic.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     const returnBtn = document.getElementById('return-btn');
+    const clearBtn = document.getElementById('clear-btn');
+
     if (!returnBtn) {
         console.warn('[Proc_Menu] return-btn not found');
+        return;
+    }
+    if (!clearBtn) {
+        console.warn('[Proc_Menu] clear-btn not found');
         return;
     }
 
     returnBtn.addEventListener('click', () => {
         window.location.href = './Feature_menu.html';
     });
+
+    clearBtn.addEventListener('click', () => {
+        resetSearch();
+    });
 });
+
+function resetSearch() {
+    searchInput.value = '';
+    // Reset về dữ liệu gốc
+    currentData = [...originalData];
+    currentPage = 1;
+    renderData();
+}
 
 // --- 1. Dữ liệu (Mock Data) ---
 const mockProcessData = [
@@ -116,7 +134,7 @@ async function renderData() {
                     data-action="start"
                     data-proc-name="${escapedProcName}"
                     title="Start ${escapedProcName}">
-                    <img src="${playSrc}" alt="Start" width="24" height="24">
+                    <img src="${playSrc}" alt="Start" width="28" height="28">
                 </button>
 
                 <button class="action-btn ${pauseClass}"
@@ -124,7 +142,7 @@ async function renderData() {
                     data-action="stop"
                     data-proc-name="${escapedProcName}"
                     title="Stop ${escapedProcName}">
-                    <img src="${pauseSrc}" alt="Stop" width="24" height="24">
+                    <img src="${pauseSrc}" alt="Stop" width="28" height="28">
                 </button>
             </div>
         `;
@@ -190,14 +208,6 @@ searchInput.addEventListener('input', (e) => {
     renderData();
 });
 
-function resetSearch() {
-    searchInput.value = '';
-    // Reset về dữ liệu gốc
-    currentData = [...originalData];
-    currentPage = 1;
-    renderData();
-}
-
 // --- 7. Toggle Control ---
 function controlProcess(id, newStatus, procName) {
     // Find the process in the list to get its PID for logging
@@ -209,11 +219,13 @@ function controlProcess(id, newStatus, procName) {
         success = Logic.startProcess(id);
         if (success) {
             console.log(`[Proc_Menu] Starting process: ${procName} (Index: ${id}, PID: ${processPid})`);
+            typeEffect('Starting process...')
         }
     } else {
         success = Logic.killProcess(id);
         if (success) {
             console.log(`[Proc_Menu] Stopping process: ${procName} (Index: ${id}, PID: ${processPid})`);
+            typeEffect('Stopping process...')
         }
     }
 
@@ -226,6 +238,7 @@ function controlProcess(id, newStatus, procName) {
 // --- 10. Refresh Process List from Gateway ---
 async function refreshProcessList(isInitialLoad = false) {
     // Sử dụng logic.js để fetch dữ liệu
+    typeEffect('Loading list...');
     const processes = await Logic.fetchProcessList(isInitialLoad);
     
     if (processes !== null && processes !== undefined) {
@@ -233,6 +246,7 @@ async function refreshProcessList(isInitialLoad = false) {
         originalData = processes;
         currentData = [...processes];
         console.log(`[Proc_Menu] ✓ Loaded ${processes.length} processes from gateway`);
+        typeEffect('Done!');
         
         // Nếu là initial load và processes rỗng, đợi thêm một chút để check lại
         if (isInitialLoad && processes.length === 0) {
@@ -331,8 +345,7 @@ document.addEventListener('DOMContentLoaded', () => {
     waitForGatewayAndLoad();
 
     // Typing Effect
-    const textElement = document.querySelector('.code-text');
-    if (textElement) {
+    if (screenText) {
         typeEffect('Successful');
     }
 });
@@ -342,6 +355,8 @@ window.refreshProcessList = refreshProcessList;
 window.controlProcess = controlProcess;
 
 // hiệu ứng gõ chữ và delay khi refresh (cho đẹp)
+const screenText = document.querySelector('.code-text');
+let typingInterval;
 
 function typeEffect(text) {
     if (!screenText) return;

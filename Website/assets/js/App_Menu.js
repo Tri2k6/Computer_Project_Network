@@ -4,15 +4,33 @@ import * as Logic from './logic.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     const returnBtn = document.getElementById('return-btn');
+    const clearBtn = document.getElementById('clear-btn');
+
     if (!returnBtn) {
-        console.warn('[Proc_Menu] return-btn not found');
+        console.warn('[App_Menu] return-btn not found');
+        return;
+    }
+    if (!clearBtn) {
+        console.warn('[App_Menu] clear-btn not found');
         return;
     }
 
     returnBtn.addEventListener('click', () => {
         window.location.href = './Feature_menu.html';
     });
+
+    clearBtn.addEventListener('click', () => {
+        resetSearch();
+    });
 });
+
+function resetSearch() {
+    searchInput.value = '';
+    // Reset về dữ liệu gốc
+    currentData = [...originalData];
+    currentPage = 1;
+    renderData();
+}
 
 // --- 1. Dữ liệu ---
 const mockProcessData = [
@@ -105,7 +123,7 @@ async function renderData() {
                     data-action="start"
                     data-app-name="${escapedAppName}"
                     title="Start ${escapedAppName}">
-                    <img src="${playSrc}" alt="Start" width="24" height="24">
+                    <img src="${playSrc}" alt="Start" width="28" height="28">
                 </button>
 
                 <button class="action-btn ${pauseClass}"
@@ -113,7 +131,7 @@ async function renderData() {
                     data-action="stop"
                     data-app-name="${escapedAppName}"
                     title="Stop ${escapedAppName}">
-                    <img src="${pauseSrc}" alt="Stop" width="24" height="24">
+                    <img src="${pauseSrc}" alt="Stop" width="28" height="28">
                 </button>
             </div>
         `;
@@ -152,6 +170,7 @@ async function renderData() {
 
     updatePagination(totalPages);
 }
+
 // --- 5. Pagination Logic ---
 function updatePagination(totalPages) {
     pageIndicator.textContent = `Page ${currentPage}/${totalPages}`;
@@ -178,14 +197,6 @@ searchInput.addEventListener('input', (e) => {
     renderData();
 });
 
-function resetSearch() {
-    searchInput.value = '';
-    // Reset về dữ liệu gốc
-    currentData = [...originalData];
-    currentPage = 1;
-    renderData();
-}
-
 // --- 7. Toggle Control ---
 function controlApp(id, action, appName) {
     let success = false;
@@ -194,11 +205,13 @@ function controlApp(id, action, appName) {
         success = Logic.startApp(id);
         if (success) {
             console.log(`[App_Menu] Starting app: ${appName} (ID: ${id})`);
+            typeEffect('Starting app...')
         }
     } else if (action === 'stop') {
         success = Logic.stopApp(id);
         if (success) {
             console.log(`[App_Menu] Stopping app: ${appName} (ID: ${id})`);
+            typeEffect('Stopping app...')
         }
     } else {
         console.warn(`[App_Menu] Unknown action: ${action}`);
@@ -222,6 +235,7 @@ window.controlProcess = controlApp;
 // --- 10. Refresh App List from Gateway ---
 async function refreshAppList(isInitialLoad = false) {
     // Sử dụng logic.js để fetch dữ liệu
+    typeEffect('Loading list...');
     const apps = await Logic.fetchAppList(isInitialLoad);
     
     console.log('[App_Menu] refreshAppList result:', {
@@ -237,6 +251,7 @@ async function refreshAppList(isInitialLoad = false) {
         originalData = apps;
         currentData = [...apps];
         console.log(`[App_Menu] ✓ Loaded ${apps.length} apps from gateway`);
+        typeEffect('Done!');
         
         // Nếu là initial load và apps rỗng, đợi thêm một chút để check lại
         if (isInitialLoad && apps.length === 0) {
@@ -335,8 +350,7 @@ document.addEventListener('DOMContentLoaded', () => {
     waitForGatewayAndLoad();
 
     // Typing Effect
-    const textElement = document.querySelector('.code-text');
-    if (textElement) {
+    if (screenText) {
         typeEffect('Successful');
     }
 });
@@ -346,6 +360,8 @@ window.refreshAppList = refreshAppList;
 window.controlApp = controlApp;
 
 // hiệu ứng gõ chữ và delay khi refresh (cho đẹp)
+const screenText = document.querySelector('.code-text');
+let typingInterval;
 
 function typeEffect(text) {
     if (!screenText) return;

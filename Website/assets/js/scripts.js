@@ -101,10 +101,6 @@ async function renderList(agents) {
         li.style.alignItems = 'center';
         li.style.padding = '12px 5px';
 
-        if (index < agents.length - 1) {
-            li.style.borderBottom = '1px solid rgba(0, 0, 0, 0.1)';
-        }
-
         li.innerHTML = `
             <span class="server-machineid"
                 style="flex: 0 0 40%; font-weight: 500; font-size: 16px; text-align: center;">

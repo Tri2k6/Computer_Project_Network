@@ -1,25 +1,57 @@
 #include "GatewayDiscovery.h"
-#include <thread>
-#include <chrono>
 
-#ifdef _WIN32
-    #include <ws2tcpip.h>
-    #include <iphlpapi.h>
-    #pragma comment(lib, "ws2_32.lib")
-    #pragma comment(lib, "iphlpapi.lib")
-#else
-    #include <ifaddrs.h>
-    #include <netinet/in.h>
-    #include <arpa/inet.h>
-    #include <fcntl.h>
-    #include <unistd.h>
-    #include <sys/socket.h>
-    #include <netdb.h>
-#endif
 
 const int DISCOVERY_PORT = 9999;
 const char* DISCOVERY_REQUEST = "WHO_IS_GATEWAY?";
 const char* DISCOVERY_RESPONSE_PREFIX = "I_AM_GATEWAY:";
+
+static std::pair<std::string, std::string> parseDiscoveryResponse(
+    const std::string& response, 
+    const struct sockaddr_in& from) {
+    
+    std::pair<std::string, std::string> result = {"", ""};
+    
+    std::string data = response.substr(strlen(DISCOVERY_RESPONSE_PREFIX));
+    
+    size_t start = data.find_first_not_of(" \t\r\n");
+    if (start != std::string::npos) {
+        data = data.substr(start);
+    }
+    
+    // Parse format: "IP:PORT" or "wss://IP:PORT" or "ws://IP:PORT"
+    size_t protocolPos = data.find("://");
+    if (protocolPos != std::string::npos) {
+        size_t ipStart = data.find_first_not_of(" \t", protocolPos + 3);
+        if (ipStart != std::string::npos) {
+            data = data.substr(ipStart);
+        }
+    }
+    
+    size_t colon = data.find(':');
+    if (colon != std::string::npos) {
+        result.first = data.substr(0, colon);
+        size_t portEnd = data.find_first_of(" \r\n\t", colon + 1);
+        if (portEnd != std::string::npos) {
+            result.second = data.substr(colon + 1, portEnd - colon - 1);
+        } else {
+            result.second = data.substr(colon + 1);
+        }
+    } else {
+        #ifdef _WIN32
+            char ip[INET_ADDRSTRLEN];
+            inet_ntop(AF_INET, &from.sin_addr, ip, INET_ADDRSTRLEN);
+            result.first = ip;
+        #else
+            char ip[INET_ADDRSTRLEN];
+            inet_ntop(AF_INET, &from.sin_addr, ip, INET_ADDRSTRLEN);
+            result.first = ip;
+        #endif
+        result.second = "8080";
+    }
+    
+    return result;
+}
+
 
 std::string GatewayDiscovery::getLocalIP() {
     std::string ip;
@@ -65,7 +97,7 @@ std::string GatewayDiscovery::getLocalIP() {
     return ip;
 }
 
-bool GatewayDiscovery::sendBroadcastRequest() {
+bool GatewayDiscovery::sendDiscoveryBroadcast() {
     try {
         #ifdef _WIN32
             WSADATA wsaData;
@@ -132,7 +164,7 @@ bool GatewayDiscovery::sendBroadcastRequest() {
     }
 }
 
-std::pair<std::string, std::string> GatewayDiscovery::listenForResponse(int timeoutMs) {
+std::pair<std::string, std::string> GatewayDiscovery::waitForDiscoveryResponse(int timeoutMs) {
     std::pair<std::string, std::string> result = {"", ""};
     
     try {
@@ -148,13 +180,20 @@ std::pair<std::string, std::string> GatewayDiscovery::listenForResponse(int time
                 return result;
             }
             
-            struct sockaddr_in addr;
-            memset(&addr, 0, sizeof(addr));
-            addr.sin_family = AF_INET;
-            addr.sin_port = htons(DISCOVERY_PORT);
-            addr.sin_addr.s_addr = INADDR_ANY;
+            int reuse = 1;
+            if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (char*)&reuse, sizeof(reuse)) == SOCKET_ERROR) {
+                closesocket(sock);
+                WSACleanup();
+                return result;
+            }
             
-            if (::bind(sock, (struct sockaddr*)&addr, sizeof(addr)) == SOCKET_ERROR) {
+            struct sockaddr_in bindAddr;
+            memset(&bindAddr, 0, sizeof(bindAddr));
+            bindAddr.sin_family = AF_INET;
+            bindAddr.sin_port = 0;  
+            bindAddr.sin_addr.s_addr = INADDR_ANY;
+            
+            if (::bind(sock, (struct sockaddr*)&bindAddr, sizeof(bindAddr)) == SOCKET_ERROR) {
                 closesocket(sock);
                 WSACleanup();
                 return result;
@@ -183,41 +222,7 @@ std::pair<std::string, std::string> GatewayDiscovery::listenForResponse(int time
                     std::string response = buffer;
                     
                     if (response.find(DISCOVERY_RESPONSE_PREFIX) == 0) {
-                        std::string data = response.substr(strlen(DISCOVERY_RESPONSE_PREFIX));
-                        
-                        // Trim whitespace
-                        size_t start = data.find_first_not_of(" \t\r\n");
-                        if (start != std::string::npos) {
-                            data = data.substr(start);
-                        }
-                        
-                        // Parse format: "IP:PORT" or "wss://IP:PORT" or "ws://IP:PORT"
-                        size_t protocolPos = data.find("://");
-                        if (protocolPos != std::string::npos) {
-                            // Has protocol prefix, skip it
-                            size_t ipStart = data.find_first_not_of(" \t", protocolPos + 3);
-                            if (ipStart != std::string::npos) {
-                                data = data.substr(ipStart);
-                                }
-                            }
-                        
-                        // Parse IP:PORT
-                            size_t colon = data.find(':');
-                            if (colon != std::string::npos) {
-                                result.first = data.substr(0, colon);
-                                size_t portEnd = data.find_first_of(" \r\n\t", colon + 1);
-                                if (portEnd != std::string::npos) {
-                                    result.second = data.substr(colon + 1, portEnd - colon - 1);
-                                } else {
-                                    result.second = data.substr(colon + 1);
-                                }
-                            } else {
-                            // No port specified, use sender IP and default port
-                                char ip[INET_ADDRSTRLEN];
-                                inet_ntop(AF_INET, &from.sin_addr, ip, INET_ADDRSTRLEN);
-                                result.first = ip;
-                                result.second = "8080";
-                        }
+                        result = parseDiscoveryResponse(response, from);
                     }
                 }
             }
@@ -228,20 +233,28 @@ std::pair<std::string, std::string> GatewayDiscovery::listenForResponse(int time
             int sock = socket(AF_INET, SOCK_DGRAM, 0);
             if (sock < 0) return result;
             
-            struct sockaddr_in addr;
-            memset(&addr, 0, sizeof(addr));
-            addr.sin_family = AF_INET;
-            addr.sin_port = htons(DISCOVERY_PORT);
-            addr.sin_addr.s_addr = INADDR_ANY;
-            
-            if (::bind(sock, (struct sockaddr*)&addr, sizeof(addr)) < 0) {
+            int reuse = 1;
+            if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse)) < 0) {
                 close(sock);
                 return result;
             }
             
+            struct sockaddr_in bindAddr;
+            memset(&bindAddr, 0, sizeof(bindAddr));
+            bindAddr.sin_family = AF_INET;
+            bindAddr.sin_port = 0; 
+            bindAddr.sin_addr.s_addr = INADDR_ANY;
+            
+            if (::bind(sock, (struct sockaddr*)&bindAddr, sizeof(bindAddr)) < 0) {
+                close(sock);
+                return result;
+            }
+            
+            // Set non-blocking mode
             int flags = fcntl(sock, F_GETFL, 0);
             fcntl(sock, F_SETFL, flags | O_NONBLOCK);
             
+            // Wait for response with timeout
             struct timeval timeout;
             timeout.tv_sec = timeoutMs / 1000;
             timeout.tv_usec = (timeoutMs % 1000) * 1000;
@@ -261,41 +274,7 @@ std::pair<std::string, std::string> GatewayDiscovery::listenForResponse(int time
                     std::string response = buffer;
                     
                     if (response.find(DISCOVERY_RESPONSE_PREFIX) == 0) {
-                        std::string data = response.substr(strlen(DISCOVERY_RESPONSE_PREFIX));
-                        
-                        // Trim whitespace
-                        size_t start = data.find_first_not_of(" \t\r\n");
-                        if (start != std::string::npos) {
-                            data = data.substr(start);
-                        }
-                        
-                        // Parse format: "IP:PORT" or "wss://IP:PORT" or "ws://IP:PORT"
-                        size_t protocolPos = data.find("://");
-                        if (protocolPos != std::string::npos) {
-                            // Has protocol prefix, skip it
-                            size_t ipStart = data.find_first_not_of(" \t", protocolPos + 3);
-                            if (ipStart != std::string::npos) {
-                                data = data.substr(ipStart);
-                                }
-                            }
-                        
-                        // Parse IP:PORT
-                            size_t colon = data.find(':');
-                            if (colon != std::string::npos) {
-                                result.first = data.substr(0, colon);
-                                size_t portEnd = data.find_first_of(" \r\n\t", colon + 1);
-                                if (portEnd != std::string::npos) {
-                                    result.second = data.substr(colon + 1, portEnd - colon - 1);
-                                } else {
-                                    result.second = data.substr(colon + 1);
-                                }
-                            } else {
-                            // No port specified, use sender IP and default port
-                                char ip[INET_ADDRSTRLEN];
-                                inet_ntop(AF_INET, &from.sin_addr, ip, INET_ADDRSTRLEN);
-                                result.first = ip;
-                                result.second = "8080";
-                        }
+                        result = parseDiscoveryResponse(response, from);
                     }
                 }
             }
@@ -308,7 +287,7 @@ std::pair<std::string, std::string> GatewayDiscovery::listenForResponse(int time
     return result;
 }
 
-std::pair<std::string, std::string> GatewayDiscovery::discoverGateway(int timeoutMs) {
+std::pair<std::string, std::string> GatewayDiscovery::discoverViaUDP(int timeoutMs) {
     std::pair<std::string, std::string> result = {"", ""};
     
     try {
@@ -503,7 +482,6 @@ std::pair<std::string, std::string> GatewayDiscovery::discoverGateway(int timeou
                                 }
                             }
                         
-                        // Parse IP:PORT
                             size_t colon = data.find(':');
                             if (colon != std::string::npos) {
                                 result.first = data.substr(0, colon);
@@ -514,7 +492,6 @@ std::pair<std::string, std::string> GatewayDiscovery::discoverGateway(int timeou
                                     result.second = data.substr(colon + 1);
                                 }
                             } else {
-                            // No port specified, use sender IP and default port
                                 char ip[INET_ADDRSTRLEN];
                                 inet_ntop(AF_INET, &from.sin_addr, ip, INET_ADDRSTRLEN);
                                 result.first = ip;
@@ -532,49 +509,4 @@ std::pair<std::string, std::string> GatewayDiscovery::discoverGateway(int timeou
     return result;
 }
 
-bool GatewayDiscovery::canResolveHostname(const std::string& hostname) {
-    if (hostname.empty()) {
-        return false;
-    }
-    
-    try {
-        #ifdef _WIN32
-            WSADATA wsaData;
-            if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
-                return false;
-            }
-            
-            struct addrinfo hints;
-            memset(&hints, 0, sizeof(hints));
-            hints.ai_family = AF_INET;
-            hints.ai_socktype = SOCK_STREAM;
-            
-            struct addrinfo* result = nullptr;
-            int status = getaddrinfo(hostname.c_str(), nullptr, &hints, &result);
-            
-            WSACleanup();
-            
-            if (status == 0 && result != nullptr) {
-                freeaddrinfo(result);
-                return true;
-            }
-            return false;
-        #else
-            struct addrinfo hints;
-            memset(&hints, 0, sizeof(hints));
-            hints.ai_family = AF_INET;
-            hints.ai_socktype = SOCK_STREAM;
-            
-            struct addrinfo* result = nullptr;
-            int status = getaddrinfo(hostname.c_str(), nullptr, &hints, &result);
-            
-            if (status == 0 && result != nullptr) {
-                freeaddrinfo(result);
-                return true;
-            }
-            return false;
-        #endif
-    } catch (...) {
-        return false;
-    }
-}
+

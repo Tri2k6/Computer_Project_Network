@@ -33,9 +33,9 @@ class KeyloggerUI {
             // Vẫn gọi callback gốc để main.js có thể update display
             window.gateway.callbacks.onKeylog = (data, senderId) => {
                 // Gọi handler gốc để update display (từ main.js)
-                if (this.originalOnKeylog) {
-                    this.originalOnKeylog(data, senderId);
-                }
+                // if (this.originalOnKeylog) {
+                //     this.originalOnKeylog(data, senderId);
+                // }
                 // Xử lý visual effects và buffer riêng của keylog.js
                 this.handleIncomingKey(data, senderId);
             };

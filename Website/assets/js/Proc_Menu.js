@@ -358,8 +358,11 @@ window.controlProcess = controlProcess;
 const screenText = document.querySelector('.code-text');
 let typingInterval;
 
-function typeEffect(text) {
-    if (!screenText) return;
+function typeEffect(text, screenText) {
+    if (!screenText) {
+        screenText = document.querySelector('.code-text');
+        if (!screenText) return;
+    }
     
     screenText.classList.add('typing-effect');
     screenText.style.width = 'auto';

@@ -364,6 +364,7 @@ const screenText = document.querySelector('.code-text');
 let typingInterval;
 
 function typeEffect(text) {
+    const screenText = document.querySelector('.code-text');
     if (!screenText) return;
     
     screenText.classList.add('typing-effect');

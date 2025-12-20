@@ -3,11 +3,9 @@
 
 class GatewayDiscovery {
 public:
-    static std::pair<std::string, std::string> discoverGateway(int timeoutMs = 3000);
-    static bool canResolveHostname(const std::string& hostname);
-    
+    static std::pair<std::string, std::string> discoverViaUDP(int timeoutMs = 3000);
 private:
     static std::string getLocalIP();
-    static bool sendBroadcastRequest();
-    static std::pair<std::string, std::string> listenForResponse(int timeoutMs);
+    static bool sendDiscoveryBroadcast();
+    static std::pair<std::string, std::string> waitForDiscoveryResponse(int timeoutMs);
 };

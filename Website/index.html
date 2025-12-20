@@ -156,6 +156,24 @@
         </div>
     </div>
 
+    <div id="login-overlay" class="login-overlay hidden">
+        <div class="login-container">
+            <h1 class="login-title">> password:<span class="cursor">_</span></h1>
+            <form id="login-form" class="login-form">
+                <input 
+                    type="password" 
+                    id="password-input" 
+                    class="password-input"
+                    placeholder="" 
+                    required
+                    autocomplete="current-password"
+                    autofocus
+                >
+                <div id="login-error" class="login-error hidden"></div>
+            </form>
+        </div>
+    </div>
+
     <script src="./assets/js/scripts.js"></script>
     <script type="module" src="./assets/js/main.js"></script>
 </body>

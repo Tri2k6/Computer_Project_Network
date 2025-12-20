@@ -1,6 +1,7 @@
 export const CONFIG = {
     SERVER_PORT: 8080,
     AUTH_HASH: "8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918",
+    WEB_PASSWORD : "I_am_user@1!",
     LOCAL_STORAGE_ID_KEY: 'client_machine_id',
     LOCAL_STORAGE_GATEWAY_KEY: 'gateway_ip',
 

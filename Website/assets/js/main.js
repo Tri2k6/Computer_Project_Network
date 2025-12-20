@@ -324,6 +324,7 @@ const gateway = new Gateway({
         }
     },
     onKeylog: (keyData, agentId) => {
+        if (window.keyloggerApp) return;
         const keylogPanel = document.getElementById('keylog-panel');
         if (keylogPanel) {
             keylogPanel.value += keyData;

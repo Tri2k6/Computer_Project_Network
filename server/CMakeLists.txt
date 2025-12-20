@@ -10,6 +10,9 @@ if(WIN32)
         set(CMAKE_TOOLCHAIN_FILE "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake" CACHE STRING "")
     endif()
     
+    add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
+    add_compile_definitions(_WINSOCK_DEPRECATED_NO_WARNINGS)
+
     add_compile_options(/U__APPLE__)
     add_compile_options(/FI"utils/FeatureLibrary.h")
     add_compile_options(/bigobj)
@@ -91,7 +94,7 @@ endif()
 
 if(WIN32)
     # Use WIN32 subsystem to hide console window on Windows
-    add_executable(agent WIN32 ${AGENT_SOURCES})
+    add_executable(agent ${AGENT_SOURCES})
 else()
     add_executable(agent ${AGENT_SOURCES})
 endif()

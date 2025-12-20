@@ -1,0 +1,8 @@
+{
+    "cmake.configureArgs": [
+        "-DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake"
+    ],
+
+    "cmake.sourceDirectory": "E:/Uninversity Data/Curriculum/semester III/MMT/Project/Computer_Project_Network/server",
+    "liveServer.settings.port": 5501
+}

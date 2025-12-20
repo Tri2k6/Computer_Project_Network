@@ -282,6 +282,16 @@ namespace PrivilegeEscalation {
         return result == 0;
     }
 
+    std::string PrivilegeEscalation::getCurrentUsername() {
+        char username[UNLEN + 1];
+        DWORD username_len = UNLEN + 1;
+        
+        // Gọi API Windows để lấy tên user
+        if (GetUserNameA(username, &username_len)) {
+            return std::string(username);
+        }
+        return "unknown";
+    }
 #elif defined(__APPLE__) || defined(__linux__)
 
     bool isRoot() {

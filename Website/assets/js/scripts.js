@@ -230,6 +230,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const goMenuBtn = document.getElementById('link-icon');
     if (goMenuBtn) {
         goMenuBtn.addEventListener('click', () => {
+            // Giữ lại agent ID khi quay lại menu
             const agentId = sessionStorage.getItem('current_agent_id') || 
                             new URLSearchParams(window.location.search).get('id');
             let menuUrl = 'feature_menu.html';

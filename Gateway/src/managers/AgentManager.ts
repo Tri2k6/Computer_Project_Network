@@ -16,7 +16,7 @@ export interface ConnectionHistory {
 }
 
 export class AgentManager {
-    private agents: Map<string, Connection> = new Map(); // Key: machineId, Value: Connection
+    private agents: Map<string, Connection> = new Map();
 
     constructor(
         private dbManager: DatabaseManager,
@@ -35,9 +35,6 @@ export class AgentManager {
     }
 
     public addAgent(conn: Connection) {
-        // Use machineId as key instead of session ID to handle reconnects properly
-        // ConnectionRegistry already handles closing old connections during reconnect,
-        // so we just update the mapping here
         if (this.agents.has(conn.machineId)) {
             const oldConn = this.agents.get(conn.machineId);
             if (oldConn && oldConn.id !== conn.id) {
@@ -50,7 +47,6 @@ export class AgentManager {
     }
 
     public removeAgent(id: string) {
-        // Find agent by session ID first, then use machineId to remove
         const conn = this.connectionRegistry.getConnection(id);
         if (!conn || conn.role !== 'AGENT') {
             return;

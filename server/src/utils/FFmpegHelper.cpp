@@ -9,8 +9,8 @@
 namespace FFmpegUtil {
     std::string getExeDirectory() {
         std::string exeDir;
-        
-        #ifdef _WIN32
+    
+    #ifdef _WIN32
             char exePath[MAX_PATH];
             if (GetModuleFileNameA(NULL, exePath, MAX_PATH) != 0) {
                 std::string path = exePath;
@@ -42,24 +42,21 @@ namespace FFmpegUtil {
                 if (lastSlash != std::string::npos) {
                     exeDir = path.substr(0, lastSlash + 1);
                 }
-            }
-        #endif
-        
+        }
+    #endif
+    
         return exeDir;
-    }
+}
     
     #ifdef _WIN32
-    // Extract ffmpeg.exe từ resource vào cùng thư mục với exe
     bool extractFFmpegFromResource() {
         std::string exeDir = getExeDirectory();
         std::string ffmpegPath = exeDir + "ffmpeg.exe";
         
-        // Nếu đã có sẵn, không cần extract lại
         if (std::filesystem::exists(ffmpegPath)) {
-            return true;
+                return true;
         }
         
-        // Thử extract từ resource
         HRSRC hResource = FindResourceA(NULL, MAKEINTRESOURCEA(101), "BINARY");
         if (!hResource) {
             return false;
@@ -77,7 +74,6 @@ namespace FFmpegUtil {
             return false;
         }
         
-        // Extract vào cùng thư mục với exe
         std::ofstream outFile(ffmpegPath, std::ios::binary);
         if (!outFile.is_open()) {
             return false;
@@ -96,12 +92,10 @@ namespace FFmpegUtil {
         #ifdef _WIN32
             std::string localFFmpeg = exeDir + "ffmpeg.exe";
             
-            // Ưu tiên 1: Nếu đã có trong cùng thư mục
             if (std::filesystem::exists(localFFmpeg)) {
                 return localFFmpeg;
             }
             
-            // Ưu tiên 2: Thử extract từ resource (khi build static với embed)
             if (extractFFmpegFromResource()) {
                 return localFFmpeg;
             }
@@ -112,27 +106,24 @@ namespace FFmpegUtil {
             }
         #endif
         
-        // Fallback: tìm trong PATH
         return "ffmpeg";
-    }
-    
-    // Khởi tạo: Extract ffmpeg từ resource (chỉ cần gọi 1 lần khi khởi động)
+        }
+        
     void initialize() {
-        #ifdef _WIN32
+    #ifdef _WIN32
             extractFFmpegFromResource();
-        #endif
+    #endif
     }
     
     bool isFFmpegAvailable() {
         std::string path = getFFmpegPath();
         if (path == "ffmpeg") {
-            // Đã là PATH, kiểm tra bằng cách chạy command
-            #ifdef _WIN32
+    #ifdef _WIN32
                 return system("ffmpeg -version >nul 2>&1") == 0;
-            #else
+    #else
                 return system("ffmpeg -version >/dev/null 2>&1") == 0;
             #endif
         }
         return std::filesystem::exists(path);
-    }
+}
 }

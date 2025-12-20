@@ -56,7 +56,7 @@ std::string CameraRecorder::recordRawData(int durationSeconds) {
         cerr << "[ERROR] Khong tim thay Camera nao!" << endl;
         return "";
     }
-
+    
     std::string cmd;
     #ifdef _WIN32
         cmd = "ffmpeg -loglevel quiet -f dshow -i video=\"" + cameraName + "\" -t " + to_string(durationSeconds) + 

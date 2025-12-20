@@ -123,7 +123,7 @@ async function renderData() {
                     data-action="start"
                     data-app-name="${escapedAppName}"
                     title="Start ${escapedAppName}">
-                    <img src="${playSrc}" alt="Start" width="28" height="28">
+                    <img src="${playSrc}" alt="Start" width="29" height="29">
                 </button>
 
                 <button class="action-btn ${pauseClass}"
@@ -131,7 +131,7 @@ async function renderData() {
                     data-action="stop"
                     data-app-name="${escapedAppName}"
                     title="Stop ${escapedAppName}">
-                    <img src="${pauseSrc}" alt="Stop" width="28" height="28">
+                    <img src="${pauseSrc}" alt="Stop" width="29" height="29">
                 </button>
             </div>
         `;

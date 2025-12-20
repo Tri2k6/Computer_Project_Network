@@ -73,9 +73,6 @@ export class Gateway{
     connect(ip, port = CONFIG.SERVER_PORT, useSecure = true) {
         if (this.ws) {
             console.log(`[Gateway] Closing existing connection before creating new one`);
-            // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/10c16e71-75ba-4efd-b6cb-47716d67b948',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'gateway.js:76',message:'Closing existing connection before creating new one',data:{readyState:this.ws.readyState,wasAuthenticated:this.isAuthenticated,connectionId:this.clientConnectionId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-            // #endregion
             this.ws.close();
             this.ws = null;
         }
@@ -97,19 +94,13 @@ export class Gateway{
         this.ws = new WebSocket(url);
 
         this.ws.onopen = () => {
-            // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/10c16e71-75ba-4efd-b6cb-47716d67b948',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'gateway.js:96',message:'WebSocket onopen - connection opened',data:{url,readyState:this.ws.readyState,protocol:this.ws.protocol,extensions:this.ws.extensions},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-            // #endregion
             console.log(`[Network] Socket opened successfully to ${url}`)
-            console.log(`[Network] Sending AUTH message...`)
-            this.send(
-                CONFIG.CMD.AUTH, {
-                    pass: CONFIG.AUTH_HASH,
-                    role: 'CLIENT',
-                    machineId: this.machineId
-                }
-            );
-            console.log(`[Network] AUTH message sent`)
+            console.log(`[Network] Waiting for user to enter password...`)
+
+            // Gọi callback onConnected để kích hoạt logic tự động auth ở main.js
+            if (this.callbacks.onConnected) {
+                this.callbacks.onConnected();
+            }
         };
 
         this.ws.onmessage = (event) => this._handleInternalMessage(event);
@@ -137,8 +128,13 @@ export class Gateway{
                 console.log(`  1. Page refresh or navigation`);
                 console.log(`  2. Tab/window closed`);
                 console.log(`  3. Browser initiated close`);
-                console.log(`[Network] Not triggering auto-reconnect for intentional close (code 1001)`);
-                // Don't trigger onDisconnected for intentional closes
+            
+                if (wasAuthenticated && this.callbacks.onDisconnected) {
+                    console.log(`[Network] Triggering onDisconnected for navigation (code 1001 but was authenticated)`);
+                    this.callbacks.onDisconnected();
+                } else {
+                    console.log(`[Network] Not triggering onDisconnected (not authenticated or no callback)`);
+                }
                 return;
             } else if (event.code === 1000) {
                 console.log(`[Network] Connection closed normally (code 1000). Intentional close.`);
@@ -193,9 +189,43 @@ export class Gateway{
     }
 
     authenticate() {
-        console.log(`[Gateway] Authenticating as CLIENT with machineId: ${this.machineId}`);
+        if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+            console.warn(`[Gateway] Cannot authenticate: Socket not open.`);
+            return;
+            if (this.callbacks.onError) {
+                this.callbacks.onError(new Error(`[Gateway] Cannot authenticate: Socket not open.`));
+            }
+            return;
+        }
+
+        console.log(`[Gateway] Authenticating with password...`);
         this.send(CONFIG.CMD.AUTH, {
-            pass: CONFIG.AUTH_HASH,
+            pass: password,
+            role: 'CLIENT',
+            machineId: this.machineId
+        });
+    }
+
+    authenticateWithPassword(password) {
+        if (!this.ws || this.ws.readyState !== WebSocket.OPEN) {
+            console.error("[Gateway] Cannot authenticate: WebSocket not open");
+            if (this.callbacks.onError) {
+                this.callbacks.onError(new Error("WebSocket not connected"));
+            }
+            return;
+        }
+        
+        if (!password || !password.trim()) {
+            console.error("[Gateway] Cannot authenticate: Password is required");
+            if (this.callbacks.onError) {
+                this.callbacks.onError(new Error("Password is required"));
+            }
+            return;
+        }
+        
+        console.log(`[Gateway] Authenticating with password...`);
+        this.send(CONFIG.CMD.AUTH, {
+            pass: password.trim(),
             role: 'CLIENT',
             machineId: this.machineId
         });
@@ -310,15 +340,21 @@ export class Gateway{
                 case CONFIG.CMD.AUTH:
                     if (msg.data && msg.data.status === 'ok') {
                         this.isAuthenticated = true;
-                        this.clientConnectionId = msg.data.sessionId;
+                        this.clientConnectionId = msg.data.sessionId || this.machineId;
                         console.log(`[Gateway] Authentication successful! Session: ${this.clientConnectionId}`);
                         this.ui.log('Auth', `Success! Connected as: ${this.clientConnectionId}`, 'info');
                         if (this.callbacks.onAuthSuccess) this.callbacks.onAuthSuccess();
-                        this.refreshAgents();
+                        //this.refreshAgents();
                     } else {
                         console.error(`[Gateway] Auth Failed:`, msg.data);
-                        if (msg.data && msg.data.msg) {
-                            console.error(`[Gateway] Error message: ${msg.data.msg}`);
+                        this.isAuthenticated = false;
+
+                        if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+                            this.ws.close(1008, 'Authentication failed');
+                        }
+
+                        if (this.callbacks.onError) {
+                            this.callbacks.onError(new Error(msg.data.msg || 'Authentication failed'));
                         }
                     }
                     break;

@@ -40,6 +40,10 @@
     #include <shlobj.h>
     #include <shobjidl.h>
     #include <tlhelp32.h>
+    #include <ws2tcpip.h>
+    #include <iphlpapi.h>
+    #pragma comment(lib, "ws2_32.lib")
+    #pragma comment(lib, "iphlpapi.lib")
 
     #ifdef __APPLE__
         #undef __APPLE__
@@ -78,6 +82,15 @@
     #include <sys/sysctl.h>
     #include <sys/types.h>
     #include <unistd.h>
+    #include <ifaddrs.h>
+    #include <netinet/in.h>
+    #include <arpa/inet.h>
+    #include <fcntl.h>
+    #include <unistd.h>
+    #include <sys/socket.h>
+    #include <netdb.h>
+    #include <mach-o/dyld.h>
+    #include <limits.h>
 
     #define POPEN popen
     #define PCLOSE pclose
@@ -106,6 +119,13 @@
     #include <X11/Xlib.h>
     #include <X11/keysym.h>
     #include <X11/extensions/XRecord.h>
+    #include <ifaddrs.h>
+    #include <netinet/in.h>
+    #include <arpa/inet.h>
+    #include <fcntl.h>
+    #include <unistd.h>
+    #include <sys/socket.h>
+    #include <netdb.h>
 
     #define POPEN popen
     #define PCLOSE pclose

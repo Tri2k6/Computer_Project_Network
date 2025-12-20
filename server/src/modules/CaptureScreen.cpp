@@ -1,22 +1,10 @@
 #include "CaptureScreen.h"
 
 std::string CaptureScreen::buildCommand() {
-    #ifdef __APPLE__
-        // macOS: Wrap command trong shell để redirect stderr và ẩn Objective-C warnings
-        // stdout vẫn được giữ để đọc dữ liệu từ pipe
-        return "sh -c 'exec " + OS_CMD + " 2>/dev/null'";
-    #else
-        return OS_CMD;
-    #endif
+    return OS_CMD;
 }
 
 std::vector<unsigned char> CaptureScreen::captureRawBytes() {
-    #ifdef __APPLE__
-        // macOS: Set environment variables to suppress Objective-C warnings
-        setenv("OBJC_DISABLE_INITIALIZE_FORK_SAFETY", "YES", 1);
-        setenv("OBJC_PRINT_WARNINGS", "NO", 1);
-    #endif
-    
     std::string cmd = buildCommand();
     std::vector<unsigned char> imageData;
 

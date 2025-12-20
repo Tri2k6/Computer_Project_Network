@@ -345,9 +345,10 @@ document.addEventListener('DOMContentLoaded', () => {
 window.refreshAppList = refreshAppList;
 window.controlApp = controlApp;
 
-// hiệu ứng gõ chữ và delay khi refresh (cho đẹp)
+let typingInterval = null;
 
 function typeEffect(text) {
+    const screenText = document.querySelector('.code-text');
     if (!screenText) return;
     
     screenText.classList.add('typing-effect');

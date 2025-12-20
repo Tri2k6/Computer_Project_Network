@@ -283,5 +283,12 @@ function typeEffect(text) {
 // ================== BACK TO MENU ==================
 
 function backToMenu() {
-    window.location.href = 'Feature_menu.html';
+    // Giữ lại agent ID khi quay lại menu
+    const agentId = sessionStorage.getItem('current_agent_id') || 
+                    new URLSearchParams(window.location.search).get('id');
+    let menuUrl = 'feature_menu.html';
+    if (agentId) {
+        menuUrl += `?id=${agentId}`;
+    }
+    window.location.href = menuUrl;
 }

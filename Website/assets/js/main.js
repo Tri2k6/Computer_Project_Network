@@ -48,51 +48,181 @@ const ui = {
     }
 };
 
+function showLoginForm() {
+    console.log('[Login] Showing login form...');
+    console.log('[Login] Gateway isAuthenticated:', gateway.isAuthenticated);
+    
+    if (autoConnectState.isAutoAuthenticating) {
+        console.log('[Login] Auto-authentication in progress, skipping login form');
+        return;
+    }
+    
+    if (gateway.isAuthenticated) {
+        console.log('[Login] Already authenticated, skipping login form');
+        return;
+    }
+    const overlay = document.getElementById('login-overlay');
+    if (overlay) {
+        overlay.classList.remove('hidden');
+        console.log('[Login] Login overlay visible:', !overlay.classList.contains('hidden'));
+        // Focus vào input password
+        const passwordInput = document.getElementById('password-input');
+        if (passwordInput) {
+            setTimeout(() => passwordInput.focus(), 100);
+        }
+    } else {
+        console.error('[Login] Login overlay element not found!');
+    }
+}
+
+function hideLoginForm() {
+    const overlay = document.getElementById('login-overlay');
+    if (overlay) {
+        overlay.classList.add('hidden');
+    }
+}
+
+function showLoginError(message) {
+    const errorDiv = document.getElementById('login-error');
+    if (errorDiv) {
+        errorDiv.textContent = message;
+        errorDiv.classList.remove('hidden');
+    }
+}
+
+function hideLoginError() {
+    const errorDiv = document.getElementById('login-error');
+    if (errorDiv) {
+        errorDiv.classList.add('hidden');
+    }
+}
+
+function handleLogin() {
+    const passwordInput = document.getElementById('password-input');
+    const password = passwordInput ? passwordInput.value.trim() : '';
+    
+    if (!password) {
+        showLoginError("Vui lòng nhập mật khẩu");
+        return;
+    }
+    
+    hideLoginError();
+
+    sessionStorage.setItem('saved_password', password);
+    
+    if (passwordInput) {
+        passwordInput.value = '';
+    }
+    
+    // Gửi password qua WebSocket
+    if (gateway.ws && gateway.ws.readyState === WebSocket.OPEN) {
+        gateway.authenticateWithPassword(password);
+    } else {
+        showLoginError("Chưa kết nối đến Gateway. Vui lòng đợi...");
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const loginForm = document.getElementById('login-form');
+    const passwordInput = document.getElementById('password-input');
+    
+    if (loginForm) {
+        loginForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            handleLogin();
+        });
+    }
+
+    if (passwordInput) {
+        passwordInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                handleLogin();
+            }
+        });
+        
+        passwordInput.addEventListener('blur', () => {
+            if (passwordInput.value.trim()) {
+                handleLogin();
+            }
+        });
+    }
+});
+
 let autoConnectState = {
     hasTriedDiscovery: false,
-    isConnecting: false
+    isConnecting: false,
+    isAutoAuthenticating: false // Flag để tránh hiển thị login form khi đang auto-auth
 };
 
 const gateway = new Gateway({
     onConnected: () => {
-        ui.log("System", "Đã kết nối tới Gateway! Đang đăng nhập tự động...");
+        console.log('[Main] onConnected called - isAuthenticated:', gateway.isAuthenticated);
+        ui.log("System", "Connected to Gateway!");
         appState.isConnected = true;
         autoConnectState.isConnecting = false;
-        autoConnectState.hasTriedDiscovery = false; // Reset discovery flag on successful connection
+        autoConnectState.hasTriedDiscovery = false;
         if (gateway.ws && gateway.ws.url) {
             const url = new URL(gateway.ws.url);
             appState.lastConnectedHost = url.hostname;
         }
-        console.log(`[Auto] Connection established, stopping any ongoing discovery...`);
-        setTimeout(() => {
-            gateway.authenticate();
-        }, 100);
+        
+        hideLoginForm();
+        
+        const savedPassword = sessionStorage.getItem('saved_password');
+        const wasAuthenticated = sessionStorage.getItem('is_authenticated') === 'true';
+        
+        if (savedPassword && wasAuthenticated && !gateway.isAuthenticated) {
+            autoConnectState.isAutoAuthenticating = true;
+            console.log('[Auto] Auto-authenticating with saved password...');
+            gateway.authenticateWithPassword(savedPassword);
+            return;
+        } else {
+            console.log(`[Auto] Connection established, showing login form...`);
+            console.log(`[Auto] Gateway isAuthenticated:`, gateway.isAuthenticated);
+            showLoginForm();
+        }
     },
     onDisconnected: () => {
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/10c16e71-75ba-4efd-b6cb-47716d67b948',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'main.js:70',message:'onDisconnected callback triggered',data:{lastCloseCode:gateway._lastCloseCode,isConnecting:autoConnectState.isConnecting,hasTriedDiscovery:autoConnectState.hasTriedDiscovery},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
-        // #endregion
-        ui.warn("System", "Mất kết nối Gateway.");
+        if (!gateway.isAuthenticated) {
+            showLoginForm();
+        }
         appState.isConnected = false;
         appState.agents = [];
         autoConnectState.isConnecting = false;
         autoConnectState.hasTriedDiscovery = false;
         
-        // Only auto-reconnect if we were actually connected
-        // Don't reconnect if connection was intentionally closed (code 1001/1000)
-        console.log(`[Auto] Connection lost, will attempt reconnect in 3 seconds...`);
-        setTimeout(() => {
-            if (!appState.isConnected && !autoConnectState.isConnecting) {
-                console.log(`[Auto] Attempting auto-reconnect...`);
-                // #region agent log
-                fetch('http://127.0.0.1:7242/ingest/10c16e71-75ba-4efd-b6cb-47716d67b948',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'main.js:82',message:'Auto-reconnect triggered from onDisconnected',data:{isConnecting:autoConnectState.isConnecting},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
-                // #endregion
-                autoConnect();
-            }
-        }, 3000);
+        const wasNavigation = gateway._lastCloseCode === 1001;
+        const savedPassword = sessionStorage.getItem('saved_password');
+        const wasAuthenticated = sessionStorage.getItem('is_authenticated') === 'true';
+        
+        // Nếu là navigation (code 1001) và có saved password, reconnect ngay lập tức
+        if (wasNavigation && savedPassword && wasAuthenticated) {
+            console.log(`[Auto] Navigation detected, will reconnect immediately...`);
+            // Reconnect ngay lập tức cho navigation
+            setTimeout(() => {
+                if (!appState.isConnected && !autoConnectState.isConnecting) {
+                    console.log(`[Auto] Attempting auto-reconnect after navigation...`);
+                    autoConnect();
+                }
+            }, 100);
+        } else {
+            console.log(`[Auto] Connection lost, will attempt reconnect in 3 seconds...`);
+            setTimeout(() => {
+                if (!appState.isConnected && !autoConnectState.isConnecting) {
+                    console.log(`[Auto] Attempting auto-reconnect...`);
+                    autoConnect();
+                }
+            }, 3000);
+        }
     },
     onAuthSuccess: () => {
-        ui.log("System", "Đăng nhập thành công! Đang tải danh sách Agent...");
+        autoConnectState.isAutoAuthenticating = false;
+        sessionStorage.setItem('is_authenticated', 'true');
+        
+        hideLoginForm();
+        hideLoginError();
+        ui.log("System", "Authentication successful! Refreshing agent list...");
         setTimeout(() => {
             gateway.refreshAgents();
         }, 500);
@@ -206,6 +336,29 @@ const gateway = new Gateway({
     },
     onError: (err) => {
         ui.error("Main", err);
+        let errorMessage = "Login failed!";
+
+        if (err && err.message) {
+            errorMessage = err.message;
+        } else if (err && err.toString) {
+            errorMessage = err.toString();
+        }
+
+        const isAuthError = errorMessage.toLowerCase().includes("password") || 
+                       errorMessage.toLowerCase().includes("authentication") || 
+                       errorMessage.toLowerCase().includes("wrong") ||
+                       errorMessage.toLowerCase().includes("failed");
+
+        if (isAuthError) {
+            // Reset flag nếu auth failed
+            autoConnectState.isAutoAuthenticating = false;
+            sessionStorage.removeItem('saved_password');
+            sessionStorage.removeItem('is_authenticated');
+            showLoginError('Incorrect password! Please try again.');
+            showLoginForm();
+        } else {
+            console.error("[Main] error:", errorMessage);
+        }
     }
 });
 
@@ -301,9 +454,32 @@ async function autoConnect() {
     }
 }
 
+// Xử lý khi đóng tab: xóa sessionStorage để đảm bảo lần mở tab mới sẽ cần authenticate lại
+window.addEventListener('beforeunload', () => {
+
+});
+
 document.addEventListener('DOMContentLoaded', () => {
+    hideLoginForm();
+    hideLoginError();
+    
     window.help();
-    autoConnect();
+    const checkAndAutoAuth = () => {
+        if (gateway.ws && gateway.ws.readyState === WebSocket.OPEN) {
+            const savedPassword = sessionStorage.getItem('saved_password');
+            const wasAuthenticated = sessionStorage.getItem('is_authenticated') === 'true';
+            
+            if (savedPassword && wasAuthenticated && !gateway.isAuthenticated) {
+                autoConnectState.isAutoAuthenticating = true;
+                console.log('[Auto] WebSocket already connected but not authenticated, auto-authenticating...');
+                gateway.authenticateWithPassword(savedPassword);
+                return;
+            }
+        }
+        autoConnect();
+    };
+    
+    setTimeout(checkAndAutoAuth, 100);
 });
 
 window.getAgentList = () => {
@@ -393,6 +569,15 @@ window.restartAgent = () => {
     if (confirm("RESTART?")) {
         Logic.restartAgent();
     }
+}
+
+window.logout = () => {
+    sessionStorage.removeItem('saved_password');
+    sessionStorage.removeItem('is_authenticated');
+    gateway.disconnect();
+    showLoginForm();
+    hideLoginError();
+    ui.log("System", "Logged out!");
 }
 
 window.demoFileList = () => {

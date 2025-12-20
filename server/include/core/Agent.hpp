@@ -10,8 +10,8 @@ public:
     explicit Agent(boost::asio::io_context& ioc);
     void run();
 private:
-    void selectConnectionMethod();
-    void connect();
+    void discoverGateway();
+    void connectToGateway();
     void onConnected();
     void onDisconnected();
     void onMessage(const std::string& payload);

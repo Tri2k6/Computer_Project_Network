@@ -230,7 +230,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const goMenuBtn = document.getElementById('link-icon');
     if (goMenuBtn) {
         goMenuBtn.addEventListener('click', () => {
-            window.location.href = 'feature_menu.html';
+            const agentId = sessionStorage.getItem('current_agent_id') || 
+                            new URLSearchParams(window.location.search).get('id');
+            let menuUrl = 'feature_menu.html';
+            if (agentId) {
+                menuUrl += `?id=${agentId}`;
+            }
+            window.location.href = menuUrl;
         });
     }
 });

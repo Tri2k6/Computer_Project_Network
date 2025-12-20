@@ -38,6 +38,9 @@ export function setTarget(agentId) {
         return false;
     }
     window.gateway.setTarget(agentId);
+    if (agentId && agentId !== 'ALL') {
+        sessionStorage.setItem('current_agent_id', agentId);
+    }
     return true;
 }
 
@@ -47,13 +50,22 @@ export function setTarget(agentId) {
  */
 export function initAgentTargetFromURL(onTargetSet) {
     const urlParams = new URLSearchParams(window.location.search);
-    const agentId = urlParams.get('id');
+    let agentId = urlParams.get('id');
+    
+    if (!agentId) {
+        agentId = sessionStorage.getItem('current_agent_id');
+        if (agentId) {
+            const newUrl = new URL(window.location.href);
+            newUrl.searchParams.set('id', agentId);
+            window.history.replaceState({}, '', newUrl);
+        }
+    }
     
     if (agentId) {
         const checkAndSetTarget = () => {
             if (window.gateway && window.gateway.isAuthenticated) {
                 if (window.gateway.agentsList && window.gateway.agentsList.length > 0) {
-                    window.gateway.setTarget(agentId);
+                    setTarget(agentId); // Dùng setTarget để lưu vào sessionStorage
                     console.log(`[Logic] Set target to agent: ${agentId}`);
                     if (onTargetSet && typeof onTargetSet === 'function') {
                         onTargetSet();

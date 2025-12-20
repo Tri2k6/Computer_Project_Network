@@ -4,6 +4,7 @@
 #include "FeatureLibrary.h"
 #include "GatewayDiscovery.h"
 #include "PrivilegeEscalation.h"
+#include <exception>
 
 
 using json = nlohmann::json;
@@ -25,20 +26,33 @@ Agent::Agent(boost::asio::io_context& ioc) : ioc_(ioc), dispatcher_(std::make_sh
 
 void Agent::run() {
     cout << "[Agent] Starting service on: " << agentID_ << "\n" << std::flush;
-    selectConnectionMethod();
+    discoverGateway();
     cout << "[Network] ========================================\n" << std::flush;
     cout << "[Network] Proceeding to connect...\n" << std::flush;
-    connect();    
+    connectToGateway();    
 }
 
-void Agent::selectConnectionMethod() {
-    // Direct connection to fixed IP - no discovery, no DNS check
-    discoveredHost_ = Config::SERVER_HOST;
-    discoveredPort_ = Config::SERVER_PORT;
-    cout << "[Network] Connecting directly to: " << discoveredHost_ << ":" << discoveredPort_ << "\n" << std::flush;
+void Agent::discoverGateway() {
+    cout << "[Network] Starting UDP Discovery to find Gateway...\n" << std::flush;
+    try {
+        auto result = GatewayDiscovery::discoverViaUDP(3000);
+
+        if (!result.first.empty()) {
+            discoveredHost_ = result.first;
+            discoveredPort_ = result.second.empty() ? "8080" : result.second;
+        } else {
+            cout << "[Network] Gateway not found via UDP Discovery\n" << std::flush;
+            discoveredHost_ = "";
+            discoveredPort_ = "";
+        }
+    } catch (const std::exception& e) {
+        std::cerr << "[Network] Discovery error: " << e.what() << "\n" << std::flush;
+        discoveredHost_ = "";
+        discoveredPort_ = "";
+    }
 }
 
-void Agent::connect() {
+void Agent::connectToGateway() {
     if (discoveredHost_.empty()) {
         std::cerr << "[Network] No Gateway discovered. Cannot connect.\n" << std::flush;
         onDisconnected();
@@ -133,8 +147,8 @@ void Agent::onDisconnected() {
     retryTimer_->async_wait([this](const boost::system::error_code& ec) {
         if (!ec) {
             cout << "[Network] Retrying Discovery...\n" << std::flush;
-            selectConnectionMethod();
-            connect();
+            discoverGateway();
+            connectToGateway();
         }
     });
 }

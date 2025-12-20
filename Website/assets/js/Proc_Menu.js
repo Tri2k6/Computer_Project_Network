@@ -333,7 +333,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Typing Effect
     const textElement = document.querySelector('.code-text');
     if (textElement) {
-        typeEffect('Successful');
+        typeEffect('Successful', textElement);
     }
 });
 
@@ -342,9 +342,13 @@ window.refreshProcessList = refreshProcessList;
 window.controlProcess = controlProcess;
 
 // hiệu ứng gõ chữ và delay khi refresh (cho đẹp)
+let typingInterval = null;
 
-function typeEffect(text) {
-    if (!screenText) return;
+function typeEffect(text, screenText) {
+    if (!screenText) {
+        screenText = document.querySelector('.code-text');
+        if (!screenText) return;
+    }
     
     screenText.classList.add('typing-effect');
     screenText.style.width = 'auto';

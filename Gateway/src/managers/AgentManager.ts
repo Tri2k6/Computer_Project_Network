@@ -16,7 +16,7 @@ export interface ConnectionHistory {
 }
 
 export class AgentManager {
-    private agents: Map<string, Connection> = new Map();
+    private agents: Map<string, Connection> = new Map(); // Key: machineId, Value: Connection
 
     constructor(
         private dbManager: DatabaseManager,
@@ -35,22 +35,29 @@ export class AgentManager {
     }
 
     public addAgent(conn: Connection) {
-        if (this.agents.has(conn.id)) {
-            Logger.warn(`[AgentManager] Agent ${conn.name || conn.id} (${conn.id}) reconnecting... closing old socket.`);
-            const oldConn = this.agents.get(conn.id);
-            oldConn?.close();
+        // Use machineId as key instead of session ID to handle reconnects properly
+        // ConnectionRegistry already handles closing old connections during reconnect,
+        // so we just update the mapping here
+        if (this.agents.has(conn.machineId)) {
+            const oldConn = this.agents.get(conn.machineId);
+            if (oldConn && oldConn.id !== conn.id) {
+                Logger.warn(`[AgentManager] Agent ${conn.name || conn.machineId} (${conn.machineId}) reconnecting... replacing old connection ${oldConn.id} with ${conn.id}.`);
+            }
         }
 
-        this.agents.set(conn.id, conn);
+        this.agents.set(conn.machineId, conn);
         Logger.info(`[AgentManager] Agent added: ${conn.name || 'Unknown'} (${conn.id}) - Machine: ${conn.machineId}. Total agents: ${this.agents.size}`);
     }
 
     public removeAgent(id: string) {
-        const conn = this.agents.get(id);
+        // Find agent by session ID first, then use machineId to remove
+        const conn = this.connectionRegistry.getConnection(id);
+        if (!conn || conn.role !== 'AGENT') {
+            return;
+        }
 
-        if (conn) {
-            this.agents.delete(id);
-            
+        const removed = this.agents.delete(conn.machineId);
+        if (removed) {
             this.dbManager.removeConnection(
                 id,
                 conn.name || id,
@@ -59,7 +66,7 @@ export class AgentManager {
                 conn.ip
             );
 
-            Logger.info(`[AgentManager] Agent removed: ${conn.name || 'Unknown'} (${id}). Total agents: ${this.agents.size}`);
+            Logger.info(`[AgentManager] Agent removed: ${conn.name || 'Unknown'} (${conn.machineId}). Total agents: ${this.agents.size}`);
         }
     }
 

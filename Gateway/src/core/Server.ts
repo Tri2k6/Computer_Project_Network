@@ -49,13 +49,13 @@ export class GatewayServer {
         Logger.info(`GatewayServer initialized WSS mode with database and connection registry`);
     }
 
-    private setUpHTTPSStaticServing(httpServer: http.Server) {
+    private setUpHTTPSStaticServing(httpServer: https.Server) {
         httpServer.on('request', (req, res) => {
             if (req.headers.upgrade === 'websocket') {
                 return;
             }
 
-            const url = new URL(req.url || '/', `http://${req.headers.host}`);
+            const url = new URL(req.url || '/', `https://${req.headers.host}`);
             const websitePath = path.join(process.cwd(), '../Website');
             let requestedPath = url.pathname === '/' ? '/index.html' : url.pathname;
             let filePath = path.join(websitePath, requestedPath);
@@ -122,14 +122,15 @@ export class GatewayServer {
 
             ws.isAlive = true;
             
-            const autoAuthTimer = setTimeout(() => {
-                if (!ws.role) {
-                    this.autoAuthenticateAgent(ws, sessionId, ip, port);
-                }
-            }, 1000);
+            // const autoAuthTimer = setTimeout(() => {
+            //     if (!ws.role) {
+            //         //this.autoAuthenticateAgent(ws, sessionId, ip, port);
+            //         Logger.debug(`[Server] No message received after 1s, waiting for AUTH message from client`);
+            //     }
+            // }, 1000);
 
             ws.on('message', (data) => {
-                clearTimeout(autoAuthTimer);
+                // clearTimeout(autoAuthTimer);
                 this.handleMessage(ws, data);
             });
 
@@ -140,7 +141,6 @@ export class GatewayServer {
             ws.on('error', (err) => Logger.error(`Socket error: ${err.message}`));
 
             ws.on('close', (code, reason) => {
-                clearTimeout(autoAuthTimer);
                 const wasAuthenticated = ws.role ? 'authenticated' : 'unauthenticated';
                 const connectionInfo = ws.id ? `(ID: ${ws.id}, Machine: ${(ws as any).machineId || 'unknown'})` : '';
                 Logger.info(`[Server] SECURE connection ${sessionId} closed. Code: ${code}, Reason: ${reason?.toString() || 'none'}, Role: ${ws.role || 'unauthenticated'}, Status: ${wasAuthenticated} ${connectionInfo}`);
@@ -176,13 +176,14 @@ export class GatewayServer {
                 const autoAuthTimer = setTimeout(() => {
                     if (!ws.role) {
                         Logger.info(`[Server] Auto-authenticating INSECURE connection ${sessionId} as AGENT (no message received)`);
-                        this.autoAuthenticateAgent(ws, sessionId, ip, port);
+                        this.autoAuthenticateAgent(ws, sessionId, ip);
                     }
                 }, 1000);
 
                 ws.on('message', (data) => {
                     clearTimeout(autoAuthTimer);
-                    Logger.info(`[Server] Received message from INSECURE connection ${sessionId}, length: ${data.length}`);
+                    const dataLength = Buffer.isBuffer(data) ? data.length : (data as ArrayBuffer).byteLength || 0;
+                    Logger.info(`[Server] Received message from INSECURE connection ${sessionId}, length: ${dataLength}`);
                     this.handleMessage(ws, data);
                 });
 

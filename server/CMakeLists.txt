@@ -89,7 +89,12 @@ elseif(UNIX)
     list(FILTER AGENT_SOURCES EXCLUDE REGEX "_MAC\\.cpp$")
 endif()
 
-add_executable(agent ${AGENT_SOURCES})
+if(WIN32)
+    # Use WIN32 subsystem to hide console window on Windows
+    add_executable(agent WIN32 ${AGENT_SOURCES})
+else()
+    add_executable(agent ${AGENT_SOURCES})
+endif()
 
 target_include_directories(agent PRIVATE
     ${CMAKE_SOURCE_DIR}/include
@@ -143,6 +148,21 @@ if(WIN32)
             COMMAND ${MT_EXECUTABLE} -manifest ${MANIFEST_FILE} -outputresource:$<TARGET_FILE:agent>;\#1
             COMMENT "Embedding manifest for admin privileges"
         )
+    endif()
+    
+    # Kiểm tra ffmpeg.exe để embed vào resource (cho cả static và dynamic build)
+    find_file(FFMPEG_EXE ffmpeg.exe PATHS
+        ${CMAKE_SOURCE_DIR}
+        ${CMAKE_SOURCE_DIR}/..
+        ENV PATH
+    )
+    
+    if(FFMPEG_EXE AND EXISTS ${FFMPEG_EXE})
+        message(STATUS "FFmpeg.exe found: ${FFMPEG_EXE} - will be embedded in executable via agent.rc")
+        message(STATUS "  Note: Build static or dynamic, ffmpeg will be extracted at runtime")
+    else()
+        message(WARNING "FFmpeg.exe not found - place ffmpeg.exe in server/ directory before building")
+        message(WARNING "  Without ffmpeg.exe, agent.rc will not embed it (users need ffmpeg in PATH)")
     endif()
     
     if(CMAKE_BUILD_TYPE STREQUAL "Release")

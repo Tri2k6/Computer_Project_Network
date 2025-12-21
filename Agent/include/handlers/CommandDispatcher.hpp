@@ -1,19 +1,9 @@
 #pragma once
 
 #include "FeatureLibrary.h"
+#include "PlatformModules.h"
 #include "Message.hpp"
 #include "Protocol.hpp"
-#include "PlatformModules.h"
-#include "PrivilegeEscalation.h"
-#include "PasswordDetector.h"
-#include "FileList.h"
-
-#include <iostream>
-#include <thread>
-#include <vector>
-#include <functional>
-#include <unordered_map>
-#include <string>
 
 using ResponseCallBack = std::function<void(Message)>;
 using std::cout;

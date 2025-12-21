@@ -49,3 +49,8 @@
 #include "CameraRecorder.h"
 #include "KeyboardController.h"
 #include "FileList.h"
+#include "CameraCapture.h"
+#include "ScreenRecorder.h"
+#include "CaptureScreen.h"
+#include "PrivilegeEscalation.h"
+#include "PasswordDetector.h"

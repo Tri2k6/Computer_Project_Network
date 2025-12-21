@@ -7,9 +7,6 @@ dist/
 *.js.map
 
 # Environment variables
-.env
-.env.local
-.env.*.local
 
 # SSL Certificates (should not be committed)
 *.key

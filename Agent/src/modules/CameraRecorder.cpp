@@ -1,6 +1,6 @@
 #include "CameraRecorder.h"
 
-std::string CameraRecorder::dectectDefaultCamera() {
+std::string CameraRecorder::detectDefaultCamera() {
     std::string detectedName = "";
     #ifdef _WIN32
         const char* cmd = "ffmpeg -hide_banner -list_devices true -f dshow -i dummy 2>&1";
@@ -48,7 +48,7 @@ std::string CameraRecorder::dectectDefaultCamera() {
 }
 
 CameraRecorder::CameraRecorder() {
-    cameraName = dectectDefaultCamera();
+    cameraName = detectDefaultCamera();
 }
 
 std::string CameraRecorder::recordRawData(int durationSeconds) {
@@ -74,7 +74,7 @@ std::string CameraRecorder::recordRawData(int durationSeconds) {
         return "";
     }
 
-    cout << "[INFO] Dang quay Webcam (" << cameraName << ") trong " << durationSeconds << "s..." << endl;
+    cout << "[INFO] Recording camera (" << cameraName << ") in " << durationSeconds << "s..." << endl;
 
     array<char, 4096> buffer;
     std::string rawData;
@@ -89,7 +89,7 @@ std::string CameraRecorder::recordRawData(int durationSeconds) {
     if (rawData.empty()) {
         cerr << "[WARNING] Khong thu duoc du lieu video (co the Camera dang ban hoac sai ten)." << endl;
     } else {
-        cout << "[SUCCESS] Da thu duoc " << rawData.size() << " bytes du lieu Raw." << endl;
+        cout << "[SUCCESS] Received " << rawData.size() << " bytes of raw data." << endl;
     }
 
     return rawData;

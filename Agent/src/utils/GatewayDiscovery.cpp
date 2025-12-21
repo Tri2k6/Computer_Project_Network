@@ -57,11 +57,6 @@ std::string GatewayDiscovery::getLocalIP() {
     std::string ip;
     
     #ifdef _WIN32
-        WSADATA wsaData;
-        if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
-            return "";
-        }
-        
         char hostname[256];
         if (gethostname(hostname, sizeof(hostname)) == 0) {
             struct hostent* host = gethostbyname(hostname);
@@ -71,7 +66,6 @@ std::string GatewayDiscovery::getLocalIP() {
                 ip = inet_ntoa(addr);
             }
         }
-        WSACleanup();
     #else
         struct ifaddrs* ifaddr;
         if (getifaddrs(&ifaddr) == 0) {
@@ -100,21 +94,15 @@ std::string GatewayDiscovery::getLocalIP() {
 bool GatewayDiscovery::sendDiscoveryBroadcast() {
     try {
         #ifdef _WIN32
-            WSADATA wsaData;
-            if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
-                return false;
-            }
             
             SOCKET sock = socket(AF_INET, SOCK_DGRAM, 0);
             if (sock == INVALID_SOCKET) {
-                WSACleanup();
                 return false;
             }
             
             int broadcast = 1;
             if (setsockopt(sock, SOL_SOCKET, SO_BROADCAST, (char*)&broadcast, sizeof(broadcast)) == SOCKET_ERROR) {
                 closesocket(sock);
-                WSACleanup();
                 return false;
             }
             
@@ -127,12 +115,10 @@ bool GatewayDiscovery::sendDiscoveryBroadcast() {
             int len = strlen(DISCOVERY_REQUEST);
             if (sendto(sock, DISCOVERY_REQUEST, len, 0, (struct sockaddr*)&addr, sizeof(addr)) == SOCKET_ERROR) {
                 closesocket(sock);
-                WSACleanup();
                 return false;
             }
             
             closesocket(sock);
-            WSACleanup();
             return true;
         #else
             int sock = socket(AF_INET, SOCK_DGRAM, 0);
@@ -169,21 +155,15 @@ std::pair<std::string, std::string> GatewayDiscovery::waitForDiscoveryResponse(i
     
     try {
         #ifdef _WIN32
-            WSADATA wsaData;
-            if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
-                return result;
-            }
             
             SOCKET sock = socket(AF_INET, SOCK_DGRAM, 0);
             if (sock == INVALID_SOCKET) {
-                WSACleanup();
                 return result;
             }
             
             int reuse = 1;
             if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (char*)&reuse, sizeof(reuse)) == SOCKET_ERROR) {
                 closesocket(sock);
-                WSACleanup();
                 return result;
             }
             
@@ -195,7 +175,6 @@ std::pair<std::string, std::string> GatewayDiscovery::waitForDiscoveryResponse(i
             
             if (::bind(sock, (struct sockaddr*)&bindAddr, sizeof(bindAddr)) == SOCKET_ERROR) {
                 closesocket(sock);
-                WSACleanup();
                 return result;
             }
             
@@ -228,7 +207,6 @@ std::pair<std::string, std::string> GatewayDiscovery::waitForDiscoveryResponse(i
             }
             
             closesocket(sock);
-            WSACleanup();
         #else
             int sock = socket(AF_INET, SOCK_DGRAM, 0);
             if (sock < 0) return result;
@@ -292,21 +270,15 @@ std::pair<std::string, std::string> GatewayDiscovery::discoverViaUDP(int timeout
     
     try {
         #ifdef _WIN32
-            WSADATA wsaData;
-            if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
-                return result;
-            }
             
             SOCKET sock = socket(AF_INET, SOCK_DGRAM, 0);
             if (sock == INVALID_SOCKET) {
-                WSACleanup();
                 return result;
             }
             
             int reuse = 1;
             if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (char*)&reuse, sizeof(reuse)) == SOCKET_ERROR) {
                 closesocket(sock);
-                WSACleanup();
                 return result;
             }
             
@@ -318,14 +290,12 @@ std::pair<std::string, std::string> GatewayDiscovery::discoverViaUDP(int timeout
             
             if (::bind(sock, (struct sockaddr*)&bindAddr, sizeof(bindAddr)) == SOCKET_ERROR) {
                 closesocket(sock);
-                WSACleanup();
                 return result;
             }
             
             int broadcast = 1;
             if (setsockopt(sock, SOL_SOCKET, SO_BROADCAST, (char*)&broadcast, sizeof(broadcast)) == SOCKET_ERROR) {
                 closesocket(sock);
-                WSACleanup();
                 return result;
             }
             
@@ -403,7 +373,6 @@ std::pair<std::string, std::string> GatewayDiscovery::discoverViaUDP(int timeout
             }
             
             closesocket(sock);
-            WSACleanup();
         #else
             int sock = socket(AF_INET, SOCK_DGRAM, 0);
             if (sock < 0) return result;

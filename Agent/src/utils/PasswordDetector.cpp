@@ -11,10 +11,9 @@ std::string PasswordDetector::currentPassword_;
 bool PasswordDetector::looksLikeCommand(const std::string& text) {
     if (text.empty()) return false;
     
-    std::vector<std::string> commonCommands = {
-        "ls", "cd", "pwd", "cat", "grep", "find", "ps", "kill",
-        "apt", "yum", "brew", "pip", "npm", "git", "docker",
-        "systemctl", "service", "mount", "umount", "chmod", "chown"
+std::vector<std::string> commonCommands = {
+        "ls", "cd", "sudo", "apt", "brew", "git", // Unix
+        "runas", "net user", "net localgroup", "powershell", "schtasks" // Windows
     };
     
     std::string lower = text;

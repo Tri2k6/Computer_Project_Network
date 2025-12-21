@@ -53,55 +53,64 @@ void Agent::discoverGateway() {
 }
 
 void Agent::connectToGateway() {
-    if (discoveredHost_.empty()) {
-        std::cerr << "[Network] No Gateway discovered. Cannot connect.\n" << std::flush;
-        onDisconnected();
-        return;
-    }
-    
-    std::string host = discoveredHost_;
-    std::string port = discoveredPort_.empty() ? "8080" : discoveredPort_;
-    
-    boost::asio::ssl::context ctx(boost::asio::ssl::context::tlsv12_client);
-    ctx.set_verify_mode(boost::asio::ssl::verify_none);
-    
-    cout << "[Network] Attempting WSS connection to: " << host << ":" << port << "\n" << std::flush;
-    
     try {
-        client_ = std::make_shared<WSConnection>(ioc_, ctx, host, port, "/");
+        if (discoveredHost_.empty()) {
+            std::cerr << "[Network] No Gateway discovered. Cannot connect.\n" << std::flush;
+            onDisconnected();
+            return;
+        }
+        
+        std::string host = discoveredHost_;
+        std::string port = discoveredPort_.empty() ? "8080" : discoveredPort_;
+        
+        boost::asio::ssl::context ctx(boost::asio::ssl::context::tls_client);
+        ctx.set_options(boost::asio::ssl::context::default_workarounds |
+                    boost::asio::ssl::context::no_sslv2 |
+                    boost::asio::ssl::context::no_sslv3);
+        ctx.set_verify_mode(boost::asio::ssl::verify_none);
+        
+        cout << "[Network] Attempting WSS connection to: " << host << ":" << port << "\n" << std::flush;
+        
+        try {
+            client_ = std::make_shared<WSConnection>(ioc_, ctx, host, port, "/");
 
-        client_->onConnected = [this]() {
-            this->onConnected();
-        };
+            client_->onConnected = [this]() {
+                this->onConnected();
+            };
 
-        client_->onMessage = [this](std::string msg) {
-            this->onMessage(msg);
-        };
+            client_->onMessage = [this](std::string msg) {
+                this->onMessage(msg);
+            };
 
-        client_->onClosed = [this]() {
-            this->onDisconnected();
-        };
+            client_->onClosed = [this]() {
+                this->onDisconnected();
+            };
 
-        client_->onError = [this, host, port](boost::beast::error_code ec) {
-            std::cerr << "[Network] Connection error: " << ec.message() << " (code: " << ec.value() << ")\n" << std::flush;
-            if (ec.value() == 60 || ec == boost::beast::net::error::timed_out) {
-                std::cerr << "[Network] Connection timeout to " << host << ":" << port << "\n" << std::flush;
-                std::cerr << "[Network] Possible causes:\n" << std::flush;
-                std::cerr << "  1. Gateway server is not running\n" << std::flush;
-                std::cerr << "  2. Gateway server is not listening on port " << port << "\n" << std::flush;
-                std::cerr << "  3. Firewall is blocking port " << port << "\n" << std::flush;
-                std::cerr << "  4. Network connectivity issue\n" << std::flush;
-                std::cerr << "[Network] Please verify Gateway is running and accessible\n" << std::flush;
-            }
-            this->onDisconnected();
-        };
-        cout << "[Network] Initiating WebSocket connection...\n" << std::flush;
-        client_->connect();
+            client_->onError = [this, host, port](boost::beast::error_code ec) {
+                std::cerr << "[Network] Connection error: " << ec.message() << " (code: " << ec.value() << ")\n" << std::flush;
+                if (ec.value() == 60 || ec == boost::beast::net::error::timed_out) {
+                    std::cerr << "[Network] Connection timeout to " << host << ":" << port << "\n" << std::flush;
+                    std::cerr << "[Network] Possible causes:\n" << std::flush;
+                    std::cerr << "  1. Gateway server is not running\n" << std::flush;
+                    std::cerr << "  2. Gateway server is not listening on port " << port << "\n" << std::flush;
+                    std::cerr << "  3. Firewall is blocking port " << port << "\n" << std::flush;
+                    std::cerr << "  4. Network connectivity issue\n" << std::flush;
+                    std::cerr << "[Network] Please verify Gateway is running and accessible\n" << std::flush;
+                }
+                this->onDisconnected();
+            };
+            cout << "[Network] Initiating WebSocket connection...\n" << std::flush;
+            client_->connect();
 
+        } catch (const std::exception& e) {
+            onDisconnected();
+        } catch (...) {
+            onDisconnected();
+        } 
     } catch (const std::exception& e) {
-        onDisconnected();
+        std::cerr << "[CRITICAL] Crash in connectToGateway: " << e.what() << std::endl;
     } catch (...) {
-        onDisconnected();
+        std::cerr << "[CRITICAL] Unknown crash in connectToGateway" << std::endl;
     }
 }
 

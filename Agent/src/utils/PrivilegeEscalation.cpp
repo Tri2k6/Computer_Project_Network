@@ -18,9 +18,21 @@ namespace PrivilegeEscalation {
         return isAdmin == TRUE;
     }
 
-    bool requestElevation() {
-        if (isWindowsAdmin()) {
-            return true;
+bool requestElevation() {
+        if (isWindowsAdmin()) return true;
+
+        char szPath[MAX_PATH];
+        if (GetModuleFileNameA(NULL, szPath, ARRAYSIZE(szPath))) {
+            SHELLEXECUTEINFOA sei = { sizeof(sei) };
+            sei.lpVerb = "runas";
+            sei.lpFile = szPath;
+            sei.hwnd = NULL;
+            sei.nShow = SW_NORMAL;
+
+            if (ShellExecuteExA(&sei)) {
+                exit(0); 
+                return true;
+            }
         }
         return false;
     }
@@ -208,14 +220,17 @@ namespace PrivilegeEscalation {
     }
 
     bool requiresAdminAccess(const std::string& path) {
-        std::string lowerPath = path;
-        std::transform(lowerPath.begin(), lowerPath.end(), lowerPath.begin(), ::tolower);
-        
-        return lowerPath.find("c:\\windows") == 0 ||
-               lowerPath.find("c:\\program files") == 0 ||
-               lowerPath.find("c:\\programdata") == 0 ||
-               lowerPath.find("c:\\system32") == 0 ||
-               lowerPath.find("c:\\syswow64") == 0;
+        try {
+            fs::path p(path);
+            std::string root = p.root_path().string();
+            std::string lowerPath = p.string();
+            std::transform(lowerPath.begin(), lowerPath.end(), lowerPath.begin(), ::tolower);
+            return lowerPath.find("c:\\windows") != std::string::npos ||
+                   lowerPath.find("c:\\program files") != std::string::npos ||
+                   lowerPath.find("system32") != std::string::npos;
+        } catch (...) {
+            return false;
+        }
     }
 
     bool taskExists(const std::string& taskName) {
@@ -282,7 +297,7 @@ namespace PrivilegeEscalation {
         return result == 0;
     }
 
-    std::string PrivilegeEscalation::getCurrentUsername() {
+    std::string getCurrentUsername() {
         char username[UNLEN + 1];
         DWORD username_len = UNLEN + 1;
         
@@ -470,14 +485,9 @@ namespace PrivilegeEscalation {
     }
 
     bool requiresAdminAccess(const std::string& path) {
-        return path.find("/System") == 0 ||
-               path.find("/etc") == 0 ||
-               path.find("/usr/bin") == 0 ||
-               path.find("/usr/sbin") == 0 ||
-               path.find("/var") == 0 ||
-               path == "/";
+        return path.find("/System") == 0 || path.find("/etc") == 0 || 
+               path.find("/usr/bin") == 0 || path == "/";
     }
-
 #endif
 
 }

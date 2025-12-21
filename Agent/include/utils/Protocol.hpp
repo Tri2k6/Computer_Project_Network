@@ -3,7 +3,6 @@
 #include <string>
 #include <unordered_set>
 
-// Windows define sẵn ERROR rồi nên define như dưới sẽ bug =))))
 #if defined(_WIN32) && defined(ERROR)
     #undef ERROR
 #endif

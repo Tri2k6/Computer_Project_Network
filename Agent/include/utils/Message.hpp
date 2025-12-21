@@ -23,13 +23,9 @@ public:
         json j;
         j["type"] = type;
         j["data"] = data;
-        // both valid for string or object
         if (!from.empty()) j["from"] = from;
         if (!to.empty()) j["to"] = to;
         return j.dump(-1, ' ', false, json::error_handler_t::replace);
-        // try not to crash when meet invalid char
-        // picture should be base64
-        // return j.dump();
     }
 
     static Message deserialize(const std::string& str) {
@@ -51,6 +47,6 @@ public:
 
     std::string getDataString() const {
         if (data.is_string()) return data.get<std::string>();
-        return data.dump(); //from object to string
+        return data.dump();
     }
 };

@@ -158,7 +158,7 @@
 #include <boost/system/error_code.hpp>
 #include <boost/beast/ssl.hpp>
 #include <boost/asio/ssl.hpp>
-
+#include "base64.h"
 namespace fs = std::filesystem;
 using json = nlohmann::json;
 using namespace std;
@@ -171,11 +171,9 @@ class PipeGuard {
 public:
     explicit PipeGuard(FILE* pipe) : pipe_(pipe) {}
     
-    // Non-copyable
     PipeGuard(const PipeGuard&) = delete;
     PipeGuard& operator=(const PipeGuard&) = delete;
     
-    // Movable
     PipeGuard(PipeGuard&& other) noexcept : pipe_(other.pipe_) {
         other.pipe_ = nullptr;
     }
@@ -193,22 +191,18 @@ public:
         close();
     }
     
-    // Get the underlying FILE* pointer
     FILE* get() const noexcept {
         return pipe_;
     }
     
-    // Check if pipe is valid
     bool isValid() const noexcept {
         return pipe_ != nullptr;
     }
-    
-    // Explicit conversion to FILE*
+
     operator FILE*() const noexcept {
         return pipe_;
     }
     
-    // Release ownership (caller is responsible for closing)
     FILE* release() noexcept {
         FILE* temp = pipe_;
         pipe_ = nullptr;

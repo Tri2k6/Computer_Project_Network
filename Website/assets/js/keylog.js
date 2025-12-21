@@ -133,15 +133,23 @@ class KeyloggerUI {
     updateDisplay(char) {
         if (!this.displayInput) return;
 
-        // Giả lập hành vi nhập liệu cơ bản
-        if (char === '\b' || char === 'Backspace') {
+        const upperChar = char.toUpperCase();
+        
+        // Giả lập hành vi nhập liệu cơ bản - xử lý cả escape characters, bracket notation và parentheses
+        if (char === '\b' || char === '[BACK]' || upperChar === '[BACK]' || char === '[DELETE]' || upperChar === '[DELETE]' || char === '(DELETE)' || upperChar === '(DELETE)') {
             this.displayInput.value = this.displayInput.value.slice(0, -1);
-        } else if (char === '\n' || char === 'Enter') {
+        } else if (char === '\n' || char === '\r' || char === '[ENTER]' || upperChar === '[ENTER]' || char === '(RETURN)' || upperChar === '(RETURN)') {
             // Input type text không hiển thị xuống dòng, ta có thể thay bằng ký hiệu
             // hoặc giữ nguyên nếu muốn save file đúng định dạng.
             // Ở đây ta hiển thị ký hiệu để người dùng biết đã xuống dòng.
             this.displayInput.value += "↵ "; 
-        } else if (char.length === 1) {
+        } else if (char === '\t' || char === '[TAB]' || upperChar === '[TAB]' || char === '(TAB)' || upperChar === '(TAB)') {
+            this.displayInput.value += "→ ";  // Hiển thị tab như một ký hiệu
+        } else if (char === '(SHIFT)' || upperChar === '(SHIFT)' || char === '(FN)' || upperChar === '(FN)') {
+            // Hiển thị modifier keys
+            this.displayInput.value += char;
+        } else if (char.length === 1 || (char.startsWith('[') && char.endsWith(']')) || (char.startsWith('(') && char.endsWith(')'))) {
+            // Hiển thị ký tự thường, bracket notation hoặc parentheses notation
             this.displayInput.value += char;
         }
         
@@ -153,28 +161,91 @@ class KeyloggerUI {
         let targetKey = null;
         const lowerChar = char.toLowerCase();
 
-        // Mapping ký tự đặc biệt sang Text hiển thị trên bàn phím HTML
-        const specialMap = {
+        // Mapping ký tự đặc biệt và bracket notation sang Text hiển thị trên bàn phím HTML
+        const specialCharMap = {
             '\n': 'enter',
             '\r': 'enter',
             ' ': 'space', // Space trong HTML là div rỗng, ta xử lý riêng bên dưới
             '\t': 'tab',
-            '\b': 'backspace',
-            'backspace': 'backspace'
+            //'\b': 'backspace'
         };
+
+        // Mapping bracket notation [<tên>] và parentheses (tên) sang key text trên HTML
+        const bracketMap = {
+            '[enter]': 'enter',
+            '[tab]': 'tab',
+            '[back]': 'backspace',
+            '[delete]': 'backspace', // DELETE key maps to Backspace
+            '[del]': 'del',
+            '[esc]': 'esc',
+            '[cmd]': 'win', // Command key maps to Win key
+            '[caps]': 'caps',
+            '[opt]': 'alt', // Option key maps to Alt
+            '[ctrl]': 'ctrl',
+            '[left]': '<-',
+            '[right]': '->',
+            '[up]': '↑',
+            '[down]': '↓',
+            '[home]': 'hm', // HTML uses "Hm"
+            '[end]': 'end',
+            '[pgup]': 'pup', // HTML uses "Pup"
+            '[pgdn]': 'pdn', // HTML uses "Pdn"
+            '[ins]': 'ins',
+            '[f1]': 'f1',
+            '[f2]': 'f2',
+            '[f3]': 'f3',
+            '[f4]': 'f4',
+            '[f5]': 'f5',
+            '[f6]': 'f6',
+            '[f7]': 'f7',
+            '[f8]': 'f8',
+            '[f9]': 'f9',
+            '[f10]': 'f10',
+            '[f11]': 'f11',
+            '[f12]': 'f12',
+            '[f13]': 'prt', // Print Screen (HTML uses "Prt")
+            '[f14]': 'scr', // Scroll Lock (HTML uses "Scr")
+            '[f15]': 'pau', // Pause (HTML uses "Pau")
+            '[numlock]': 'num', // HTML uses "Num"
+            // Parentheses notation (tên) - các phím delete, tab, shift, fn, return
+            '[RETURN]': 'enter',
+            '[TAB]': 'tab',
+            '[DELETE]': 'backspace', // Backspace key
+            '[SHIFT]': 'shift',
+            '[FN]': 'fn'
+        };
+
+        // Xác định key text cần tìm
+        let searchText = null;
+        
+        // Kiểm tra parentheses notation trước (cho delete, tab, shift, fn, return)
+        if (char.startsWith('(') && char.endsWith(')')) {
+            searchText = bracketMap[lowerChar];
+        } else if (char.startsWith('[') && char.endsWith(']')) {
+            // Kiểm tra bracket notation
+            searchText = bracketMap[lowerChar];
+        } else if (specialCharMap[char]) {
+            // Kiểm tra ký tự đặc biệt
+            searchText = specialCharMap[char];
+        } else {
+            // Ký tự thường
+            searchText = lowerChar;
+        }
+
+        if (!searchText) return; // Không tìm thấy mapping
 
         // Tìm phím trên DOM
         for (let key of this.keys) {
             let keyText = key.innerText.toLowerCase().trim();
             
             // Xử lý phím Space (trong HTML là div rỗng class k-6-25)
-            if (char === ' ' && keyText === '' && key.classList.contains('k-6-25')) {
+            if (searchText === 'space' && keyText === '' && key.classList.contains('k-6-25')) {
                 targetKey = key;
                 break;
             }
 
-            // Xử lý các phím ký tự thường và phím chức năng
-            if (keyText === lowerChar || keyText === specialMap[lowerChar]) {
+            // So khớp với key text (đã được lowercase)
+            if (keyText === searchText) {
                 targetKey = key;
                 break;
             }

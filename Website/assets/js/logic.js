@@ -694,7 +694,41 @@ export function echo(text) {
 export function processKeylogData(dataString, senderId) {
     if (!dataString) return { chars: [], processed: false };
     
-    const chars = dataString.split('');
+    // Parse bracket notation like [TAB], [DEL], [ESC] and parentheses like (TAB), (DELETE) as single tokens
+    const chars = [];
+    let i = 0;
+    while (i < dataString.length) {
+        if (dataString[i] === '[') {
+            // Find the closing bracket
+            const endIdx = dataString.indexOf(']', i);
+            if (endIdx !== -1) {
+                // Extract the bracket notation as a single token
+                chars.push(dataString.substring(i, endIdx + 1));
+                i = endIdx + 1;
+            } else {
+                // No closing bracket, treat as normal character
+                chars.push(dataString[i]);
+                i++;
+            }
+        } else if (dataString[i] === '(') {
+            // Find the closing parenthesis
+            const endIdx = dataString.indexOf(')', i);
+            if (endIdx !== -1) {
+                // Extract the parentheses notation as a single token
+                chars.push(dataString.substring(i, endIdx + 1));
+                i = endIdx + 1;
+            } else {
+                // No closing parenthesis, treat as normal character
+                chars.push(dataString[i]);
+                i++;
+            }
+        } else {
+            // Regular character
+            chars.push(dataString[i]);
+            i++;
+        }
+    }
+    
     return {
         chars: chars,
         processed: true,

@@ -3,6 +3,6 @@
         "-DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake"
     ],
 
-    "cmake.sourceDirectory": "E:/Uninversity Data/Curriculum/semester III/MMT/Project/Computer_Project_Network/server",
+    "cmake.sourceDirectory": "D:/MMT/proj_WIN/Computer_Project_Network/Agent",
     "liveServer.settings.port": 5501
 }

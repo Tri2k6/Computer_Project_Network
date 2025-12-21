@@ -8,7 +8,7 @@ private:
             "abcdefghijklmnopqrstuvwxyz"
             "0123456789+/";
     std::string cameraName;
-    std::string dectectDefaultCamera();
+    std::string detectDefaultCamera();
 public:
     CameraRecorder();
     std::string recordRawData(int durationSeconds);

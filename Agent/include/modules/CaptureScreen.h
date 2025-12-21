@@ -1,6 +1,5 @@
 #pragma once
 #include "FeatureLibrary.h"
-#include "base64.h"
 
 #ifdef _WIN32
     #define POPEN _popen
@@ -9,8 +8,6 @@
 #elif __APPLE__
     #define POPEN popen
     #define PCLOSE pclose
-    // Format avfoundation: "<video_index>:<audio_index>" hoặc "<video_index>:none" cho screen capture
-    // [1] Capture screen 0, dùng "1:none" để không capture audio
     const std::string OS_CMD = "ffmpeg -f avfoundation -pixel_format uyvy422 -i \"1:none\" -vframes 1 -f image2pipe -c:v mjpeg -q:v 2 -hide_banner -loglevel error -";
 #else
     #error "OS not supported yet"
@@ -19,12 +16,10 @@
 class CaptureScreen {
 public:
     CaptureScreen() = default;
-
     std::string captureAndEncode();
     std::string captureRaw();
 
 private:
     std::string buildCommand();
-
     std::vector<unsigned char> captureRawBytes();
 };

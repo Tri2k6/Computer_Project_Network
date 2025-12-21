@@ -29,7 +29,6 @@ public:
     FileTransferController();
     ~FileTransferController();
     
-    // Upload: Client uploads file to Agent
     bool startUpload(
         const std::string& sessionId,
         const std::string& filePath,
@@ -47,7 +46,6 @@ public:
         CompleteCallback completeCb = nullptr
     );
     
-    // Download: Agent sends file to Client
     bool startDownload(
         const std::string& sessionId,
         const std::string& filePath,
@@ -65,14 +63,12 @@ public:
         const std::string& sessionId,
         CompleteCallback completeCb = nullptr
     );
-    
-    // Session management
+
     void cancelSession(const std::string& sessionId);
     void cleanupSession(const std::string& sessionId);
     bool isSessionActive(const std::string& sessionId);
     FileTransferSession* getSession(const std::string& sessionId);
     
-    // Utility
     static std::string generateSessionId();
     static bool validatePath(const std::string& path);
     static std::string normalizePath(const std::string& path);

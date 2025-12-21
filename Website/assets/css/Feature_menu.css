@@ -157,7 +157,7 @@
 /* Căn chữ vào giữa màn hình laptop */
 .screen-overlay {
     position: absolute;
-    top: 38%; 
+    top: 36%; 
     left: 50%;
     transform: translate(-50%, -50%); 
     
@@ -170,10 +170,10 @@
 
 .code-text {
     font-family: 'Courier Prime', monospace;
-    font-size: 22px; 
+    font-size: 25px; 
     color: var(--text-blue);
     font-weight: 700;
-    transform: translateY(10px);
+    transform: translateY(20px);
 
     display: inline-block;
     white-space: nowrap;

@@ -30,18 +30,40 @@ try {
     
     const networkInterfaces = os.networkInterfaces();
     let gatewayIP = 'localhost';
+    const privateIPs: string[] = [];
+    const publicIPs: string[] = [];
     
+    // Collect all IPs first, prioritizing private (LAN) IPs
     for (const name of Object.keys(networkInterfaces || {})) {
         const nets = networkInterfaces![name];
         if (!nets) continue;
     
         for (const net of nets) {
             if (net.family === 'IPv4' && !net.internal && net.address) {
-                gatewayIP = net.address;
-                break;
+                const addr = net.address;
+                // Check if it's a private IP (LAN)
+                if (addr.startsWith('10.') || 
+                    addr.startsWith('192.168.') || 
+                    (addr.startsWith('172.') && 
+                     parseInt(addr.split('.')[1]) >= 16 && 
+                     parseInt(addr.split('.')[1]) <= 31)) {
+                    privateIPs.push(addr);
+                    Logger.info(`[Gateway] Found private IP: ${addr} on interface ${name}`);
+                } else {
+                    publicIPs.push(addr);
+                    Logger.info(`[Gateway] Found public/external IP: ${addr} on interface ${name}`);
+                }
             }
         }
-        if (gatewayIP !== 'localhost') break;
+    }
+    
+    // Prioritize private IPs (LAN) over public IPs
+    if (privateIPs.length > 0) {
+        gatewayIP = privateIPs[0];
+        Logger.info(`[Gateway] Selected LAN IP: ${gatewayIP} (from ${privateIPs.length} private IPs)`);
+    } else if (publicIPs.length > 0) {
+        gatewayIP = publicIPs[0];
+        Logger.warn(`[Gateway] No private IP found, using public IP: ${gatewayIP}`);
     }
 
     const gateway = new GatewayServer(httpsServer);

@@ -31,10 +31,10 @@ class KeyloggerUI {
             
             // Override onKeylog callback để xử lý visual effects
             window.gateway.callbacks.onKeylog = (data, senderId) => {
-                // Gọi handler gốc để update display (nếu main.js cần)
-                if (this.originalOnKeylog) {
-                    this.originalOnKeylog(data, senderId);
-                }
+                // Gọi handler gốc để update display (từ main.js)
+                // if (this.originalOnKeylog) {
+                //     this.originalOnKeylog(data, senderId);
+                // }
                 // Xử lý visual effects và buffer riêng của keylog.js
                 this.handleIncomingKey(data, senderId);
             };

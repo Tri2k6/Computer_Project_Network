@@ -4,15 +4,33 @@ import * as Logic from './logic.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     const returnBtn = document.getElementById('return-btn');
+    const clearBtn = document.getElementById('clear-btn');
+
     if (!returnBtn) {
-        console.warn('[Proc_Menu] return-btn not found');
+        console.warn('[App_Menu] return-btn not found');
+        return;
+    }
+    if (!clearBtn) {
+        console.warn('[App_Menu] clear-btn not found');
         return;
     }
 
     returnBtn.addEventListener('click', () => {
         window.location.href = './Feature_menu.html';
     });
+
+    clearBtn.addEventListener('click', () => {
+        resetSearch();
+    });
 });
+
+function resetSearch() {
+    searchInput.value = '';
+    // Reset về dữ liệu gốc
+    currentData = [...originalData];
+    currentPage = 1;
+    renderData();
+}
 
 // --- 1. Dữ liệu ---
 const mockProcessData = [
@@ -34,7 +52,8 @@ const mockProcessData = [
 const ITEMS_PER_PAGE = 6;
 let currentPage = 1;
 let currentData = [];
-let originalData = []; // Store original unfiltered data for search
+let originalData = []; 
+let isRendering = false; 
 
 // --- 3. DOM Elements ---
 const listContainer = document.getElementById('process-list');
@@ -45,31 +64,39 @@ const nextBtn = document.querySelector('.next-btn');
 
 // --- 4. Render ---
 async function renderData() {
-    listContainer.innerHTML = ''; 
-
-    const totalPages = Math.ceil(currentData.length / ITEMS_PER_PAGE) || 1;
-    
-    if (currentPage > totalPages) currentPage = totalPages;
-    if (currentPage < 1) currentPage = 1;
-
-    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-    const endIndex = startIndex + ITEMS_PER_PAGE;
-    const itemsToShow = currentData.slice(startIndex, endIndex);
-
-    if (itemsToShow.length === 0) {
-        listContainer.innerHTML = '<li class="process-item empty">No app found.</li>';
-        updatePagination(0);
+    if (!listContainer) return;
+    if (isRendering) {
+        console.log('[App_Menu] Render already in progress, skipping...');
         return;
     }
+    
+    isRendering = true;
+    
+    try {
+        listContainer.innerHTML = ''; 
 
-    // Luôn sử dụng currentData đã được filter/paginate
-    for (let idx = 0; idx < itemsToShow.length; idx++) {
+        const totalPages = Math.ceil(currentData.length / ITEMS_PER_PAGE) || 1;
+        
+        if (currentPage > totalPages) currentPage = totalPages;
+        if (currentPage < 1) currentPage = 1;
+
+        const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+        const endIndex = startIndex + ITEMS_PER_PAGE;
+        const itemsToShow = currentData.slice(startIndex, endIndex);
+
+        if (itemsToShow.length === 0) {
+            listContainer.innerHTML = '<li class="process-item empty">No app found.</li>';
+            updatePagination(0);
+            return;
+        }
+
+        for (let idx = 0; idx < itemsToShow.length; idx++) {
         const app = itemsToShow[idx];
 
         const li = document.createElement('li');
         li.className = 'process-item';
 
-        const playSrc = './assets/images/start.png';
+        const playSrc = './assets/images/play.png';
         const pauseSrc = './assets/images/pause.png';
 
         // ===================== APP ID =====================
@@ -105,7 +132,7 @@ async function renderData() {
                     data-action="start"
                     data-app-name="${escapedAppName}"
                     title="Start ${escapedAppName}">
-                    <img src="${playSrc}" alt="Start" width="24" height="24">
+                    <img src="${playSrc}" alt="Start" width="29" height="29">
                 </button>
 
                 <button class="action-btn ${pauseClass}"
@@ -113,7 +140,7 @@ async function renderData() {
                     data-action="stop"
                     data-app-name="${escapedAppName}"
                     title="Stop ${escapedAppName}">
-                    <img src="${pauseSrc}" alt="Stop" width="24" height="24">
+                    <img src="${pauseSrc}" alt="Stop" width="29" height="29">
                 </button>
             </div>
         `;
@@ -146,12 +173,23 @@ async function renderData() {
             });
         }
 
-        listContainer.appendChild(li);
-        await delay(50);
-    }
+            listContainer.appendChild(li);
+            await delay(50);
+        }
 
-    updatePagination(totalPages);
+        const renderedItems = listContainer.querySelectorAll('.process-item:not(.empty)').length;
+        if (renderedItems > ITEMS_PER_PAGE) {
+            console.error(`[App_Menu] ERROR: Rendered ${renderedItems} items, expected max ${ITEMS_PER_PAGE}. Forcing correction.`);
+            const items = Array.from(listContainer.querySelectorAll('.process-item:not(.empty)'));
+            items.slice(ITEMS_PER_PAGE).forEach(item => item.remove());
+        }
+
+        updatePagination(totalPages);
+    } finally {
+        isRendering = false;
+    }
 }
+
 // --- 5. Pagination Logic ---
 function updatePagination(totalPages) {
     pageIndicator.textContent = `Page ${currentPage}/${totalPages}`;
@@ -178,14 +216,6 @@ searchInput.addEventListener('input', (e) => {
     renderData();
 });
 
-function resetSearch() {
-    searchInput.value = '';
-    // Reset về dữ liệu gốc
-    currentData = [...originalData];
-    currentPage = 1;
-    renderData();
-}
-
 // --- 7. Toggle Control ---
 function controlApp(id, action, appName) {
     let success = false;
@@ -194,11 +224,13 @@ function controlApp(id, action, appName) {
         success = Logic.startApp(id);
         if (success) {
             console.log(`[App_Menu] Starting app: ${appName} (ID: ${id})`);
+            typeEffect('Starting app...')
         }
     } else if (action === 'stop') {
         success = Logic.stopApp(id);
         if (success) {
             console.log(`[App_Menu] Stopping app: ${appName} (ID: ${id})`);
+            typeEffect('Stopping app...')
         }
     } else {
         console.warn(`[App_Menu] Unknown action: ${action}`);
@@ -222,6 +254,7 @@ window.controlProcess = controlApp;
 // --- 10. Refresh App List from Gateway ---
 async function refreshAppList(isInitialLoad = false) {
     // Sử dụng logic.js để fetch dữ liệu
+    typeEffect('Loading list...');
     const apps = await Logic.fetchAppList(isInitialLoad);
     
     console.log('[App_Menu] refreshAppList result:', {
@@ -237,6 +270,7 @@ async function refreshAppList(isInitialLoad = false) {
         originalData = apps;
         currentData = [...apps];
         console.log(`[App_Menu] ✓ Loaded ${apps.length} apps from gateway`);
+        typeEffect('Done!');
         
         // Nếu là initial load và apps rỗng, đợi thêm một chút để check lại
         if (isInitialLoad && apps.length === 0) {
@@ -335,8 +369,7 @@ document.addEventListener('DOMContentLoaded', () => {
     waitForGatewayAndLoad();
 
     // Typing Effect
-    const textElement = document.querySelector('.code-text');
-    if (textElement) {
+    if (screenText) {
         typeEffect('Successful');
     }
 });
@@ -345,7 +378,9 @@ document.addEventListener('DOMContentLoaded', () => {
 window.refreshAppList = refreshAppList;
 window.controlApp = controlApp;
 
-let typingInterval = null;
+// hiệu ứng gõ chữ và delay khi refresh (cho đẹp)
+const screenText = document.querySelector('.code-text');
+let typingInterval;
 
 function typeEffect(text) {
     const screenText = document.querySelector('.code-text');

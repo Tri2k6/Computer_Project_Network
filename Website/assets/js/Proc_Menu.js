@@ -4,15 +4,33 @@ import * as Logic from './logic.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     const returnBtn = document.getElementById('return-btn');
+    const clearBtn = document.getElementById('clear-btn');
+
     if (!returnBtn) {
         console.warn('[Proc_Menu] return-btn not found');
+        return;
+    }
+    if (!clearBtn) {
+        console.warn('[Proc_Menu] clear-btn not found');
         return;
     }
 
     returnBtn.addEventListener('click', () => {
         window.location.href = './Feature_menu.html';
     });
+
+    clearBtn.addEventListener('click', () => {
+        resetSearch();
+    });
 });
+
+function resetSearch() {
+    searchInput.value = '';
+    // Reset về dữ liệu gốc
+    currentData = [...originalData];
+    currentPage = 1;
+    renderData();
+}
 
 // --- 1. Dữ liệu (Mock Data) ---
 const mockProcessData = [
@@ -35,6 +53,7 @@ const ITEMS_PER_PAGE = 6;
 let currentPage = 1;
 let currentData = [];
 let originalData = []; // Store original unfiltered data for search
+let isRendering = false; // Flag to prevent concurrent renders
 
 // --- 3. DOM Elements ---
 const listContainer = document.getElementById('process-list');
@@ -45,30 +64,43 @@ const nextBtn = document.querySelector('.next-btn');
 
 // --- 4. Render ---
 async function renderData() {
-    listContainer.innerHTML = ''; 
-
-    const totalPages = Math.ceil(currentData.length / ITEMS_PER_PAGE) || 1;
+    if (!listContainer) return;
     
-    if (currentPage > totalPages) currentPage = totalPages;
-    if (currentPage < 1) currentPage = 1;
-
-    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-    const endIndex = startIndex + ITEMS_PER_PAGE;
-    const itemsToShow = currentData.slice(startIndex, endIndex);
-
-    if (itemsToShow.length === 0) {
-        listContainer.innerHTML = '<li class="process-item empty">No process found.</li>';
-        updatePagination(0);
+    // Prevent concurrent renders
+    if (isRendering) {
+        console.log('[Proc_Menu] Render already in progress, skipping...');
         return;
     }
+    
+    isRendering = true;
+    
+    try {
+        // Clear list completely before rendering to prevent accumulation
+        listContainer.innerHTML = ''; 
 
-    for (let idx = 0; idx < itemsToShow.length; idx++) {
+        const totalPages = Math.ceil(currentData.length / ITEMS_PER_PAGE) || 1;
+        
+        if (currentPage > totalPages) currentPage = totalPages;
+        if (currentPage < 1) currentPage = 1;
+
+        const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+        const endIndex = startIndex + ITEMS_PER_PAGE;
+        const itemsToShow = currentData.slice(startIndex, endIndex);
+
+        if (itemsToShow.length === 0) {
+            listContainer.innerHTML = '<li class="process-item empty">No process found.</li>';
+            updatePagination(0);
+            return;
+        }
+
+        // Render exactly the sliced items (max ITEMS_PER_PAGE)
+        for (let idx = 0; idx < itemsToShow.length; idx++) {
         const proc = itemsToShow[idx];
 
         const li = document.createElement('li');
         li.className = 'process-item';
 
-        const playSrc = './assets/images/start.png';
+        const playSrc = './assets/images/play.png';
         const pauseSrc = './assets/images/pause.png';
 
         // ===================== PROC ID =====================
@@ -116,7 +148,7 @@ async function renderData() {
                     data-action="start"
                     data-proc-name="${escapedProcName}"
                     title="Start ${escapedProcName}">
-                    <img src="${playSrc}" alt="Start" width="24" height="24">
+                    <img src="${playSrc}" alt="Start" width="28" height="28">
                 </button>
 
                 <button class="action-btn ${pauseClass}"
@@ -124,7 +156,7 @@ async function renderData() {
                     data-action="stop"
                     data-proc-name="${escapedProcName}"
                     title="Stop ${escapedProcName}">
-                    <img src="${pauseSrc}" alt="Stop" width="24" height="24">
+                    <img src="${pauseSrc}" alt="Stop" width="28" height="28">
                 </button>
             </div>
         `;
@@ -157,11 +189,23 @@ async function renderData() {
             });
         }
 
-        await delay(50);
-        listContainer.appendChild(li);
-    }
+            await delay(50);
+            listContainer.appendChild(li);
+        }
 
-    updatePagination(totalPages);
+        // Verify we didn't render more than expected (safety check)
+        const renderedItems = listContainer.querySelectorAll('.process-item:not(.empty)').length;
+        if (renderedItems > ITEMS_PER_PAGE) {
+            console.error(`[Proc_Menu] ERROR: Rendered ${renderedItems} items, expected max ${ITEMS_PER_PAGE}. Forcing correction.`);
+            // Force correction: remove excess items
+            const items = Array.from(listContainer.querySelectorAll('.process-item:not(.empty)'));
+            items.slice(ITEMS_PER_PAGE).forEach(item => item.remove());
+        }
+
+        updatePagination(totalPages);
+    } finally {
+        isRendering = false;
+    }
 }
 
 // --- 5. Pagination Logic ---
@@ -190,14 +234,6 @@ searchInput.addEventListener('input', (e) => {
     renderData();
 });
 
-function resetSearch() {
-    searchInput.value = '';
-    // Reset về dữ liệu gốc
-    currentData = [...originalData];
-    currentPage = 1;
-    renderData();
-}
-
 // --- 7. Toggle Control ---
 function controlProcess(id, newStatus, procName) {
     // Find the process in the list to get its PID for logging
@@ -209,11 +245,13 @@ function controlProcess(id, newStatus, procName) {
         success = Logic.startProcess(id);
         if (success) {
             console.log(`[Proc_Menu] Starting process: ${procName} (Index: ${id}, PID: ${processPid})`);
+            typeEffect('Starting process...')
         }
     } else {
         success = Logic.killProcess(id);
         if (success) {
             console.log(`[Proc_Menu] Stopping process: ${procName} (Index: ${id}, PID: ${processPid})`);
+            typeEffect('Stopping process...')
         }
     }
 
@@ -226,6 +264,7 @@ function controlProcess(id, newStatus, procName) {
 // --- 10. Refresh Process List from Gateway ---
 async function refreshProcessList(isInitialLoad = false) {
     // Sử dụng logic.js để fetch dữ liệu
+    typeEffect('Loading list...');
     const processes = await Logic.fetchProcessList(isInitialLoad);
     
     if (processes !== null && processes !== undefined) {
@@ -233,6 +272,7 @@ async function refreshProcessList(isInitialLoad = false) {
         originalData = processes;
         currentData = [...processes];
         console.log(`[Proc_Menu] ✓ Loaded ${processes.length} processes from gateway`);
+        typeEffect('Done!');
         
         // Nếu là initial load và processes rỗng, đợi thêm một chút để check lại
         if (isInitialLoad && processes.length === 0) {
@@ -331,9 +371,8 @@ document.addEventListener('DOMContentLoaded', () => {
     waitForGatewayAndLoad();
 
     // Typing Effect
-    const textElement = document.querySelector('.code-text');
-    if (textElement) {
-        typeEffect('Successful', textElement);
+    if (screenText) {
+        typeEffect('Successful');
     }
 });
 
@@ -342,7 +381,8 @@ window.refreshProcessList = refreshProcessList;
 window.controlProcess = controlProcess;
 
 // hiệu ứng gõ chữ và delay khi refresh (cho đẹp)
-let typingInterval = null;
+const screenText = document.querySelector('.code-text');
+let typingInterval;
 
 function typeEffect(text, screenText) {
     if (!screenText) {

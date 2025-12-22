@@ -14,6 +14,7 @@ import * as https from 'https'
 import * as http from 'http'
 import * as fs from 'fs'
 import * as path from 'path'
+import { getDirname } from '../utils/getDirname'
 
 export class GatewayServer {
     private wss: WebSocketServer;
@@ -55,8 +56,17 @@ export class GatewayServer {
                 return;
             }
 
+            // Get __dirname for ES modules (pkg-compatible)
+            const __dirname = getDirname();
+
             const url = new URL(req.url || '/', `https://${req.headers.host}`);
-            const websitePath = path.join(process.cwd(), '../Website');
+            // Website path: in pkg, Website will be bundled and accessible via pkg assets
+            // For pkg, Website assets are extracted to a temporary directory or accessible via fs
+            // We need to check if we're in pkg mode and adjust the path accordingly
+            // @ts-ignore - process.pkg may not exist in all environments
+            const websitePath = (process as any).pkg
+                ? path.join(__dirname, 'Website')
+                : path.join(__dirname, '../Website');
             let requestedPath = url.pathname === '/' ? '/index.html' : url.pathname;
             let filePath = path.join(websitePath, requestedPath);
              

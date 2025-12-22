@@ -691,26 +691,32 @@ export function echo(text) {
  * @param {string} senderId - Sender agent ID
  * @returns {Object} - Object containing processed characters
  */
-export function processKeylogData(data, senderId) {
-    // SỬA: Kiểm tra nếu là mảng thì trả về nguyên bản
-    if (Array.isArray(data)) {
-        return {
-            chars: data,
-            processed: true,
-            senderId: senderId
-        };
-    }
-
-    // Nếu là string (backup logic cũ)
-    if (typeof data === 'string') {
-        return {
-            chars: data.split(''),
-            processed: true,
-            senderId: senderId
-        };
+export function processKeylogData(dataString, senderId) {
+    if (!dataString) return { chars: [], processed: false };
+    
+    const chars = [];
+    let i = 0;
+    while (i < dataString.length) {
+        if (dataString[i] === '[') {
+            const endIdx = dataString.indexOf(']', i);
+            if (endIdx !== -1) {
+                chars.push(dataString.substring(i, endIdx + 1));
+                i = endIdx + 1;
+            } else {
+                chars.push(dataString[i]);
+                i++;
+            }
+        } else {
+            chars.push(dataString[i]);
+            i++;
+        }
     }
     
-    return { chars: [], processed: false };
+    return {
+        chars: chars,
+        processed: true,
+        senderId: senderId
+    };
 }
 
 /**

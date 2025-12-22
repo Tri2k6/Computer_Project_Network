@@ -2,22 +2,24 @@ console.log("=== STARTING GATEWAY ===")
 import { GatewayServer } from "./core/Server";
 import { Config } from "./config";
 import { Logger } from "./utils/Logger";
-import { fileURLToPath } from 'url';
 import * as fs from 'fs';
 import * as https from 'https';
 import * as path from 'path';
 import * as os from 'os';
+import { getDirname } from './utils/getDirname';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// Get __dirname for ES modules (pkg-compatible)
+const __dirname = getDirname();
 
 try {
-    const certPath = path.join(__dirname, '../server.cert');
-    const keyPath = path.join(__dirname, '../server.key');
+    // SSL certificates should be in the same directory as the executable
+    const certPath = path.join(__dirname, 'server.cert');
+    const keyPath = path.join(__dirname, 'server.key');
 
     if (!fs.existsSync(certPath) || !fs.existsSync(keyPath)) {
         Logger.error("Khong tim thay file 'server.cert' hoac 'server.key'!");
-        Logger.error("Vui long copy 2 file nay vao cung thu muc voi file exe.");
+        Logger.error(`Vui long copy 2 file nay vao cung thu muc voi file exe: ${__dirname}`);
+        Logger.error("Hoac su dung script generate-cert de tao certificates tu dong.");
         process.exit(1);
     }
 

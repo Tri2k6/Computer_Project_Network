@@ -165,21 +165,18 @@ class KeyloggerUI {
     updateDisplay(char) {
         if (!this.displayInput) return;
 
-        // Xử lý xóa ký tự
-        if (char === 'Backspace') {
+        if (char === '\b') {
             this.displayInput.value = this.displayInput.value.slice(0, -1);
-        } 
-        // Xử lý xuống dòng
-        else if (char === '\n') {
-            this.displayInput.value += "↵\n"; // Thêm ký tự xuống dòng thực sự
-        } 
-        // Xử lý ký tự thường (chỉ in nếu không rỗng)
-        else if (char && char.length === 1) {
+            return;
+        } else if (char === '\n' || char === '\r') {
+            this.displayInput.value += "↵ "; 
+        } else if (char === '\t') {
+            this.displayInput.value += "→ ";
+        } else if (char.length === 1 || (char.startsWith('[') && char.endsWith(']'))) {
             this.displayInput.value += char;
         }
         
-        // Auto scroll
-        this.displayInput.scrollTop = this.displayInput.scrollHeight;
+        this.displayInput.scrollLeft = this.displayInput.scrollWidth;
     }
 
     /**
@@ -189,40 +186,77 @@ class KeyloggerUI {
      */
     visualizeKey(rawToken, displayChar) {
         let targetKey = null;
-        
-        // Chuẩn hóa để so sánh với data-key hoặc text trong HTML
-        let searchKey = rawToken.toLowerCase().replace(/[\[\]]/g, ""); // [ENTER] -> enter
-        
-        // Mapping bổ sung cho khớp với UI HTML
-        const uiMap = {
+        const lowerChar = char.toLowerCase();
+
+        const specialCharMap = {
             '\n': 'enter',
-            'back': 'backspace',
-            'esc': 'escape',
-            'ctrl': 'control',
+            '\r': 'enter',
             ' ': 'space',
             '\t': 'tab'
         };
 
-        if (uiMap[searchKey]) searchKey = uiMap[searchKey];
-        if (displayChar === ' ') searchKey = 'space'; // Fix cứng cho Space
+        const bracketMap = {
+            '[return]': 'enter',
+            '[tab]': 'tab',
+            '[delete]': 'backspace',
+            '[del]': 'del',
+            '[esc]': 'esc',
+            '[cmd]': 'win',
+            '[caps]': 'caps',
+            '[opt]': 'alt',
+            '[ctrl]': 'ctrl',
+            '[left]': '<-',
+            '[right]': '->',
+            '[up]': '↑',
+            '[down]': '↓',
+            '[home]': 'hm',
+            '[end]': 'end',
+            '[pgup]': 'pup',
+            '[pgdn]': 'pdn',
+            '[ins]': 'ins',
+            '[f1]': 'f1',
+            '[f2]': 'f2',
+            '[f3]': 'f3',
+            '[f4]': 'f4',
+            '[f5]': 'f5',
+            '[f6]': 'f6',
+            '[f7]': 'f7',
+            '[f8]': 'f8',
+            '[f9]': 'f9',
+            '[f10]': 'f10',
+            '[f11]': 'f11',
+            '[f12]': 'f12',
+            '[f13]': 'prt',
+            '[f14]': 'scr',
+            '[f15]': 'pau',
+            '[numlock]': 'num',
+            '[shift]': 'shift',
+            '[fn]': 'fn',
+            '[alt]': 'alt'
+        };
 
-        // Tìm phím trên DOM
+        let searchText = null;
+        
+        if (char.startsWith('[') && char.endsWith(']')) {
+            searchText = bracketMap[lowerChar];
+        } else if (specialCharMap[char]) {
+            searchText = specialCharMap[char];
+        } else {
+            searchText = lowerChar;
+        }
+
+        if (!searchText) return; // Không tìm thấy mapping
+
         for (let key of this.keys) {
             // Lấy text hiển thị trên phím hoặc class đặc biệt
             let keyText = key.innerText.toLowerCase().trim();
             
-            // Logic tìm kiếm
-            let isMatch = false;
+            if (searchText === 'space' && keyText === '' && key.classList.contains('k-6-25')) {
+                targetKey = key;
+                break;
+            }
 
-            // 1. So sánh với text trên phím (VD: "a", "enter")
-            if (keyText === searchKey) isMatch = true;
-            
-            // 2. So sánh đặc biệt cho Space (thường là phím rỗng dài nhất)
-            else if (searchKey === 'space' && key.classList.contains('k-6-25')) isMatch = true;
-            
-            // 3. So sánh các phím mũi tên hoặc ký hiệu nếu cần
-            
-            if (isMatch) {
+            if (keyText === searchText) {
                 targetKey = key;
                 break;
             }

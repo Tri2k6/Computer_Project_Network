@@ -54,14 +54,17 @@ function typeEffect(text) {
 let pendingAction = null;
 
 const confirmPanel = document.getElementById("confirmPanel");
+const confirmOverlay = document.getElementById("confirmOverlay");
 const yesBtn = document.querySelector(".confirm-btn.yes");
 const noBtn  = document.querySelector(".confirm-btn.no");
 
 function openConfirm() {
+    confirmOverlay.classList.remove("hidden");
     confirmPanel.classList.remove("hidden");
 }
 
 function closeConfirm() {
+    confirmOverlay.classList.add("hidden");
     confirmPanel.classList.add("hidden");
 }
 

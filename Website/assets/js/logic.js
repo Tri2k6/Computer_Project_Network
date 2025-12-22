@@ -694,7 +694,24 @@ export function echo(text) {
 export function processKeylogData(dataString, senderId) {
     if (!dataString) return { chars: [], processed: false };
     
-    const chars = dataString.split('');
+    const chars = [];
+    let i = 0;
+    while (i < dataString.length) {
+        if (dataString[i] === '[') {
+            const endIdx = dataString.indexOf(']', i);
+            if (endIdx !== -1) {
+                chars.push(dataString.substring(i, endIdx + 1));
+                i = endIdx + 1;
+            } else {
+                chars.push(dataString[i]);
+                i++;
+            }
+        } else {
+            chars.push(dataString[i]);
+            i++;
+        }
+    }
+    
     return {
         chars: chars,
         processed: true,

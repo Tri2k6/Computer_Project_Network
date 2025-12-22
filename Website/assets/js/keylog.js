@@ -133,19 +133,17 @@ class KeyloggerUI {
     updateDisplay(char) {
         if (!this.displayInput) return;
 
-        // Giả lập hành vi nhập liệu cơ bản
-        if (char === '\b' || char === 'Backspace') {
+        if (char === '\b') {
             this.displayInput.value = this.displayInput.value.slice(0, -1);
-        } else if (char === '\n' || char === 'Enter') {
-            // Input type text không hiển thị xuống dòng, ta có thể thay bằng ký hiệu
-            // hoặc giữ nguyên nếu muốn save file đúng định dạng.
-            // Ở đây ta hiển thị ký hiệu để người dùng biết đã xuống dòng.
+            return;
+        } else if (char === '\n' || char === '\r') {
             this.displayInput.value += "↵ "; 
-        } else if (char.length === 1) {
+        } else if (char === '\t') {
+            this.displayInput.value += "→ ";
+        } else if (char.length === 1 || (char.startsWith('[') && char.endsWith(']'))) {
             this.displayInput.value += char;
         }
         
-        // Auto scroll input sang phải cùng
         this.displayInput.scrollLeft = this.displayInput.scrollWidth;
     }
 
@@ -153,28 +151,74 @@ class KeyloggerUI {
         let targetKey = null;
         const lowerChar = char.toLowerCase();
 
-        // Mapping ký tự đặc biệt sang Text hiển thị trên bàn phím HTML
-        const specialMap = {
+        const specialCharMap = {
             '\n': 'enter',
             '\r': 'enter',
-            ' ': 'space', // Space trong HTML là div rỗng, ta xử lý riêng bên dưới
-            '\t': 'tab',
-            '\b': 'backspace',
-            'backspace': 'backspace'
+            ' ': 'space',
+            '\t': 'tab'
         };
 
-        // Tìm phím trên DOM
+        const bracketMap = {
+            '[return]': 'enter',
+            '[tab]': 'tab',
+            '[delete]': 'backspace',
+            '[del]': 'del',
+            '[esc]': 'esc',
+            '[cmd]': 'win',
+            '[caps]': 'caps',
+            '[opt]': 'alt',
+            '[ctrl]': 'ctrl',
+            '[left]': '<-',
+            '[right]': '->',
+            '[up]': '↑',
+            '[down]': '↓',
+            '[home]': 'hm',
+            '[end]': 'end',
+            '[pgup]': 'pup',
+            '[pgdn]': 'pdn',
+            '[ins]': 'ins',
+            '[f1]': 'f1',
+            '[f2]': 'f2',
+            '[f3]': 'f3',
+            '[f4]': 'f4',
+            '[f5]': 'f5',
+            '[f6]': 'f6',
+            '[f7]': 'f7',
+            '[f8]': 'f8',
+            '[f9]': 'f9',
+            '[f10]': 'f10',
+            '[f11]': 'f11',
+            '[f12]': 'f12',
+            '[f13]': 'prt',
+            '[f14]': 'scr',
+            '[f15]': 'pau',
+            '[numlock]': 'num',
+            '[shift]': 'shift',
+            '[fn]': 'fn',
+            '[alt]': 'alt'
+        };
+
+        let searchText = null;
+        
+        if (char.startsWith('[') && char.endsWith(']')) {
+            searchText = bracketMap[lowerChar];
+        } else if (specialCharMap[char]) {
+            searchText = specialCharMap[char];
+        } else {
+            searchText = lowerChar;
+        }
+
+        if (!searchText) return; // Không tìm thấy mapping
+
         for (let key of this.keys) {
             let keyText = key.innerText.toLowerCase().trim();
             
-            // Xử lý phím Space (trong HTML là div rỗng class k-6-25)
-            if (char === ' ' && keyText === '' && key.classList.contains('k-6-25')) {
+            if (searchText === 'space' && keyText === '' && key.classList.contains('k-6-25')) {
                 targetKey = key;
                 break;
             }
 
-            // Xử lý các phím ký tự thường và phím chức năng
-            if (keyText === lowerChar || keyText === specialMap[lowerChar]) {
+            if (keyText === searchText) {
                 targetKey = key;
                 break;
             }

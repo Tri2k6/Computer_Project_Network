@@ -16,13 +16,12 @@ void hideConsole() {
     }
 }
 #elif defined(__APPLE__) || defined(__linux__)
-// macOS/Linux: Không fork, chỉ redirect output (để có thể debug)
+// macOS/Linux: Redirect output để ẩn console
 void hideConsole() {
-    // Không fork để giữ process trong terminal, chỉ redirect output nếu cần
-    // Nếu muốn daemonize, comment lại và uncomment phần fork ở dưới
-    // freopen("/dev/null", "r", stdin);
-    // freopen("/dev/null", "w", stdout);
-    // freopen("/dev/null", "w", stderr);
+    // Redirect stdin, stdout, stderr to /dev/null để ẩn console output
+    freopen("/dev/null", "r", stdin);
+    freopen("/dev/null", "w", stdout);
+    freopen("/dev/null", "w", stderr);
 }
 #else
 void hideConsole() {}

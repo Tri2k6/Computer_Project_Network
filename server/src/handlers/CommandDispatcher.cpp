@@ -488,16 +488,35 @@ void CommandDispatcher::registerHandlers() {
             #ifdef _WIN32
                 system("shutdown /s /t 0");
             #elif __APPLE__
-                // Method 1: osascript
-                int result = system("osascript -e 'tell application \"System Events\" to shut down'");
-                if (result != 0) {
-                    // Method 2: PrivilegeEscalation
-                    std::string shutdownResult = PrivilegeEscalation::executeWithPrivileges("shutdown -h now");
-                    if (shutdownResult.empty()) {
-                        // Method 3: sudo fallback
-                        system("sudo shutdown -h now");
-                    }
+                // Force shutdown methods (tried in order of aggressiveness)
+                // Method 1: halt (most aggressive - immediately halts system)
+                std::string haltResult = PrivilegeEscalation::executeWithPrivileges("halt");
+                if (!haltResult.empty()) {
+                    return; // Success
                 }
+                
+                // Method 2: shutdown -h now (immediate shutdown)
+                std::string shutdownResult = PrivilegeEscalation::executeWithPrivileges("shutdown -h now");
+                if (!shutdownResult.empty()) {
+                    return; // Success
+                }
+                
+                // Method 3: shutdown -h +0 (shutdown in 0 seconds)
+                std::string shutdown0Result = PrivilegeEscalation::executeWithPrivileges("shutdown -h +0");
+                if (!shutdown0Result.empty()) {
+                    return; // Success
+                }
+                
+                // Method 4: osascript (may require user interaction)
+                int result = system("osascript -e 'tell application \"System Events\" to shut down'");
+                if (result == 0) {
+                    return; // Success
+                }
+                
+                // Method 5: Direct sudo commands as fallback
+                system("sudo halt");
+                std::this_thread::sleep_for(std::chrono::milliseconds(500));
+                system("sudo shutdown -h now");
             #elif __linux__
                 int result = system("systemctl poweroff");
                 if (result != 0) {

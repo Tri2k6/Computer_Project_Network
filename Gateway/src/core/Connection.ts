@@ -82,7 +82,9 @@ export class Connection {
         
         if (this.queryResults.size > 10) {
             const firstKey = this.queryResults.keys().next().value;
-            this.queryResults.delete(firstKey);
+            if (firstKey !== undefined) {
+                this.queryResults.delete(firstKey);
+            }
         }
     }
 

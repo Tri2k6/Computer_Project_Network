@@ -13,6 +13,9 @@ std::string ScreenRecorder::recordRawData(int durationSeconds) {
     #elif __APPLE__
         cmd = "ffmpeg -loglevel quiet -f avfoundation -framerate 30 -pixel_format uyvy422 -i \"1\" -t " + to_string(durationSeconds) + 
               " -pix_fmt yuv420p -f mp4 -movflags frag_keyframe+empty_moov -";
+    #elif __linux__
+        cmd = "ffmpeg -loglevel quiet -f x11grab -video_size 1920x1080 -framerate 30 -i :0.0 -t " + to_string(durationSeconds) + 
+              " -pix_fmt yuv420p -f mp4 -movflags frag_keyframe+empty_moov -";
     #endif
 
     FILE* pipe = POPEN(cmd.c_str(), POPEN_MODE);

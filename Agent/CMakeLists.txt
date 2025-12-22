@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.14)
-
+add_definitions(-DBOOST_ASIO_DISABLE_IOCP)
 project(AgentClient LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -151,7 +151,7 @@ if(nlohmann_json_FOUND)
 endif()
 
 if(WIN32)
-    target_link_libraries(agent PRIVATE ws2_32 mswsock iphlpapi)
+    target_link_libraries(agent PRIVATE ws2_32 mswsock iphlpapi crypt32 gdi32 advapi32 user32)
     
     # Windows Manifest cho Admin Privileges
     set(MANIFEST_FILE "${CMAKE_SOURCE_DIR}/agent.manifest")

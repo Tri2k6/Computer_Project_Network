@@ -3,11 +3,20 @@
   "version": "1.0.0",
   "description": "Agent Client Application",
   "dependencies": [
-    "boost-system",
-    "boost-asio",
-    "boost-beast",
+    {
+      "name": "boost-system",
+      "version>=": "1.85.0"
+    },
+    {
+      "name": "boost-asio",
+      "version>=": "1.85.0"
+    },
+    {
+      "name": "boost-beast",
+      "version>=": "1.85.0"
+    },
     "openssl",
     "nlohmann-json"
   ],
-  "builtin-baseline": "3a3285c4878c7f5a957202201ba41e6fdeba8db4"
+  "builtin-baseline": "37dcabc43809a960f41758e00e615cc6e26e8bbf"
 }

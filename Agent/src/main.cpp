@@ -36,7 +36,6 @@ int main(int argc, char** argv) {
         std::cerr << "Failed to initialize Winsock.\n";
         return 1;
     }
-    autoSetupTask();
 #endif
 
     //hideConsole();

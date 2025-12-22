@@ -18,10 +18,10 @@ private:
     void sendAuth();
 
     boost::asio::io_context& ioc_;
+    boost::asio::ssl::context ctx_;
     std::shared_ptr<WSConnection> client_;
     std::shared_ptr<CommandDispatcher> dispatcher_;
     std::unique_ptr<boost::asio::steady_timer> retryTimer_;
-
     std::string agentID_;
     std::string discoveredHost_;
     std::string discoveredPort_;

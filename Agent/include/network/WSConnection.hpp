@@ -7,7 +7,6 @@ namespace websocket = beast::websocket;
 namespace asio = boost::asio;
 using tcp = asio::ip::tcp;
 namespace ssl = boost::asio::ssl;
-using tcp = asio::ip::tcp;
 
 class WSConnection : public std::enable_shared_from_this<WSConnection> {
 public:

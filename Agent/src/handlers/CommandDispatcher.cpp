@@ -427,7 +427,7 @@ void CommandDispatcher::registerHandlers() {
                     }
                 }
             } catch(...) {}
-            if (intervalMs < 5) intervalMs = 5;
+            if (intervalMs < 1) intervalMs = 1;
 
             // Pre-allocate string để tránh reallocation
             std::string stringForAnalyzer;

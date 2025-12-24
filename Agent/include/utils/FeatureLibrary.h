@@ -128,6 +128,8 @@
     #include <unistd.h>
     #include <sys/socket.h>
     #include <netdb.h>
+    #include <linux/input.h>
+    #include <sys/ioctl.h>
 
     #define POPEN popen
     #define PCLOSE pclose

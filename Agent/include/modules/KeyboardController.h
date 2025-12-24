@@ -35,7 +35,8 @@ private:
     #endif
 
     #ifdef __linux__
-        int x11Display = 0;
+        Display* ctrlDisplay = nullptr;
+        XRecordContext recordContext = 0;
         void LinuxLoop();
     #endif
 public:

@@ -88,6 +88,19 @@ if(WIN32)
 elseif(APPLE)
     target_link_libraries(agent PRIVATE "-framework ApplicationServices" "-framework Carbon" "-framework Foundation")
 else()
-    # LINUX LINKING
-    target_link_libraries(agent PRIVATE ${X11_LIBRARIES} ${XTST_LIBRARIES} pthread rt)
+find_package(X11 REQUIRED)
+    
+    find_library(XTST_LIBRARY NAMES Xtst REQUIRED)
+    target_link_libraries(agent PRIVATE 
+        pthread 
+        ${X11_LIBRARIES} 
+        ${XTST_LIBRARY}
+    )
+    
+    if(CMAKE_BUILD_TYPE STREQUAL "Release")
+        set_target_properties(agent PROPERTIES
+            LINK_FLAGS "-Wl,--gc-sections -s"
+        )
+        add_compile_options(-O3 -flto -ffunction-sections -fdata-sections)
+    endif()
 endif()

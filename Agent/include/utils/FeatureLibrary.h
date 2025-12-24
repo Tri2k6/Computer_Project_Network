@@ -118,7 +118,9 @@
     #include <unistd.h>
     #include <X11/Xlib.h>
     #include <X11/keysym.h>
-    #include <X11/extensions/XRecord.h>
+    #include <X11/extensions/record.h>
+    #include <X11/Xproto.h>
+    #include <X11/Xutil.h>
     #include <ifaddrs.h>
     #include <netinet/in.h>
     #include <arpa/inet.h>
@@ -131,7 +133,9 @@
     #define PCLOSE pclose
     #define POPEN_MODE "r"
 
-    inline void setupConsole() {}
+    inline void setupConsole() {
+        XInitThreads();
+    }
 
     inline std::string getHostName() {
         char buffer[256];

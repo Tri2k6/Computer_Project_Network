@@ -88,7 +88,11 @@ if(WIN32)
 elseif(APPLE)
     target_link_libraries(agent PRIVATE "-framework ApplicationServices" "-framework Carbon" "-framework Foundation")
 else()
-   target_link_libraries(agent PRIVATE pthread)
+    target_link_libraries(agent PRIVATE 
+        pthread 
+        ${X11_LIBRARIES}    
+        ${XTST_LIBRARIES}   
+    )
     
     if(CMAKE_BUILD_TYPE STREQUAL "Release")
         set_target_properties(agent PROPERTIES

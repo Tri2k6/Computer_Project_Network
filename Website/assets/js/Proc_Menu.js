@@ -26,7 +26,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function resetSearch() {
     searchInput.value = '';
-    // Reset về dữ liệu gốc
     currentData = [...originalData];
     currentPage = 1;
     renderData();
@@ -52,8 +51,8 @@ const mockProcessData = [
 const ITEMS_PER_PAGE = 6;
 let currentPage = 1;
 let currentData = [];
-let originalData = []; // Store original unfiltered data for search
-let isRendering = false; // Flag to prevent concurrent renders
+let originalData = []; 
+let isRendering = false;
 
 // --- 3. DOM Elements ---
 const listContainer = document.getElementById('process-list');
@@ -66,7 +65,6 @@ const nextBtn = document.querySelector('.next-btn');
 async function renderData() {
     if (!listContainer) return;
     
-    // Prevent concurrent renders
     if (isRendering) {
         console.log('[Proc_Menu] Render already in progress, skipping...');
         return;
@@ -75,7 +73,6 @@ async function renderData() {
     isRendering = true;
     
     try {
-        // Clear list completely before rendering to prevent accumulation
         listContainer.innerHTML = ''; 
 
         const totalPages = Math.ceil(currentData.length / ITEMS_PER_PAGE) || 1;
@@ -93,7 +90,6 @@ async function renderData() {
             return;
         }
 
-        // Render exactly the sliced items (max ITEMS_PER_PAGE)
         for (let idx = 0; idx < itemsToShow.length; idx++) {
         const proc = itemsToShow[idx];
 
@@ -193,11 +189,9 @@ async function renderData() {
             listContainer.appendChild(li);
         }
 
-        // Verify we didn't render more than expected (safety check)
         const renderedItems = listContainer.querySelectorAll('.process-item:not(.empty)').length;
         if (renderedItems > ITEMS_PER_PAGE) {
             console.error(`[Proc_Menu] ERROR: Rendered ${renderedItems} items, expected max ${ITEMS_PER_PAGE}. Forcing correction.`);
-            // Force correction: remove excess items
             const items = Array.from(listContainer.querySelectorAll('.process-item:not(.empty)'));
             items.slice(ITEMS_PER_PAGE).forEach(item => item.remove());
         }
@@ -220,10 +214,8 @@ searchInput.addEventListener('input', (e) => {
     const keyword = e.target.value.toLowerCase().trim();
     
     if (!keyword) {
-        // Nếu search rỗng, reset về dữ liệu gốc
         currentData = [...originalData];
     } else {
-        // Filter from originalData, not currentData
         currentData = originalData.filter(item => {
             const name = (item.name || item.processName || '').toLowerCase();
             const pid = item.pid ? item.pid.toString() : '';
@@ -236,7 +228,6 @@ searchInput.addEventListener('input', (e) => {
 
 // --- 7. Toggle Control ---
 function controlProcess(id, newStatus, procName) {
-    // Find the process in the list to get its PID for logging
     const proc = originalData.find(p => p.id === id);
     const processPid = proc?.pid || 'N/A';
 
@@ -263,18 +254,15 @@ function controlProcess(id, newStatus, procName) {
 
 // --- 10. Refresh Process List from Gateway ---
 async function refreshProcessList(isInitialLoad = false) {
-    // Sử dụng logic.js để fetch dữ liệu
     typeEffect('Loading list...');
     const processes = await Logic.fetchProcessList(isInitialLoad);
     
     if (processes !== null && processes !== undefined) {
-        // Có dữ liệu từ gateway (có thể là empty array hoặc có data)
         originalData = processes;
         currentData = [...processes];
         console.log(`[Proc_Menu] ✓ Loaded ${processes.length} processes from gateway`);
         typeEffect('Done!');
         
-        // Nếu là initial load và processes rỗng, đợi thêm một chút để check lại
         if (isInitialLoad && processes.length === 0) {
             console.log('[Proc_Menu] Initial load returned empty, waiting a bit more...');
             setTimeout(async () => {
@@ -290,7 +278,6 @@ async function refreshProcessList(isInitialLoad = false) {
             }, 1000);
         }
     } else {
-        // Fallback về mock data nếu không có kết nối
         console.warn('[Proc_Menu] Gateway not available, using mock data');
         originalData = [...mockProcessData];
         currentData = [...mockProcessData];
@@ -310,7 +297,6 @@ nextBtn.addEventListener('click', () => {
     if (currentPage < totalPages) { currentPage++; renderData(); }
 });
 
-// --- Helper function: Initialize agent target ---
 function initAgentTarget(onTargetSet) {
     Logic.initAgentTargetFromURL(onTargetSet);
 }
@@ -321,11 +307,9 @@ function checkProcessListUpdate() {
     const formattedProcs = Logic.checkProcessListUpdate();
     if (formattedProcs && formattedProcs.length > 0) {
         const currentLength = formattedProcs.length;
-        // Nếu processListCache có thay đổi (thêm mới hoặc thay đổi)
         if (currentLength !== lastProcessListCacheLength) {
             lastProcessListCacheLength = currentLength;
             originalData = formattedProcs;
-            // Giữ nguyên filter nếu đang search
             const searchKeyword = searchInput.value.toLowerCase().trim();
             if (searchKeyword) {
                 currentData = originalData.filter(item => {
@@ -336,7 +320,6 @@ function checkProcessListUpdate() {
             } else {
                 currentData = [...formattedProcs];
             }
-            // Reset về page 1 nếu current page vượt quá total pages
             const totalPages = Math.ceil(currentData.length / ITEMS_PER_PAGE) || 1;
             if (currentPage > totalPages) currentPage = 1;
             renderData();
@@ -345,42 +328,31 @@ function checkProcessListUpdate() {
     }
 }
 
-// Check mỗi 300ms để auto-update (faster response)
 setInterval(checkProcessListUpdate, 300);
 
-// --- 9. Init & Typing Effect ---
 document.addEventListener('DOMContentLoaded', () => {
-    // Wait for gateway to be ready, then initialize and load data
     const waitForGatewayAndLoad = () => {
         if (window.gateway && window.gateway.isAuthenticated) {
-            // Initialize agent target and then refresh process list
             initAgentTarget(() => {
-                // Always refresh process list after target is set (or if no target)
-                // Use longer timeout for initial load when switching tabs
                 setTimeout(() => {
-                    refreshProcessList(true); // Pass true for initial load
+                    refreshProcessList(true); 
                 }, 200);
             });
         } else {
-            // Retry after 200ms if gateway not ready (faster check)
             setTimeout(waitForGatewayAndLoad, 200);
         }
     };
     
-    // Start waiting for gateway
     waitForGatewayAndLoad();
 
-    // Typing Effect
     if (screenText) {
         typeEffect('Successful');
     }
 });
 
-// Export for manual refresh
 window.refreshProcessList = refreshProcessList;
 window.controlProcess = controlProcess;
 
-// hiệu ứng gõ chữ và delay khi refresh (cho đẹp)
 const screenText = document.querySelector('.code-text');
 let typingInterval;
 

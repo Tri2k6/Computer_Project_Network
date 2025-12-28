@@ -1,13 +1,3 @@
-/**
- * logic.js - Centralizes all data processing logic, data fetching, and function calls
- * Other .js files only handle frontend/UI
- */
-
-// ==================== AGENT MANAGEMENT ====================
-
-/**
- * Get agent list from gateway
- */
 export function getAgentList() {
     if (!window.gateway) {
         console.warn('[Logic] Gateway not found');
@@ -16,9 +6,6 @@ export function getAgentList() {
     window.gateway.refreshAgents();
 }
 
-/**
- * Authenticate with gateway
- */
 export function authenticate() {
     if (!window.gateway || !window.gateway.ws || window.gateway.ws.readyState !== WebSocket.OPEN) {
         console.warn('[Logic] Gateway not connected');
@@ -45,8 +32,7 @@ export function setTarget(agentId) {
 }
 
 /**
- * Khởi tạo target từ URL parameter
- * @param {Function} onTargetSet - Callback khi setTarget thành công
+ * @param {Function} onTargetSet 
  */
 export function initAgentTargetFromURL(onTargetSet) {
     const urlParams = new URLSearchParams(window.location.search);
@@ -65,25 +51,23 @@ export function initAgentTargetFromURL(onTargetSet) {
         const checkAndSetTarget = () => {
             if (window.gateway && window.gateway.isAuthenticated) {
                 if (window.gateway.agentsList && window.gateway.agentsList.length > 0) {
-                    setTarget(agentId); // Dùng setTarget để lưu vào sessionStorage
+                    setTarget(agentId);
                     console.log(`[Logic] Set target to agent: ${agentId}`);
                     if (onTargetSet && typeof onTargetSet === 'function') {
                         onTargetSet();
                     }
                 } else {
-                    setTimeout(checkAndSetTarget, 200); // Reduced from 500ms
+                    setTimeout(checkAndSetTarget, 200); 
                 }
             } else {
-                setTimeout(checkAndSetTarget, 200); // Reduced from 500ms
+                setTimeout(checkAndSetTarget, 200); 
             }
         };
-        setTimeout(checkAndSetTarget, 300); // Reduced from 1000ms
+        setTimeout(checkAndSetTarget, 300); 
     } else if (onTargetSet && typeof onTargetSet === 'function') {
         onTargetSet();
     }
 }
-
-// ==================== APPLICATION MANAGEMENT ====================
 
 /**
  * Get application list from gateway
@@ -107,7 +91,6 @@ export function fetchAppList(isInitialLoad = false) {
 
     console.log('[Logic] Fetching app list from gateway...');
     
-    // Check if data already exists in cache
     const existingData = window.gateway.getFormattedAppList();
     if (existingData && existingData.length > 0) {
         return Promise.resolve(existingData);
@@ -121,7 +104,6 @@ export function fetchAppList(isInitialLoad = false) {
         let hasReceivedResponse = false;
         let attempts = 0;
         let lastFormattedLength = 0;
-        // Longer timeout for initial load when switching tabs (20 seconds vs 1.5 seconds)
         const maxAttempts = isInitialLoad ? 200 : 15;
         const pollInterval = 100;
         
@@ -130,11 +112,9 @@ export function fetchAppList(isInitialLoad = false) {
             const rawCache = window.gateway.appListCache;
             const currentLength = Array.isArray(rawCache) ? rawCache.length : 0;
             
-            // Always check formatted apps first
             const formattedApps = window.gateway.getFormattedAppList();
             const formattedLength = formattedApps ? formattedApps.length : 0;
             
-            // Check if formatted apps changed (this is the most reliable indicator)
             if (formattedLength > 0 && formattedLength !== lastFormattedLength) {
                 console.log(`[Logic] Formatted apps detected: ${formattedLength} apps`);
                 lastFormattedLength = formattedLength;
@@ -142,7 +122,6 @@ export function fetchAppList(isInitialLoad = false) {
                 return true;
             }
             
-            // Check if cache changed (length changed or became an array with data)
             const cacheChanged = currentLength !== lastCheckedLength;
             const isArrayWithData = Array.isArray(rawCache) && currentLength > 0;
             
@@ -150,7 +129,6 @@ export function fetchAppList(isInitialLoad = false) {
                 hasReceivedResponse = true;
                 lastCheckedLength = currentLength;
                 
-                // Re-check formatted apps when cache changes
                 const formattedAppsAfterChange = window.gateway.getFormattedAppList();
                 if (formattedAppsAfterChange && formattedAppsAfterChange.length > 0) {
                     console.log(`[Logic] Cache updated, found ${formattedAppsAfterChange.length} apps`);
@@ -158,20 +136,15 @@ export function fetchAppList(isInitialLoad = false) {
                     return true;
                 }
             } else if (Array.isArray(rawCache) && attempts > 2) {
-                // If cache is an array (even if empty), we got a response
                 hasReceivedResponse = true;
             }
             
-            // If we got a response (even if empty) or max attempts reached
             if (hasReceivedResponse || attempts >= maxAttempts) {
                 if (formattedApps && formattedApps.length > 0) {
                     resolve(formattedApps);
                 } else if (hasReceivedResponse && formattedLength === 0 && attempts > 10) {
-                    // Only return empty if we've waited enough (attempts > 10) and still no data
-                    // This prevents showing "No items found" too early
                     resolve([]);
                 } else if (attempts >= maxAttempts) {
-                    // Max attempts reached - check one more time
                     const finalCheck = window.gateway.getFormattedAppList();
                     if (finalCheck && finalCheck.length > 0) {
                         resolve(finalCheck);
@@ -181,18 +154,15 @@ export function fetchAppList(isInitialLoad = false) {
                         resolve(null);
                     }
                 } else {
-                    // Continue polling if we haven't waited enough
                     return false;
                 }
-                return true; // Signal to stop
+                return true; 
             }
-            return false; // Continue polling
+            return false; 
         };
         
-        // Immediate check
         if (checkCache()) return;
         
-        // Poll with faster interval
         const pollTimer = setInterval(() => {
             if (checkCache()) {
                 clearInterval(pollTimer);
@@ -222,8 +192,8 @@ export function startApp(appId) {
 }
 
 /**
- * Dừng ứng dụng
- * @param {number} appId - ID của ứng dụng
+ * Stop app
+ * @param {number} appId - App's ID
  */
 export function stopApp(appId) {
     if (!window.gateway || !window.gateway.ws || window.gateway.ws.readyState !== WebSocket.OPEN) {
@@ -240,8 +210,6 @@ export function stopApp(appId) {
     console.log(`[Logic] Stopping app ID: ${appId}`);
     return true;
 }
-
-// ==================== PROCESS MANAGEMENT ====================
 
 /**
  * Get process list from gateway
@@ -265,7 +233,6 @@ export function fetchProcessList(isInitialLoad = false) {
 
     console.log('[Logic] Fetching process list from gateway...');
     
-    // Check if data already exists in cache
     const existingData = window.gateway.getFormattedProcessList();
     if (existingData && existingData.length > 0) {
         return Promise.resolve(existingData);
@@ -279,7 +246,6 @@ export function fetchProcessList(isInitialLoad = false) {
         let hasReceivedResponse = false;
         let attempts = 0;
         let lastFormattedLength = 0;
-        // Longer timeout for initial load when switching tabs (20 seconds vs 1.5 seconds)
         const maxAttempts = isInitialLoad ? 200 : 15;
         const pollInterval = 100;
         
@@ -288,11 +254,9 @@ export function fetchProcessList(isInitialLoad = false) {
             const rawCache = window.gateway.processListCache;
             const currentLength = Array.isArray(rawCache) ? rawCache.length : 0;
             
-            // Always check formatted processes first
             const formattedProcs = window.gateway.getFormattedProcessList();
             const formattedLength = formattedProcs ? formattedProcs.length : 0;
             
-            // Check if formatted processes changed (this is the most reliable indicator)
             if (formattedLength > 0 && formattedLength !== lastFormattedLength) {
                 console.log(`[Logic] Formatted processes detected: ${formattedLength} processes`);
                 lastFormattedLength = formattedLength;
@@ -300,7 +264,6 @@ export function fetchProcessList(isInitialLoad = false) {
                 return true;
             }
             
-            // Check if cache changed (length changed or became an array with data)
             const cacheChanged = currentLength !== lastCheckedLength;
             const isArrayWithData = Array.isArray(rawCache) && currentLength > 0;
             
@@ -308,7 +271,6 @@ export function fetchProcessList(isInitialLoad = false) {
                 hasReceivedResponse = true;
                 lastCheckedLength = currentLength;
                 
-                // Re-check formatted processes when cache changes
                 const formattedProcsAfterChange = window.gateway.getFormattedProcessList();
                 if (formattedProcsAfterChange && formattedProcsAfterChange.length > 0) {
                     console.log(`[Logic] Cache updated, found ${formattedProcsAfterChange.length} processes`);
@@ -316,20 +278,15 @@ export function fetchProcessList(isInitialLoad = false) {
                     return true;
                 }
             } else if (Array.isArray(rawCache) && attempts > 2) {
-                // If cache is an array (even if empty), we got a response
                 hasReceivedResponse = true;
             }
             
-            // If we got a response (even if empty) or max attempts reached
             if (hasReceivedResponse || attempts >= maxAttempts) {
                 if (formattedProcs && formattedProcs.length > 0) {
                     resolve(formattedProcs);
                 } else if (hasReceivedResponse && formattedLength === 0 && attempts > 10) {
-                    // Only return empty if we've waited enough (attempts > 10) and still no data
-                    // This prevents showing "No items found" too early
                     resolve([]);
                 } else if (attempts >= maxAttempts) {
-                    // Max attempts reached - check one more time
                     const finalCheck = window.gateway.getFormattedProcessList();
                     if (finalCheck && finalCheck.length > 0) {
                         resolve(finalCheck);
@@ -339,18 +296,15 @@ export function fetchProcessList(isInitialLoad = false) {
                         resolve(null);
                     }
                 } else {
-                    // Continue polling if we haven't waited enough
                     return false;
                 }
-                return true; // Signal to stop
+                return true; 
             }
-            return false; // Continue polling
+            return false; 
         };
         
-        // Immediate check
         if (checkCache()) return;
         
-        // Poll with faster interval
         const pollTimer = setInterval(() => {
             if (checkCache()) {
                 clearInterval(pollTimer);
@@ -411,7 +365,6 @@ export function killProcess(processId) {
     return true;
 }
 
-// ==================== SCREEN & WEBCAM ====================
 
 /**
  * Capture screen
@@ -427,7 +380,6 @@ export function captureScreen() {
         return false;
     }
 
-    // Kiểm tra có agent được chọn không
     if (window.gateway.targetId === 'ALL' || !window.gateway.targetId) {
         console.error('[Logic] Chưa chọn agent. Vui lòng chọn một agent trước khi chụp màn hình.');
         alert('Vui lòng chọn một agent trước khi chụp màn hình.');
@@ -440,7 +392,7 @@ export function captureScreen() {
 }
 
 /**
- * Chụp ảnh webcam
+ * Capture webcam
  */
 export function captureWebcam() {
     if (!window.gateway) {
@@ -453,7 +405,6 @@ export function captureWebcam() {
         return false;
     }
 
-    // Kiểm tra có agent được chọn không
     if (window.gateway.targetId === 'ALL' || !window.gateway.targetId) {
         console.error('[Logic] Chưa chọn agent. Vui lòng chọn một agent trước khi chụp webcam.');
         alert('Vui lòng chọn một agent trước khi chụp webcam.');
@@ -480,7 +431,6 @@ export function recordScreen(duration = 5) {
         return false;
     }
 
-    // Kiểm tra có agent được chọn không
     if (window.gateway.targetId === 'ALL' || !window.gateway.targetId) {
         console.error('[Logic] Chưa chọn agent. Vui lòng chọn một agent trước khi quay màn hình.');
         alert('Vui lòng chọn một agent trước khi quay màn hình.');
@@ -494,8 +444,8 @@ export function recordScreen(duration = 5) {
 }
 
 /**
- * Quay webcam
- * @param {number} duration - Thời gian quay (giây), tối đa 15
+ * Record webcam
+ * @param {number} duration - max 15s
  */
 export function recordWebcam(duration = 5) {
     if (!window.gateway) {
@@ -508,7 +458,6 @@ export function recordWebcam(duration = 5) {
         return false;
     }
 
-    // Kiểm tra có agent được chọn không
     if (window.gateway.targetId === 'ALL' || !window.gateway.targetId) {
         console.error('[Logic] Chưa chọn agent. Vui lòng chọn một agent trước khi quay webcam.');
         alert('Vui lòng chọn một agent trước khi quay webcam.');
@@ -520,8 +469,6 @@ export function recordWebcam(duration = 5) {
     window.gateway.send(window.CONFIG.CMD.CAM_RECORD, String(finalDuration));
     return true;
 }
-
-// ==================== KEYLOGGER ====================
 
 /**
  * Start keylogger
@@ -554,7 +501,7 @@ export function startKeylog(interval = 0.1) {
 }
 
 /**
- * Dừng keylogger
+ * Stop keylogger
  */
 export function stopKeylog() {
     if (!window.gateway) {
@@ -571,8 +518,6 @@ export function stopKeylog() {
     window.gateway.send(window.CONFIG.CMD.STOP_KEYLOG, "");
     return true;
 }
-
-// ==================== POWER CONTROL ====================
 
 /**
  * Shutdown agent
@@ -635,8 +580,6 @@ export function sleepAgent() {
     return true;
 }
 
-// ==================== FILE SYSTEM ====================
-
 /**
  * List files in directory
  * @param {string} path - Directory path
@@ -655,8 +598,6 @@ export function listFiles(path = "") {
     window.gateway.listFiles(path);
     return true;
 }
-
-// ==================== UTILITY COMMANDS ====================
 
 /**
  * Get agent machine information
@@ -683,7 +624,6 @@ export function echo(text) {
     return true;
 }
 
-// ==================== DATA PROCESSING ====================
 
 /**
  * Process received keylog data

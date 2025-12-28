@@ -1,10 +1,3 @@
-/**
- * Path: assets/js/keylog.js
- * Nhiệm vụ: Giả lập Keylogger chạy offline với chuỗi string có sẵn (Simulation Mode).
- */
-
-// --- CẤU HÌNH DỮ LIỆU GIẢ LẬP ---
-// Bạn có thể thay đổi nội dung này. Sử dụng \n cho Enter, \t cho Tab.
 const MOCK_DATA_STRING = `Hello world!\nToi la sinh vien.\nDang nhap tai khoan:\nUser: admin@gmail.com\nPass: matkhau123456\n`;
 
 class KeyloggerSimulation {

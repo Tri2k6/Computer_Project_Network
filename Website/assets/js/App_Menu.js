@@ -100,7 +100,7 @@ async function renderData() {
         const pauseSrc = './assets/images/pause.png';
 
         // ===================== APP ID =====================
-        let appId = startIndex + idx; // default index hiện tại (0-based)
+        let appId = startIndex + idx; 
         if (app.id !== undefined && app.id !== null) {
             const numId = typeof app.id === 'number' ? app.id : parseInt(app.id, 10);
             if (!isNaN(numId) && numId >= 0) {
@@ -202,10 +202,8 @@ searchInput.addEventListener('input', (e) => {
     const keyword = e.target.value.toLowerCase().trim();
     
     if (!keyword) {
-        // Nếu search rỗng, reset về dữ liệu gốc
         currentData = [...originalData];
     } else {
-        // Filter from originalData, not currentData
         currentData = originalData.filter(item => {
             const name = (item.name || item.appName || '').toLowerCase();
             const pid = item.pid ? item.pid.toString() : '';
@@ -242,7 +240,6 @@ function controlApp(id, action, appName) {
         return;
     }
 
-    // Refresh list after a short delay to show updated status
     setTimeout(() => {
         refreshAppList();
     }, 1000);
@@ -253,7 +250,6 @@ window.controlProcess = controlApp;
 
 // --- 10. Refresh App List from Gateway ---
 async function refreshAppList(isInitialLoad = false) {
-    // Sử dụng logic.js để fetch dữ liệu
     typeEffect('Loading list...');
     const apps = await Logic.fetchAppList(isInitialLoad);
     
@@ -266,13 +262,11 @@ async function refreshAppList(isInitialLoad = false) {
     });
     
     if (apps !== null && apps !== undefined) {
-        // Có dữ liệu từ gateway (có thể là empty array hoặc có data)
         originalData = apps;
         currentData = [...apps];
         console.log(`[App_Menu] ✓ Loaded ${apps.length} apps from gateway`);
         typeEffect('Done!');
         
-        // Nếu là initial load và apps rỗng, đợi thêm một chút để check lại
         if (isInitialLoad && apps.length === 0) {
             console.log('[App_Menu] Initial load returned empty, waiting a bit more...');
             setTimeout(async () => {
@@ -288,7 +282,6 @@ async function refreshAppList(isInitialLoad = false) {
             }, 1000);
         }
     } else {
-        // Fallback về mock data nếu không có kết nối
         console.warn('[App_Menu] Gateway not available, using mock data');
         originalData = [...mockProcessData];
         currentData = [...mockProcessData];
@@ -319,11 +312,9 @@ function checkAppListUpdate() {
     const formattedApps = Logic.checkAppListUpdate();
     if (formattedApps && formattedApps.length > 0) {
         const currentLength = formattedApps.length;
-        // Nếu appListCache có thay đổi (thêm mới hoặc thay đổi)
         if (currentLength !== lastAppListCacheLength) {
             lastAppListCacheLength = currentLength;
             originalData = formattedApps;
-            // Giữ nguyên filter nếu đang search
             const searchKeyword = searchInput.value.toLowerCase().trim();
             if (searchKeyword) {
                 currentData = originalData.filter(item => {
@@ -334,7 +325,6 @@ function checkAppListUpdate() {
             } else {
                 currentData = [...formattedApps];
             }
-            // Reset về page 1 nếu current page vượt quá total pages
             const totalPages = Math.ceil(currentData.length / ITEMS_PER_PAGE) || 1;
             if (currentPage > totalPages) currentPage = 1;
             renderData();
@@ -343,42 +333,32 @@ function checkAppListUpdate() {
     }
 }
 
-// Check mỗi 300ms để auto-update (faster response)
 setInterval(checkAppListUpdate, 300);
 
 // --- 9. Init & Typing Effect ---
 document.addEventListener('DOMContentLoaded', () => {
-    // Wait for gateway to be ready, then initialize and load data
     const waitForGatewayAndLoad = () => {
         if (window.gateway && window.gateway.isAuthenticated) {
-            // Initialize agent target and then refresh app list
             initAgentTarget(() => {
-                // Always refresh app list after target is set (or if no target)
-                // Use longer timeout for initial load when switching tabs
                 setTimeout(() => {
-                    refreshAppList(true); // Pass true for initial load
+                    refreshAppList(true); 
                 }, 200);
             });
         } else {
-            // Retry after 200ms if gateway not ready (faster check)
             setTimeout(waitForGatewayAndLoad, 200);
         }
     };
     
-    // Start waiting for gateway
     waitForGatewayAndLoad();
 
-    // Typing Effect
     if (screenText) {
         typeEffect('Successful');
     }
 });
 
-// Export for manual refresh
 window.refreshAppList = refreshAppList;
 window.controlApp = controlApp;
 
-// hiệu ứng gõ chữ và delay khi refresh (cho đẹp)
 const screenText = document.querySelector('.code-text');
 let typingInterval;
 

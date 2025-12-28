@@ -65,7 +65,6 @@ function showLoginForm() {
     if (overlay) {
         overlay.classList.remove('hidden');
         console.log('[Login] Login overlay visible:', !overlay.classList.contains('hidden'));
-        // Focus vào input password
         const passwordInput = document.getElementById('password-input');
         if (passwordInput) {
             setTimeout(() => passwordInput.focus(), 100);
@@ -152,7 +151,7 @@ document.addEventListener('DOMContentLoaded', () => {
 let autoConnectState = {
     hasTriedDiscovery: false,
     isConnecting: false,
-    isAutoAuthenticating: false // Flag để tránh hiển thị login form khi đang auto-auth
+    isAutoAuthenticating: false
 };
 
 const gateway = new Gateway({
@@ -196,10 +195,8 @@ const gateway = new Gateway({
         const savedPassword = sessionStorage.getItem('saved_password');
         const wasAuthenticated = sessionStorage.getItem('is_authenticated') === 'true';
         
-        // Nếu là navigation (code 1001) và có saved password, reconnect ngay lập tức
         if (wasNavigation && savedPassword && wasAuthenticated) {
             console.log(`[Auto] Navigation detected, will reconnect immediately...`);
-            // Reconnect ngay lập tức cho navigation
             setTimeout(() => {
                 if (!appState.isConnected && !autoConnectState.isConnecting) {
                     console.log(`[Auto] Attempting auto-reconnect after navigation...`);
@@ -227,7 +224,6 @@ const gateway = new Gateway({
             gateway.refreshAgents();
         }, 500);
         
-        // If on App_Menu page, trigger refreshAppList after auth
         if (window.location.pathname.includes('App_Menu')) {
             setTimeout(() => {
                 if (window.refreshAppList) {
@@ -236,7 +232,6 @@ const gateway = new Gateway({
             }, 1000);
         }
         
-        // If on Proc_Menu page, trigger refreshProcessList after auth
         if (window.location.pathname.includes('Proc_Menu')) {
             setTimeout(() => {
                 if (window.refreshProcessList) {
@@ -249,14 +244,12 @@ const gateway = new Gateway({
         ui.log("System", `Cập nhật danh sách Agent: ${agentList.length} thiết bị.`);
         appState.agents = agentList;
         
-        // Check if current target is still online
         if (appState.currentTarget !== 'ALL' && !agentList.find(a => a.id === appState.currentTarget)) {
             ui.warn("System", `Target ${appState.currentTarget} đã offline.`);
             appState.currentTarget = 'ALL';
             gateway.targetId = 'ALL';
         }
         
-        // Auto-select first agent if no target is selected and agents are available
         if (appState.currentTarget === 'ALL' && agentList.length > 0) {
             const firstAgent = agentList[0];
             appState.currentTarget = firstAgent.id;
@@ -266,9 +259,7 @@ const gateway = new Gateway({
         
         ui.updateAgentList(agentList);
         
-        // Trigger render agent list nếu overlay đang mở
         if (window.fetchAndRenderAgents && typeof window.fetchAndRenderAgents === 'function') {
-            // Reset về page 1 khi có update mới
             if (window.resetAgentListPage && typeof window.resetAgentListPage === 'function') {
                 window.resetAgentListPage();
             }
@@ -278,7 +269,6 @@ const gateway = new Gateway({
     onScreenshot: (base64Data, agentId) => {
         ui.log("Spy", `Nhận ảnh màn hình từ ${agentId}`);
         
-        // Check if we're on screen_webcam page and display preview
         if (window.displayImagePreview && window.location.pathname.includes('screen_webcam')) {
             if (base64Data && base64Data.trim() !== '') {
                 window.displayImagePreview(base64Data);
@@ -288,7 +278,6 @@ const gateway = new Gateway({
                 }
             }
         } else {
-            // Also show in modal if available (for other pages)
             const modal = document.getElementById('image-modal');
             const img = document.getElementById('modal-img');
             
@@ -304,7 +293,6 @@ const gateway = new Gateway({
     onCamera: (videoData, agentId) => {
         ui.log("Spy", `Nhận video từ ${agentId}`);
         
-        // Check if we're on screen_webcam page and display preview
         if (window.displayVideoPreview && window.location.pathname.includes('screen_webcam')) {
             if (videoData && videoData.trim() !== '') {
                 window.displayVideoPreview(videoData);
@@ -314,7 +302,6 @@ const gateway = new Gateway({
                 }
             }
         } else {
-            // Fallback to download if not on preview page
             if (videoData && videoData.trim() !== '') {
                 const link = document.createElement('a');
                 link.href = "data:video/mp4;base64," + videoData;
@@ -331,7 +318,6 @@ const gateway = new Gateway({
             keylogPanel.scrollTop = keylogPanel.scrollHeight;
         }
         
-        // SỬA: Đảm bảo không gọi .replace trên Array
         console.log(`%c[Keylog - ${agentId}]: ${displayString.replace(/\n/g, '\\n')}`, 'color: orange');
     },
     onMessage: (msg) => {
@@ -353,7 +339,6 @@ const gateway = new Gateway({
                        errorMessage.toLowerCase().includes("failed");
 
         if (isAuthError) {
-            // Reset flag nếu auth failed
             autoConnectState.isAutoAuthenticating = false;
             sessionStorage.removeItem('saved_password');
             sessionStorage.removeItem('is_authenticated');
@@ -416,9 +401,6 @@ window.help = () => {
 };
 
 async function autoConnect() {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/10c16e71-75ba-4efd-b6cb-47716d67b948',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'main.js:219',message:'autoConnect() called',data:{isConnecting:autoConnectState.isConnecting,hasTriedDiscovery:autoConnectState.hasTriedDiscovery,existingWs:!!gateway.ws,wsReadyState:gateway.ws?.readyState},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'E'})}).catch(()=>{});
-    // #endregion
     if (autoConnectState.isConnecting || appState.isConnected) {
         return;
     }
@@ -457,7 +439,6 @@ async function autoConnect() {
     }
 }
 
-// Xử lý khi đóng tab: xóa sessionStorage để đảm bảo lần mở tab mới sẽ cần authenticate lại
 window.addEventListener('beforeunload', () => {
 
 });
@@ -498,9 +479,6 @@ window.auth = () => {
 };
 
 const discovery = new GatewayDiscovery();
-
-// Note: LAN Scanner removed per plan requirements
-// Use discover() or default gateways instead
 
 window.discover = () => {
     ui.info("[Discovery] Đang tìm Gateway...");

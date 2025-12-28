@@ -22,7 +22,7 @@ export class Gateway{
         this.machineId = this._getMachineId();
         this.targetId = 'ALL';
         this._hasTriedInsecure = false;
-        this._lastCloseCode = null; // Track last close code to prevent reconnect loops
+        this._lastCloseCode = null;
 
         this.ui = window.ui || { log: console.log, renderList: console.table };
 
@@ -77,12 +77,10 @@ export class Gateway{
             this.ws = null;
         }
         
-        // Auto-detect: port 8082 is HTTP/WS, port 8080 is HTTPS/WSS
         if (port === CONFIG.SERVER_PORT + 2) {
             useSecure = false;
         }
         
-        // Reset insecure flag for new connection attempt
         if (useSecure) {
             this._hasTriedInsecure = false;
         }
@@ -97,7 +95,6 @@ export class Gateway{
             console.log(`[Network] Socket opened successfully to ${url}`)
             console.log(`[Network] Waiting for user to enter password...`)
 
-            // Gọi callback onConnected để kích hoạt logic tự động auth ở main.js
             if (this.callbacks.onConnected) {
                 this.callbacks.onConnected();
             }
@@ -111,17 +108,8 @@ export class Gateway{
             this._lastCloseCode = event.code;
             this.isAuthenticated = false;
             
-            // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/10c16e71-75ba-4efd-b6cb-47716d67b948',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'gateway.js:111',message:'WebSocket onclose triggered',data:{code:event.code,reason:event.reason||'Unknown',wasAuthenticated,connectionId,cleanClose:event.wasClean,targetId:this.targetId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-            // #endregion
-            
             console.log(`[Network] Socket closed. Code: ${event.code}, Reason: ${event.reason || 'Unknown'}`);
             console.log(`[Network] Was authenticated: ${wasAuthenticated}, Connection ID: ${connectionId}`);
-            
-            // Code 1001 = Going Away (normal closure, e.g., page refresh, tab close)
-            // Code 1000 = Normal Closure
-            // Code 1006 = Abnormal Closure (no close frame)
-            // Code 1005 = No Status Received
             
             if (event.code === 1001) {
                 console.log(`[Network] Connection closed normally (Going Away). This usually means:`);
@@ -153,8 +141,6 @@ export class Gateway{
                 console.warn(`  3. Server closed connection unexpectedly`);
             }
             
-            // Only trigger onDisconnected if we were actually connected and it wasn't an intentional close
-            // This prevents auto-reconnect loops when connection was intentionally closed
             if (wasAuthenticated && this.callbacks.onDisconnected) {
                 this.callbacks.onDisconnected();
             } else if (!wasAuthenticated) {
@@ -163,9 +149,6 @@ export class Gateway{
         };
 
         this.ws.onerror = (err) => {
-            // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/10c16e71-75ba-4efd-b6cb-47716d67b948',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'gateway.js:159',message:'WebSocket onerror triggered',data:{error:err.toString(),wsReadyState:this.ws?.readyState,isAuthenticated:this.isAuthenticated,connectionId:this.clientConnectionId,url},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'D'})}).catch(()=>{});
-            // #endregion
             console.error(`[Network] WebSocket error:`, err);
             console.error(`[Network] Cannot connect to ${url}`);
             console.error(`[Network] Possible causes:`);
@@ -181,9 +164,6 @@ export class Gateway{
 
     disconnect() {
         if (this.ws) {
-            // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/10c16e71-75ba-4efd-b6cb-47716d67b948',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'gateway.js:173',message:'disconnect() called',data:{readyState:this.ws.readyState,wasAuthenticated:this.isAuthenticated,connectionId:this.clientConnectionId,stackTrace:new Error().stack},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-            // #endregion
             this.ws.close();
         }
     }
@@ -245,19 +225,17 @@ export class Gateway{
             return;
         }
 
-        // GET_AGENTS can be sent without specific target
         if (type === CONFIG.CMD.GET_AGENTS) {
             const payload = {
                 type: type,
                 data: data,
                 from: this.sessionId,
-                to: 'ALL' // GET_AGENTS should go to ALL
+                to: 'ALL' 
             }
             this.ws.send(JSON.stringify(payload));
             return;
         }
 
-        // For all other commands, require a specific agent target (not 'ALL')
         const target = specificTarget || this.targetId;
         
         if (target === 'ALL') {
@@ -291,7 +269,6 @@ export class Gateway{
     }
 
     refreshAgents() {
-        // GET_AGENTS can be sent to 'ALL' - it's handled in send() method
         this.send(CONFIG.CMD.GET_AGENTS, {});
     }
 
@@ -331,10 +308,6 @@ export class Gateway{
             try { msg = JSON.parse(event.data); } 
             catch { msg = { type: 'raw', data: event.data }; }
             const senderId = msg.from;
-            
-            // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/10c16e71-75ba-4efd-b6cb-47716d67b948',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'gateway.js:255',message:'Message received BEFORE handling',data:{msgType:msg.type,from:senderId,wsReadyState:this.ws?.readyState,isAuthenticated:this.isAuthenticated},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-            // #endregion
 
             switch (msg.type) {
                 case CONFIG.CMD.AUTH:
@@ -375,17 +348,14 @@ export class Gateway{
                         length: Array.isArray(msg.data) ? msg.data.length : (msg.data ? Object.keys(msg.data).length : 0)
                     });
                     
-                    // Handle different response formats
                     if (Array.isArray(msg.data)) {
                         this.processListCache = msg.data;
                     } else if (msg.data && typeof msg.data === 'object') {
-                        // If it's an object, try to extract array from common keys
                         if (msg.data.processes && Array.isArray(msg.data.processes)) {
                             this.processListCache = msg.data.processes;
                         } else if (msg.data.data && Array.isArray(msg.data.data)) {
                             this.processListCache = msg.data.data;
                         } else {
-                            // Convert object to array if it's a single item or has numeric keys
                             const keys = Object.keys(msg.data);
                             if (keys.length > 0 && !isNaN(keys[0])) {
                                 this.processListCache = Object.values(msg.data);
@@ -394,11 +364,9 @@ export class Gateway{
                             }
                         }
                     } else if (typeof msg.data === 'string' && msg.data.trim()) {
-                        // Parse string format: "PID: X | Name: Y" or "0. PID: X | Name: Y"
                         console.log('[Gateway] Parsing PROC_LIST string format...');
                         const lines = msg.data.split('\n').filter(line => line.trim());
                         this.processListCache = lines.map((line, index) => {
-                            // Try format: "PID: X | Name: Y"
                             let match = line.match(/PID:\s*(\d+)\s*\|\s*Name:\s*(.+)$/);
                             if (match) {
                                 const pid = parseInt(match[1], 10);
@@ -411,7 +379,6 @@ export class Gateway{
                                 };
                             }
                             
-                            // Try format: "0. PID: X | Name: Y"
                             match = line.match(/^(\d+)\.\s*PID:\s*(\d+)\s*\|\s*Name:\s*(.+)$/);
                             if (match) {
                                 const id = parseInt(match[1], 10);
@@ -425,7 +392,6 @@ export class Gateway{
                                 };
                             }
                             
-                            // Try format: "0. Name: Process Name"
                             match = line.match(/^(\d+)\.\s*Name:\s*(.+)$/);
                             if (match) {
                                 const id = parseInt(match[1], 10);
@@ -438,7 +404,6 @@ export class Gateway{
                                 };
                             }
                             
-                            // Fallback: use line as name, index as id
                             return {
                                 id: index,
                                 name: line.trim(),
@@ -466,17 +431,14 @@ export class Gateway{
                         length: Array.isArray(msg.data) ? msg.data.length : (msg.data ? Object.keys(msg.data).length : 0)
                     });
                     
-                    // Handle different response formats
                     if (Array.isArray(msg.data)) {
                         this.appListCache = msg.data;
                     } else if (msg.data && typeof msg.data === 'object') {
-                        // If it's an object, try to extract array from common keys
                         if (msg.data.apps && Array.isArray(msg.data.apps)) {
                             this.appListCache = msg.data.apps;
                         } else if (msg.data.data && Array.isArray(msg.data.data)) {
                             this.appListCache = msg.data.data;
                         } else {
-                            // Convert object to array if it's a single item or has numeric keys
                             const keys = Object.keys(msg.data);
                             if (keys.length > 0 && !isNaN(keys[0])) {
                                 this.appListCache = Object.values(msg.data);
@@ -485,11 +447,9 @@ export class Gateway{
                             }
                         }
                     } else if (typeof msg.data === 'string' && msg.data.trim()) {
-                        // Parse string format: "0. Name: App Name\n1. Name: Another App\n..."
                         console.log('[Gateway] Parsing APP_LIST string format...');
                         const lines = msg.data.split('\n').filter(line => line.trim());
                         this.appListCache = lines.map((line, index) => {
-                            // Parse format: "0. Name: App Name" or "0. Name: App Name\n"
                             const match = line.match(/^(\d+)\.\s*Name:\s*(.+)$/);
                             if (match) {
                                 const id = parseInt(match[1], 10);
@@ -500,7 +460,6 @@ export class Gateway{
                                     index: id
                                 };
                             } else {
-                                // Fallback: use line as name, index as id
                                 return {
                                     id: index,
                                     name: line.trim(),
@@ -536,9 +495,7 @@ export class Gateway{
                     break;
                 case CONFIG.CMD.SCREENSHOT:
                     if (msg.data && msg.data.status === 'ok') {
-                        // Chỉ xử lý response từ agent đã chọn
                         if (senderId && this.targetId && this.targetId !== 'ALL') {
-                            // So sánh senderId với targetId (có thể là ID, machineId, hoặc IP)
                             const targetAgent = this.agentsList.find(a => 
                                 a.id === this.targetId || 
                                 a.machineId === this.targetId || 
@@ -550,7 +507,6 @@ export class Gateway{
                                 a.ip === senderId
                             );
                             
-                            // Nếu không tìm thấy target agent hoặc sender không khớp với target
                             if (!targetAgent || !senderAgent || targetAgent.id !== senderAgent.id) {
                                 console.log(`[Gateway] Ignoring screenshot from ${senderId} (target is ${this.targetId})`);
                                 return;
@@ -570,7 +526,6 @@ export class Gateway{
                     break;
                 case CONFIG.CMD.CAM_RECORD:
                     if (msg.data && msg.data.status === 'ok') {
-                        // Chỉ xử lý response từ agent đã chọn
                         if (senderId && this.targetId && this.targetId !== 'ALL') {
                             const targetAgent = this.agentsList.find(a => 
                                 a.id === this.targetId || 
@@ -602,7 +557,6 @@ export class Gateway{
                     break;
                 case CONFIG.CMD.CAMSHOT:
                     if (msg.data && msg.data.status === 'ok') {
-                        // Chỉ xử lý response từ agent đã chọn
                         if (senderId && this.targetId && this.targetId !== 'ALL') {
                             const targetAgent = this.agentsList.find(a => 
                                 a.id === this.targetId || 
@@ -634,7 +588,6 @@ export class Gateway{
                     break;
                 case CONFIG.CMD.SCR_RECORD:
                     if (msg.data && msg.data.status === 'ok') {
-                        // Chỉ xử lý response từ agent đã chọn
                         if (senderId && this.targetId && this.targetId !== 'ALL') {
                             const targetAgent = this.agentsList.find(a => 
                                 a.id === this.targetId || 
@@ -689,9 +642,6 @@ export class Gateway{
 
         } catch (e) {
             console.error('[Gateway] Error handling message: ', e);
-            // #region agent log
-            fetch('http://127.0.0.1:7242/ingest/10c16e71-75ba-4efd-b6cb-47716d67b948',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'gateway.js:348',message:'Exception in _handleInternalMessage',data:{error:e.message,stack:e.stack,wsReadyState:this.ws?.readyState,isAuthenticated:this.isAuthenticated},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-            // #endregion
         }
     }
 
@@ -717,11 +667,8 @@ export class Gateway{
         }
         
         return this.appListCache.map((app, index) => {
-            // Server uses index (0-based) to get app, so we use index as id
-            // Ensure id is always a number, not a string
             let appId = index;
             if (app.id !== undefined && app.id !== null) {
-                // If app has id, try to convert to number
                 const numId = typeof app.id === 'number' ? app.id : parseInt(app.id, 10);
                 if (!isNaN(numId) && numId >= 0) {
                     appId = numId;
@@ -729,7 +676,7 @@ export class Gateway{
             }
             
             return {
-                id: appId, // Always use index (0-based) as id to match server's getApp(index)
+                id: appId, 
                 name: app.name || app.path || 'Unknown',
                 status: app.status || (app.running ? 'running' : 'paused'),
                 path: app.path || '',
@@ -744,13 +691,10 @@ export class Gateway{
         }
         
         return this.processListCache.map((proc, index) => {
-            // IMPORTANT: Server uses index (0-based) to get process via getProcess(index)
-            // We MUST use the array index, NOT the PID!
-            // Using PID as ID would cause server to access wrong process or out of bounds
-            const procId = index; // Always use index (0-based) as id
+            const procId = index; 
             
             return {
-                id: procId, // Always use index (0-based) as id to match server's getProcess(index)
+                id: procId, 
                 name: proc.name || proc.processName || 'Unknown',
                 status: proc.status || (proc.running ? 'running' : 'paused'),
                 pid: proc.pid || null,

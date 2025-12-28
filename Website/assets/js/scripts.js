@@ -228,7 +228,7 @@ document.addEventListener('DOMContentLoaded', () => {
         goMenuBtn.addEventListener('click', () => {
             const agentId = sessionStorage.getItem('current_agent_id') || 
                             new URLSearchParams(window.location.search).get('id');
-            let menuUrl = 'feature_menu.html';
+            let menuUrl = 'Feature_menu.html';
             if (agentId) {
                 menuUrl += `?id=${agentId}`;
             }

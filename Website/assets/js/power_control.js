@@ -1,9 +1,5 @@
-
 import * as Logic from './logic.js';
 
-// ================== CONFIG ==================
-
-// Text hiển thị khi hover từng nút
 const hoverTexts = {
     'btn-restart':  'Restarting...',
     'btn-shutdown': 'Shutting Down...',
@@ -15,12 +11,10 @@ const featureItems = document.querySelectorAll('.feature-content');
 const defaultText = "What to do?";
 let typingInterval;
 
-// Helper function: Initialize agent target
 function initAgentTarget() {
     Logic.initAgentTargetFromURL();
 }
 
-// Initialize agent target when DOM is ready
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', initAgentTarget);
 } else {
@@ -86,31 +80,26 @@ noBtn.addEventListener("click", () => {
 document.addEventListener("DOMContentLoaded", () => {
     const buttons = document.querySelectorAll(".img-btn");
 
-    // Khi chưa hover nút nào, hiển thị default text
     typeEffect(defaultText);
 
     buttons.forEach(btn => {
 
-        // Hover vào nút: gõ text tương ứng
         btn.addEventListener("mouseenter", () => {
             const text = hoverTexts[btn.id] || defaultText;
             typeEffect(text);
         });
 
-        // Rời nút: gõ lại default text
         btn.addEventListener("mouseleave", () => {
             typeEffect(defaultText);
         });
 
-        // Click nút: xử lý confirm nếu cần
         btn.addEventListener("click", () => {
 
             if (btn.id === "btn-back") {
                 backToMenu();
-                return; // Không mở confirm panel cho nút back
+                return;
             }
 
-            // Lưu hành động chờ xác nhận
             pendingAction = () => {
                 if (btn.id === "btn-restart") {
                     Logic.restartAgent();
@@ -134,7 +123,7 @@ document.addEventListener("DOMContentLoaded", () => {
 function backToMenu() {
     const agentId = sessionStorage.getItem('current_agent_id') || 
                     new URLSearchParams(window.location.search).get('id');
-    let menuUrl = 'feature_menu.html';
+    let menuUrl = 'Feature_menu.html';
     if (agentId) {
         menuUrl += `?id=${agentId}`;
     }

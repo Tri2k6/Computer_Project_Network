@@ -73,6 +73,7 @@
     #define PAUSE_CMD "read -n 1 -s -r -p 'Press any key to continue'"
 
     #include <ApplicationServices/ApplicationServices.h>
+    #include <CoreFoundation/CoreFoundation.h>
     #include <Carbon/Carbon.h>
     #include <libproc.h>
     #include <limits.h>

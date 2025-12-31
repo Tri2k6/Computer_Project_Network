@@ -1,5 +1,29 @@
 import * as Logic from './logic.js';
 
+const bracketMap = {
+    '[return]': 'enter',
+    '[caps]': 'caps',
+    '[l-shift]': { text: 'shift', side: 'left' },
+    '[r-shift]': { text: 'shift', side: 'right' },
+    '[l-ctrl]':  { text: 'ctrl',  side: 'left' },
+    '[r-ctrl]':  { text: 'ctrl',  side: 'right' },
+    '[l-alt]':   { text: 'alt',   side: 'left' },
+    '[r-alt]':   { text: 'alt',   side: 'right' },
+    '[l-cmd]':   { text: 'win',   side: 'left' },
+    '[r-cmd]':   { text: 'win',   side: 'right' },
+    '[delete]': 'backspace',
+    '[tab]': 'tab',
+    '[esc]': 'esc',
+    '[up]': '↑',
+    '[down]': '↓',
+    '[left]': '<-',
+    '[right]': '->',
+    '[fn]' : 'fn',
+    '[f1]': 'f1', '[f2]': 'f2', '[f3]': 'f3', '[f4]': 'f4',
+    '[f5]': 'f5', '[f6]': 'f6', '[f7]': 'f7', '[f8]': 'f8',
+    '[f9]': 'f9', '[f10]': 'f10', '[f11]': 'f11', '[f12]': 'f12'
+};
+
 class KeyloggerUI {
     constructor() {
         this.isLogging = false;
@@ -113,24 +137,14 @@ class KeyloggerUI {
     }
 
     normalizeKey(token) {
+        if (token && token.startsWith("[") && token.endsWith("]")) {
+            return token;
+        }
         switch (token) {
-            case "[RETURN]": 
-            case "[ENTER]": 
+            case "\x1b": return "[ESC]";
             case "\n": return "[RETURN]";
-            
-            case "[TAB]": return "\t";
-            
-            case "[DELETE]":
-            case "[BACK]": return "[BACK]";
-            
-            case "[SPACE]": 
             case " ": return " ";
-            
-            default:
-                if (token && token.startsWith("[") && token.endsWith("]") && token.length > 1) {
-                    return token;
-                }
-                return token || "";
+            default: return token || "";
         }
     }
 
@@ -167,81 +181,35 @@ class KeyloggerUI {
 
     visualizeKey(rawToken, displayChar) {
         let targetKey = null;
-        const lowerChar = displayChar ? displayChar.toLowerCase() : '';
+        let info = null;
+        //const lowerChar = displayChar ? displayChar.toLowerCase() : '';
 
-        const specialCharMap = {
-            '\n': 'enter',
-            '\r': 'enter',
-            ' ': 'space',
-            '\t': 'tab'
-        };
-
-        const bracketMap = {
-            '[return]': 'enter',
-            '[tab]': 'tab',
-            '[delete]': 'backspace',
-            '[back]': 'backspace',
-            '[del]': 'del',
-            '[esc]': 'esc',
-            '[cmd]': 'win',
-            '[win]': 'win',
-            '[caps]': 'caps',
-            '[opt]': 'alt',
-            '[alt]': 'alt',
-            '[ctrl]': 'ctrl',
-            '[left]': '<-',
-            '[right]': '->',
-            '[up]': '↑',
-            '[down]': '↓',
-            '[home]': 'hm',
-            '[end]': 'end',
-            '[pgup]': 'pup',
-            '[pgdn]': 'pdn',
-            '[ins]': 'ins',
-            '[f1]': 'f1',
-            '[f2]': 'f2',
-            '[f3]': 'f3',
-            '[f4]': 'f4',
-            '[f5]': 'f5',
-            '[f6]': 'f6',
-            '[f7]': 'f7',
-            '[f8]': 'f8',
-            '[f9]': 'f9',
-            '[f10]': 'f10',
-            '[f11]': 'f11',
-            '[f12]': 'f12',
-            '[f13]': 'prt',
-            '[f14]': 'scr',
-            '[f15]': 'pau',
-            '[numlock]': 'num',
-            '[scroll]': 'scroll',
-            '[shift]': 'shift',
-            '[fn]': 'fn'
-        };
-
-        let searchText = null;
-        
         if (rawToken && rawToken.startsWith('[') && rawToken.endsWith(']')) {
-            searchText = bracketMap[rawToken.toLowerCase()];
-        } else if (displayChar && specialCharMap[displayChar]) {
-            searchText = specialCharMap[displayChar];
-        } else if (displayChar) {
-            searchText = lowerChar;
+            info = bracketMap[rawToken.toLowerCase()];
         }
 
-        if (!searchText) return;
+        if (info && typeof info == 'object') {
+            const allMatchingKeys = Array.from(this.keys).filter(k =>
+                k.innerText.toLowerCase().trim() === info.text
+            );
 
-        for (let key of this.keys) {
-            let keyText = key.innerText.toLowerCase().trim();
-            
-            if (searchText === 'space' && keyText === '' && key.classList.contains('k-6-25')) {
-                targetKey = key;
-                break;
+            if (info.side === 'left') targetKey = allMatchingKeys[0];
+            else targetKey = allMatchingKeys[allMatchingKeys.length - 1];
+        } else {
+            let searchText =  info || (displayChar ? displayChar.toLowerCase() : '');
+
+            if (searchText.startsWith('[') && searchText.endsWith(']')) {
+                searchText = searchText.slice(1, -1);
             }
 
-            if (keyText === searchText) {
-                targetKey = key;
-                break;
+            if (!searchText) return;
+
+            for (let key of this.keys) {
+                let keyText = key.innerText.toLowerCase().trim();
+                if (keyText === searchText || (searchText === ' ' && key.classList.contains('k-6-25'))) {
+                    targetKey = key;
+                    break;
+                }
             }
         }
 

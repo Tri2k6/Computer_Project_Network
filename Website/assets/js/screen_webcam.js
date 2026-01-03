@@ -24,6 +24,7 @@ console.log('[Screen_Webcam] Search:', searchString);
 
 let selectedDirectoryHandle = null;
 let selectedDirectoryName = null; 
+let lastBlobUrl = null;
 
 async function triggerSelectFolder() {
     if ('showDirectoryPicker' in window) {
@@ -39,7 +40,7 @@ async function triggerSelectFolder() {
         } catch (error) {
             if (error.name !== 'AbortError') {
                 console.error('Error selecting directory:', error);
-                alert('Lỗi khi chọn thư mục: ' + error.message);
+                alert('Lỗi khi chọn thư md: ' + error.message);
             }
         }
     } else {
@@ -245,6 +246,59 @@ function record() {
         alert('Lỗi khi record: ' + error.message);
     }
 }
+
+window.renderStreamFrame = function(arrayBuffer) {
+    // Reset trạng thái capture (để tránh xung đột UI)
+    if (captureTimeoutId) {
+        clearTimeout(captureTimeoutId);
+        captureTimeoutId = null;
+    }
+    isWaitingForCapture = false;
+
+    const cameraFeed = document.getElementById('camera-feed');
+    if (!cameraFeed) return;
+
+    // 1. Xóa video, lỗi cũ nếu có
+    const elementsToRemove = cameraFeed.querySelectorAll('video, .error-message, .placeholder-text');
+    elementsToRemove.forEach(el => el.remove());
+
+    // 2. Tìm hoặc tạo thẻ IMG
+    let img = cameraFeed.querySelector('img');
+    if (!img) {
+        img = document.createElement('img');
+        img.style.maxWidth = '100%';
+        img.style.maxHeight = '100%';
+        img.style.objectFit = 'contain';
+        img.draggable = false; // Tắt kéo ảnh để không ảnh hưởng thao tác chuột
+        img.alt = "Stream Feed";
+        cameraFeed.appendChild(img);
+    }
+
+    try {
+        // 3. Tạo Blob từ ArrayBuffer
+        const blob = new Blob([arrayBuffer], { type: "image/jpeg" });
+        const url = URL.createObjectURL(blob);
+
+        img.src = url;
+
+        // 4. Cơ chế dọn dẹp bộ nhớ: Giải phóng URL cũ sau khi ảnh mới load xong
+        img.onload = () => {
+            if (lastBlobUrl && lastBlobUrl !== url) {
+                URL.revokeObjectURL(lastBlobUrl);
+            }
+            lastBlobUrl = url;
+        };
+
+        // Fallback: nếu lỗi load cũng giải phóng
+        img.onerror = () => {
+             if (lastBlobUrl) URL.revokeObjectURL(lastBlobUrl);
+             lastBlobUrl = null;
+        };
+
+    } catch (error) {
+        console.error('[Render] Error rendering stream frame:', error);
+    }
+};
 
 window.displayImagePreview = function(base64Data) {
     if (captureTimeoutId) {
@@ -486,6 +540,9 @@ window.handleCaptureError = function(errorMessage) {
 };
 
 document.addEventListener('DOMContentLoaded', () => {
+    Logic.initAgentTargetFromURL(() => {
+        console.log("Target đã được set xong, sẵn sàng capture/record!");
+    });
     const durationInput = document.querySelector('.duration-input');
     if (durationInput) {
         durationInput.addEventListener('click', (e) => {
@@ -497,6 +554,13 @@ document.addEventListener('DOMContentLoaded', () => {
         durationInput.addEventListener('input', (e) => {
             e.stopPropagation();
         });
+    }
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const agentId = urlParams.get('id');
+    if (agentId && window.gateway) {
+        console.log('Setting target ID from URL:', agentId);
+        window.gateway.setTarget(agentId);
     }
 });
 

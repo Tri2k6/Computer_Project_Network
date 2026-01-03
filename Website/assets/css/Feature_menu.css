@@ -6,7 +6,6 @@
     --line-color: #3A6DAF;
 }
 
-/* Căn giữa toàn bộ nội dung trong trang */
 .feature-section {
     flex-grow: 1;
     display: flex;
@@ -25,11 +24,10 @@
     justify-content: center;
     align-items: center;
     width: 100%;
-    max-width: 1400px; /* Mở rộng xíu để thoáng */
-    gap: 40px; /* Khoảng cách giữa các cột */
+    max-width: 1400px;
+    gap: 40px;
 }
 
-/* --- CỘT BÊN (Các thanh chức năng) --- */
 .side-column {
     display: flex;
     flex-direction: column;

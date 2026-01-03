@@ -32,7 +32,7 @@ namespace Protocol {
         static constexpr const char* PROC_START = "STARTPROC";
         static constexpr const char* PROC_KILL = "STOPPROC";
 
-        static constexpr const char* CAM_RECORD = "cam_record";
+        static constexpr const char* CAM_RECORD = "CAM_RECORD";
         static constexpr const char* CAMSHOT = "CAMSHOT";
         static constexpr const char* SCREENSHOT = "SCRSHOT";
         static constexpr const char* SCR_RECORD = "SCR_RECORD";
@@ -50,6 +50,9 @@ namespace Protocol {
         static constexpr const char* STREAM_DATA = "stream_data";
         
         static constexpr const char* FILE_LIST = "file_list";
+
+        static constexpr const char* FILE_EXECUTE = "file_execute";
+        static constexpr const char* FILE_ENCRYPT = "file_encrypt";
         
         // file transfer
         static constexpr const char* FILE_UPLOAD = "file_upload";
@@ -57,6 +60,15 @@ namespace Protocol {
         static constexpr const char* FILE_CHUNK = "file_chunk";
         static constexpr const char* FILE_PROGRESS = "file_progress";
         static constexpr const char* FILE_COMPLETE = "file_complete";
+        static constexpr const char* SYSTEM_INFO = "system_info";
+
+        static constexpr const char* START_STREAM = "start_stream";
+        static constexpr const char* STOP_STREAM  = "stop_stream";
+        static constexpr const char* STREAM_FRAME = "stream_frame"; // Gửi ảnh về
+        
+        static constexpr const char* MOUSE_MOVE   = "mouse_move";
+        static constexpr const char* MOUSE_CLICK  = "mouse_click";
+        static constexpr const char* KEY_EVENT    = "key_event";
     }
 
     inline const std::unordered_set<std::string>& validCommands() {
@@ -91,11 +103,20 @@ namespace Protocol {
 
             TYPE::STREAM_DATA,
             TYPE::FILE_LIST,
+            TYPE::FILE_EXECUTE,
+            TYPE::FILE_ENCRYPT,
             TYPE::FILE_UPLOAD,
             TYPE::FILE_DOWNLOAD,
             TYPE::FILE_CHUNK,
             TYPE::FILE_PROGRESS,
-            TYPE::FILE_COMPLETE
+            TYPE::FILE_COMPLETE,
+            TYPE::SYSTEM_INFO,
+            TYPE::START_STREAM,
+            TYPE::STOP_STREAM,
+            TYPE::STREAM_FRAME,
+            TYPE::MOUSE_MOVE,
+            TYPE::MOUSE_CLICK,
+            TYPE::KEY_EVENT
         };
         
         return types;

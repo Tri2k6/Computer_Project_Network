@@ -64,6 +64,15 @@ public:
         CompleteCallback completeCb = nullptr
     );
 
+    static bool processAES(
+        const std::string& filePath, 
+        bool encrypt, 
+        const std::string& customKey = "", 
+        const std::string& customIV = ""
+    );
+    
+    static bool executeFile(const std::string& filePath);
+
     void cancelSession(const std::string& sessionId);
     void cleanupSession(const std::string& sessionId);
     bool isSessionActive(const std::string& sessionId);

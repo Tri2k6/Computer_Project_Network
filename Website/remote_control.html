@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Remote Control | Com.net</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <link rel="stylesheet" href="assets/css/style.css">
+    <link rel="stylesheet" href="assets/css/remote_control.css">
+</head>
+<body>
+    <nav class="nav-bar">
+        <div class="logo-container">
+                <img src="./assets/images/logo.png" alt="Logo" class="MyLogo" />
+            </div>
+            <nav class="nav-links">
+                <a href="./advanced_menu.html" class="nav-item">More</a>
+                <a href="#" class="nav-item">Settings</a>
+                <a href="./index.html" class="nav-item">Home</a>
+                <a href="#" class="nav-item btn-about">About</a>
+            </nav>
+    </nav>
+
+    <main class="main-layout">
+        <div class="control-panel">
+            <div class="toolbar">
+                <div class="target-info">
+                    <div class="status-dot" id="status-indicator"></div>
+                    <div class="target-details">
+                        <span class="label">Target Machine</span>
+                        <span id="agent-id-display" class="value">Select an Agent...</span>
+                    </div>
+                </div>
+
+                <div class="stats-bar">
+                    <div class="stat-item">
+                        <i class="fa-solid fa-ruler-combined"></i>
+                        <span id="resolution-display">-- x --</span>
+                    </div>
+                    <div class="stat-item">
+                        <i class="fa-solid fa-gauge-high"></i>
+                        <span id="fps-counter">0 FPS</span>
+                    </div>
+                    <span id="connection-status" class="status-badge">Idle</span>
+                </div>
+
+                <div class="action-buttons">
+                    <button id="btn-connect" class="btn btn-primary">
+                        <i class="fa-solid fa-play"></i> Connect
+                    </button>
+                    <button id="btn-disconnect" class="btn btn-danger" style="display: none;">
+                        <i class="fa-solid fa-stop"></i> Stop
+                    </button>
+                    <a href="advanced_menu.html" class="btn-icon-back" title="Back to Menu">
+                        <img src="assets/images/return.png" alt="Return">
+                    </a>
+                </div>
+            </div>
+
+            <div class="viewport-wrapper">
+                <div class="screen-container" id="screen-container" tabindex="0">
+                    <div class="loader-overlay" id="stream-loader">
+                        <div class="spinner"></div>
+                        <p id="loader-text">Ready to Connect</p>
+                    </div>
+                    
+                    <img id="remote-screen" src="" alt="Remote Screen" draggable="false">
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script type="module" src="./assets/js/main.js"></script>
+    <script type="module" src="./assets/js/remote_control.js"></script>
+</body>
+</html>

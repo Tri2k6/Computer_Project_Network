@@ -1,4 +1,4 @@
-import { WebSocket } from "ws";
+import { WebSocket, RawData } from "ws"; // [CẬP NHẬT] Thêm RawData
 import { Message } from "../types/Message";
 import { CommandType } from "../types/Protocols";
 import { Logger } from "../utils/Logger";
@@ -33,6 +33,11 @@ export class Connection {
 
     public isAlive: boolean = true;
 
+    // [MỚI] Callbacks để Server.ts gán logic xử lý vào
+    public onCommand: ((msg: Message) => void) | null = null; // Xử lý JSON (Lệnh)
+    public onStream: ((data: RawData) => void) | null = null; // Xử lý Binary (Hình ảnh)
+    public onDisconnect: (() => void) | null = null;
+
     constructor(ws: WebSocket, id: string, role: ConnectionRole, ip: string, machineId: string, name: string = '', port: number = 0) {
         this.ws = ws;
         this.id = id;
@@ -54,6 +59,61 @@ export class Connection {
             ip: ip,
             port: port
         });
+
+        // [MỚI] Khởi tạo lắng nghe sự kiện ngay khi tạo Connection
+        this.initListeners();
+    }
+
+    // [MỚI] Hàm thiết lập các Event Listeners
+    private initListeners() {
+        // Lắng nghe tin nhắn từ Socket
+        this.ws.on('message', (data: RawData, isBinary: boolean) => {
+            try {
+                if (isBinary) {
+                    // ==> NẾU LÀ BINARY: Đây là dữ liệu Stream hình ảnh
+                    // Chuyển ngay cho hàm xử lý Stream (sẽ được Server gán)
+                    if (this.onStream) {
+                        this.onStream(data);
+                    }
+                } else {
+                    // ==> NẾU LÀ TEXT: Đây là JSON Lệnh (Command)
+                    const messageString = data.toString();
+                    const message = JSON.parse(messageString) as Message;
+                    
+                    // Chuyển cho hàm xử lý Lệnh
+                    if (this.onCommand) {
+                        this.onCommand(message);
+                    }
+                }
+            } catch (error) {
+                Logger.error(`[Connection] Error parsing message from ${this.id}: ${error}`);
+            }
+        });
+
+        this.ws.on('close', () => {
+            this.isAlive = false;
+            this.addConnectionEvent({
+                timestamp: Date.now(),
+                event: 'disconnect',
+                ip: this.ip,
+                port: this.machineInfo?.port || 0
+            });
+            if (this.onDisconnect) this.onDisconnect();
+        });
+
+        this.ws.on('error', (err) => {
+            Logger.error(`[Connection] Socket error for ${this.id}: ${err.message}`);
+        });
+
+        this.ws.on('pong', () => {
+            this.isAlive = true;
+        });
+    }
+
+    public sendBinary(data: any) {
+        if (this.ws.readyState === WebSocket.OPEN) {
+            this.ws.send(data, { binary: true });
+        }
     }
 
     private generatePersistentId(role: ConnectionRole, machineId: string, ip: string): string {
@@ -94,7 +154,7 @@ export class Connection {
 
     public send(message: Message): boolean {
         if (this.ws.readyState !== WebSocket.OPEN) {
-            Logger.warn(`[Connection] Cannot send to ${this.id} (Socket closed)`);
+            // Logger.warn(`[Connection] Cannot send to ${this.id} (Socket closed)`);
             return false;
         }
 

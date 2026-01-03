@@ -24,6 +24,7 @@
 #include <vector>
 #include <cstdio>
 #include <cstdlib>
+#include <cstring>
 
 #ifdef _WIN32
     #define OS_TYPE "Windows"
@@ -42,8 +43,12 @@
     #include <tlhelp32.h>
     #include <ws2tcpip.h>
     #include <iphlpapi.h>
+    #include <pdh.h>
+    #include <gdiplus.h>
     #pragma comment(lib, "ws2_32.lib")
     #pragma comment(lib, "iphlpapi.lib")
+    #pragma comment(lib, "IPHLPAPI.lib")
+    #pragma comment (lib,"Gdiplus.lib")
 
     #ifdef __APPLE__
         #undef __APPLE__
@@ -87,11 +92,19 @@
     #include <netinet/in.h>
     #include <arpa/inet.h>
     #include <fcntl.h>
-    #include <unistd.h>
     #include <sys/socket.h>
     #include <netdb.h>
     #include <mach-o/dyld.h>
-    #include <limits.h>
+    #include <mach/mach.h>
+    #include <mach/mach_host.h>
+    #include <sys/mount.h>
+    #include <net/if.h>
+    #include <net/if_dl.h>
+    #include <IOKit/ps/IOPowerSources.h>
+    #include <IOKit/ps/IOPSKeys.h>
+    #include <sys/statvfs.h>
+    #include <sys/ioctl.h>
+    #include <ImageIO/ImageIO.h>
 
     #define POPEN popen
     #define PCLOSE pclose
@@ -120,17 +133,19 @@
     #include <X11/Xlib.h>
     #include <X11/keysym.h>
     #include <X11/extensions/record.h>
+    #include <X11/extensions/XTest.h>
     #include <X11/Xproto.h>
     #include <X11/Xutil.h>
     #include <ifaddrs.h>
     #include <netinet/in.h>
     #include <arpa/inet.h>
     #include <fcntl.h>
-    #include <unistd.h>
     #include <sys/socket.h>
     #include <netdb.h>
     #include <linux/input.h>
     #include <sys/ioctl.h>
+    #include <sys/sysinfo.h>
+    #include "stb_image_write.h" 
 
     #define POPEN popen
     #define PCLOSE pclose

@@ -60,10 +60,6 @@ export class GatewayServer {
             const __dirname = getDirname();
 
             const url = new URL(req.url || '/', `https://${req.headers.host}`);
-            // Website path: in pkg, Website will be bundled and accessible via pkg assets
-            // For pkg, Website assets are extracted to a temporary directory or accessible via fs
-            // We need to check if we're in pkg mode and adjust the path accordingly
-            // @ts-ignore - process.pkg may not exist in all environments
             const websitePath = (process as any).pkg
                 ? path.join(__dirname, 'Website')
                 : path.join(__dirname, '../Website');
@@ -139,24 +135,13 @@ export class GatewayServer {
                 }
             }, 1000);
 
-            ws.on('message', (data) => {
-                // clearTimeout(autoAuthTimer);
-                this.handleMessage(ws, data);
+            ws.on('message', (data, isBinary) => {
+                this.handleMessage(ws, data, isBinary);
             });
 
-            ws.on('pong', () => {
-                ws.isAlive = true;
-            });
-
+            ws.on('pong', () => { ws.isAlive = true; });
             ws.on('error', (err) => Logger.error(`Socket error: ${err.message}`));
-
-            ws.on('close', (code, reason) => {
-                const wasAuthenticated = ws.role ? 'authenticated' : 'unauthenticated';
-                const connectionInfo = ws.id ? `(ID: ${ws.id}, Machine: ${(ws as any).machineId || 'unknown'})` : '';
-                Logger.info(`[Server] SECURE connection ${sessionId} closed. Code: ${code}, Reason: ${reason?.toString() || 'none'}, Role: ${ws.role || 'unauthenticated'}, Status: ${wasAuthenticated} ${connectionInfo}`);
-                Logger.debug(`[Server] Connection state before close: readyState=${ws.readyState}, isAlive=${ws.isAlive}`);
-                this.handleClose(ws);
-            });
+            ws.on('close', (code, reason) => this.handleClose(ws));
         });
 
         this.startHeartbeat();
@@ -384,7 +369,14 @@ export class GatewayServer {
         process.exit(0);
     }
 
-    private handleMessage(ws: WebSocket, data: any) {
+    private handleMessage(ws: WebSocket, data: any, isBinary: boolean = false) {
+        if (isBinary) {
+            if (ws.role === 'AGENT') {
+                this.relayStream(data);
+            }
+            return;
+        }
+
         try {
             const rawString = data.toString();
             const message: Message = JSON.parse(rawString);
@@ -395,14 +387,28 @@ export class GatewayServer {
             Logger.error(`[Server] Invalid Message format from ${ws.id}: ${(error as Error).message}`);
             Logger.error(`[Server] Raw data: ${data.toString().substring(0, 200)}`);
             
-            // Only close if connection is already authenticated and this is not an AUTH message
-            // Allow unauthenticated connections to retry
             if (ws.role && ws.readyState === WebSocket.OPEN) {
                 ws.send(JSON.stringify({
                     type: CommandType.ERROR,
                     data: {msg: "Invalid JSON format"}
                 }));
             }
+        }
+    }
+
+    public relayStream(data: any) {
+        this.wss.clients.forEach((client: any) => {
+            if (client.readyState === WebSocket.OPEN && client.role === 'CLIENT') {
+                client.send(data, { binary: true });
+            }
+        });
+
+        if (this.wssInsecure) {
+            this.wssInsecure.clients.forEach((client: any) => {
+                if (client.readyState === WebSocket.OPEN && client.role === 'CLIENT') {
+                    client.send(data, { binary: true });
+                }
+            });
         }
     }
 
@@ -423,12 +429,10 @@ export class GatewayServer {
     }
 
     private autoAuthenticateAgent(ws: WebSocket, sessionId: string, ip: string) {
-            // Check if already authenticated
         if (ws.role === 'AGENT') {
             Logger.debug(`[Server] Connection ${sessionId} already authenticated as AGENT`);
             return;
         }
-        // Check if connection is still open
         if (ws.readyState !== WebSocket.OPEN) {
             Logger.warn(`[Server] Cannot auto-authenticate: Connection ${sessionId} is not OPEN (state: ${ws.readyState})`);
             return;

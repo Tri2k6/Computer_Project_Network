@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Features - More</title>
+    <link rel="stylesheet" href="assets/css/style.css">
+    <link rel="stylesheet" href="assets/css/more_dashboard.css">
+</head>
+<body>
+    <div class="header-nav">
+        <div class="nav-container">
+            <div class="logo-area">
+                <img src="assets/images/logo.png" alt="Logo">
+                <span>Advanced Tools</span>
+            </div>
+            <div class="nav-links">
+                <button class="btn-return" onclick="goBack()">
+                    <img src="assets/images/back.png" alt="Back"> Quay lại
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <div class="main-container">
+        <div class="dashboard-header">
+            <h2 id="target-agent-name">Agent: Loading...</h2>
+            <p>Chọn một công cụ nâng cao để bắt đầu tương tác</p>
+        </div>
+
+        <div class="features-grid" id="features-grid">
+            <div class="card-item" onclick="navigateTo('File_Manager')">
+                <div class="card-icon">
+                    <img src="assets/images/process.png" alt="File Manager">
+                </div>
+                <div class="card-info">
+                    <h3>File Manager</h3>
+                    <p>Quản lý hệ thống tệp tin, Upload/Download dữ liệu từ xa.</p>
+                </div>
+                <div class="status-tag online">Ready</div>
+            </div>
+
+            <div class="card-item locked">
+                <div class="card-icon">
+                    <img src="assets/images/settings.png" alt="Registry">
+                </div>
+                <div class="card-info">
+                    <h3>Registry Editor</h3>
+                    <p>Chỉnh sửa Registry của hệ thống Windows (Sắp ra mắt).</p>
+                </div>
+                <div class="status-tag offset">Locked</div>
+            </div>
+
+            <div class="card-item locked">
+                <div class="card-icon">
+                    <img src="assets/images/server.png" alt="Shell">
+                </div>
+                <div class="card-info">
+                    <h3>Remote Shell</h3>
+                    <p>Truy cập Command Prompt / Terminal trực tiếp.</p>
+                </div>
+                <div class="status-tag offset">Locked</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="assets/js/modules/config.js"></script>
+    <script src="assets/js/modules/gateway.js"></script>
+    <script src="assets/js/more_dashboard.js"></script>
+</body>
+</html>

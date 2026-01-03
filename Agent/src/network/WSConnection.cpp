@@ -147,16 +147,36 @@ void WSConnection::onRead(beast::error_code ec, std::size_t) {
 }
 
 void WSConnection::send(const std::string& msg) {
-    writeQueue_.push(msg);
-    if (writeQueue_.size() == 1) {
-        doWrite();
-    }
+    asio::post(ws_.get_executor(), [this, msg]() {
+        writeQueue_.emplace(msg); // Gọi constructor Text
+        if (writeQueue_.size() == 1) {
+            doWrite();
+        }
+    });
+}
+
+void WSConnection::sendBinary(const std::vector<unsigned char>& data) {
+    asio::post(ws_.get_executor(), [this, data]() {
+        writeQueue_.emplace(data); 
+        if (writeQueue_.size() == 1) {
+            doWrite();
+        }
+    });
 }
 
 void WSConnection::doWrite() {
     auto self = shared_from_this();
+    
+    const auto& payload = writeQueue_.front();
+
+    ws_.binary(payload.isBinary);
+
+    auto buffer = payload.isBinary 
+        ? asio::buffer(payload.binaryData) 
+        : asio::buffer(payload.textData);
+
     ws_.async_write(
-        asio::buffer(writeQueue_.front()),
+        buffer,
         [this, self](beast::error_code ec, std::size_t bytes) {
             onWrite(ec, bytes);
         }
@@ -168,7 +188,6 @@ void WSConnection::onWrite(beast::error_code ec, std::size_t) {
         if (onError) onError(ec);
         return;
     }
-
     writeQueue_.pop();
     if (!writeQueue_.empty()) {
         doWrite();

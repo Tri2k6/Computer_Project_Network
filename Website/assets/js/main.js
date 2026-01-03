@@ -49,28 +49,16 @@ const ui = {
 };
 
 function showLoginForm() {
-    console.log('[Login] Showing login form...');
-    console.log('[Login] Gateway isAuthenticated:', gateway.isAuthenticated);
-    
-    if (autoConnectState.isAutoAuthenticating) {
-        console.log('[Login] Auto-authentication in progress, skipping login form');
-        return;
-    }
-    
-    if (gateway.isAuthenticated) {
-        console.log('[Login] Already authenticated, skipping login form');
+    if (autoConnectState.isAutoAuthenticating || gateway.isAuthenticated) {
         return;
     }
     const overlay = document.getElementById('login-overlay');
     if (overlay) {
         overlay.classList.remove('hidden');
-        console.log('[Login] Login overlay visible:', !overlay.classList.contains('hidden'));
         const passwordInput = document.getElementById('password-input');
         if (passwordInput) {
             setTimeout(() => passwordInput.focus(), 100);
         }
-    } else {
-        console.error('[Login] Login overlay element not found!');
     }
 }
 
@@ -106,47 +94,18 @@ function handleLogin() {
     }
     
     hideLoginError();
-
     sessionStorage.setItem('saved_password', password);
     
     if (passwordInput) {
         passwordInput.value = '';
     }
     
-    // Gửi password qua WebSocket
     if (gateway.ws && gateway.ws.readyState === WebSocket.OPEN) {
         gateway.authenticateWithPassword(password);
     } else {
         showLoginError("Chưa kết nối đến Gateway. Vui lòng đợi...");
     }
 }
-
-document.addEventListener('DOMContentLoaded', () => {
-    const loginForm = document.getElementById('login-form');
-    const passwordInput = document.getElementById('password-input');
-    
-    if (loginForm) {
-        loginForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            handleLogin();
-        });
-    }
-
-    if (passwordInput) {
-        passwordInput.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                handleLogin();
-            }
-        });
-        
-        passwordInput.addEventListener('blur', () => {
-            if (passwordInput.value.trim()) {
-                handleLogin();
-            }
-        });
-    }
-});
 
 let autoConnectState = {
     hasTriedDiscovery: false,
@@ -156,7 +115,6 @@ let autoConnectState = {
 
 const gateway = new Gateway({
     onConnected: () => {
-        console.log('[Main] onConnected called - isAuthenticated:', gateway.isAuthenticated);
         ui.log("System", "Connected to Gateway!");
         appState.isConnected = true;
         autoConnectState.isConnecting = false;
@@ -173,12 +131,8 @@ const gateway = new Gateway({
         
         if (savedPassword && wasAuthenticated && !gateway.isAuthenticated) {
             autoConnectState.isAutoAuthenticating = true;
-            console.log('[Auto] Auto-authenticating with saved password...');
             gateway.authenticateWithPassword(savedPassword);
-            return;
         } else {
-            console.log(`[Auto] Connection established, showing login form...`);
-            console.log(`[Auto] Gateway isAuthenticated:`, gateway.isAuthenticated);
             showLoginForm();
         }
     },
@@ -196,18 +150,14 @@ const gateway = new Gateway({
         const wasAuthenticated = sessionStorage.getItem('is_authenticated') === 'true';
         
         if (wasNavigation && savedPassword && wasAuthenticated) {
-            console.log(`[Auto] Navigation detected, will reconnect immediately...`);
             setTimeout(() => {
                 if (!appState.isConnected && !autoConnectState.isConnecting) {
-                    console.log(`[Auto] Attempting auto-reconnect after navigation...`);
                     autoConnect();
                 }
             }, 100);
         } else {
-            console.log(`[Auto] Connection lost, will attempt reconnect in 3 seconds...`);
             setTimeout(() => {
                 if (!appState.isConnected && !autoConnectState.isConnecting) {
-                    console.log(`[Auto] Attempting auto-reconnect...`);
                     autoConnect();
                 }
             }, 3000);
@@ -226,17 +176,13 @@ const gateway = new Gateway({
         
         if (window.location.pathname.includes('App_Menu')) {
             setTimeout(() => {
-                if (window.refreshAppList) {
-                    window.refreshAppList();
-                }
+                if (window.refreshAppList) window.refreshAppList();
             }, 1000);
         }
         
         if (window.location.pathname.includes('Proc_Menu')) {
             setTimeout(() => {
-                if (window.refreshProcessList) {
-                    window.refreshProcessList();
-                }
+                if (window.refreshProcessList) window.refreshProcessList();
             }, 1000);
         }
     },
@@ -285,8 +231,6 @@ const gateway = new Gateway({
                 img.src = "data:image/jpeg;base64," + base64Data;
                 modal.classList.remove('hidden');
                 modal.style.display = 'block';
-            } else if (!window.displayImagePreview) {
-                console.log("%c[ẢNH]", "font-size: 50px; background-image: url(data:image/jpeg;base64," + base64Data + ")");
             }
         }
     },
@@ -317,8 +261,28 @@ const gateway = new Gateway({
             keylogPanel.value += displayString;
             keylogPanel.scrollTop = keylogPanel.scrollHeight;
         }
-        
-        console.log(`%c[Keylog - ${agentId}]: ${displayString.replace(/\n/g, '\\n')}`, 'color: orange');
+    },
+    onSystemInfo: (responseData, agentId) => {
+        if (window.ui && typeof window.ui.renderSystemInfo === 'function') {
+            window.ui.renderSystemInfo(responseData);
+        }
+    },
+    onStreamFrame: (base64Data, agentId) => {
+        if (window.renderFrame && typeof window.renderFrame === 'function') {
+            window.renderFrame(base64Data);
+        }
+    },
+    onStartStream: (responseData, agentId) => {
+        ui.log("Remote", `Stream started on Agent: ${agentId}`);
+        if (window.onStreamStarted && typeof window.onStreamStarted === 'function') {
+            window.onStreamStarted(responseData);
+        }
+    },
+    onStopStream: (responseData, agentId) => {
+        ui.log("Remote", `Stream stopped on Agent: ${agentId}`);
+        if (window.onStreamStopped && typeof window.onStreamStopped === 'function') {
+            window.onStreamStopped();
+        }
     },
     onMessage: (msg) => {
         console.log("Raw Msg: ", msg);
@@ -344,8 +308,6 @@ const gateway = new Gateway({
             sessionStorage.removeItem('is_authenticated');
             showLoginError('Incorrect password! Please try again.');
             showLoginForm();
-        } else {
-            console.error("[Main] error:", errorMessage);
         }
     }
 });
@@ -354,7 +316,6 @@ window.ui = ui;
 window.gateway = gateway;
 window.CONFIG = CONFIG;
 window.appState = appState;
-window.CONFIG = CONFIG; 
 
 window.help = () => {
     console.clear();
@@ -400,6 +361,8 @@ window.help = () => {
     return "Hãy bắt đầu bằng lệnh: connect('localhost')";
 };
 
+const discovery = new GatewayDiscovery();
+
 async function autoConnect() {
     if (autoConnectState.isConnecting || appState.isConnected) {
         return;
@@ -413,7 +376,6 @@ async function autoConnect() {
         
         const discoveryPromise = discovery.discover((ip, port) => {
             found = true;
-            console.log(`[Auto] Discovery callback: ip=${ip}, port=${port}`);
             ui.log("Auto", `Tìm thấy Gateway: ${ip}:${port}`);
             gateway.connect(ip, port);
         }, (progress) => {
@@ -439,15 +401,51 @@ async function autoConnect() {
     }
 }
 
-window.addEventListener('beforeunload', () => {
-
-});
-
 document.addEventListener('DOMContentLoaded', () => {
+    const params = new URLSearchParams(window.location.search);
+    const agentId = params.get('id');
+
+    if (agentId) {
+        const navLinks = document.querySelectorAll('.nav-links a');
+        navLinks.forEach(link => {
+            let href = link.getAttribute('href');
+            if (href && !href.startsWith('#') && !href.startsWith('javascript') && !href.includes('id=')) {
+                const separator = href.includes('?') ? '&' : '?';
+                link.setAttribute('href', `${href}${separator}id=${agentId}`);
+            }
+        });
+    }
+
+    const loginForm = document.getElementById('login-form');
+    const passwordInput = document.getElementById('password-input');
+    
+    if (loginForm) {
+        loginForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            handleLogin();
+        });
+    }
+
+    if (passwordInput) {
+        passwordInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                handleLogin();
+            }
+        });
+        
+        passwordInput.addEventListener('blur', () => {
+            if (passwordInput.value.trim()) {
+                handleLogin();
+            }
+        });
+    }
+
     hideLoginForm();
     hideLoginError();
     
     window.help();
+
     const checkAndAutoAuth = () => {
         if (gateway.ws && gateway.ws.readyState === WebSocket.OPEN) {
             const savedPassword = sessionStorage.getItem('saved_password');
@@ -455,7 +453,6 @@ document.addEventListener('DOMContentLoaded', () => {
             
             if (savedPassword && wasAuthenticated && !gateway.isAuthenticated) {
                 autoConnectState.isAutoAuthenticating = true;
-                console.log('[Auto] WebSocket already connected but not authenticated, auto-authenticating...');
                 gateway.authenticateWithPassword(savedPassword);
                 return;
             }
@@ -477,8 +474,6 @@ window.auth = () => {
     }
     Logic.authenticate();
 };
-
-const discovery = new GatewayDiscovery();
 
 window.discover = () => {
     ui.info("[Discovery] Đang tìm Gateway...");
@@ -552,6 +547,20 @@ window.restartAgent = () => {
     }
 }
 
+window.startStream = () => {
+    ui.info(`[CMD] Starting Remote Stream on ${appState.currentTarget}...`);
+    Logic.startStream();
+};
+
+window.stopStream = () => {
+    ui.info(`[CMD] Stopping Remote Stream...`);
+    Logic.stopStream();
+};
+
+window.mouseMove = (x, y) => Logic.mouseMove(x, y);
+window.mouseClick = (button, down) => Logic.mouseClick(button, down);
+window.keyEvent = (keycode, down) => Logic.keyEvent(keycode, down);
+
 window.logout = () => {
     sessionStorage.removeItem('saved_password');
     sessionStorage.removeItem('is_authenticated');
@@ -559,34 +568,4 @@ window.logout = () => {
     showLoginForm();
     hideLoginError();
     ui.log("System", "Logged out!");
-}
-
-window.demoFileList = () => {
-    console.clear();
-    console.log("%c=== DEMO FILE LIST ===", "color: #fff; background: #8b5cf6; font-size: 16px; padding: 10px;");
-    console.log("%cTesting file list functionality...", "color: cyan;");
-    console.log("");
-    
-    console.log("%c1. List root directory:", "color: #3b82f6; font-weight: bold;");
-    console.log("   listFiles('/')");
-    console.log("");
-    
-    console.log("%c2. List Windows C: drive:", "color: #3b82f6; font-weight: bold;");
-    console.log("   listFiles('C:\\\\')");
-    console.log("");
-    
-    console.log("%c3. List home directory:", "color: #3b82f6; font-weight: bold;");
-    console.log("   listFiles('~') or listFiles(process.env.HOME)");
-    console.log("");
-    
-    console.log("%c4. Navigate to subfolder:", "color: #3b82f6; font-weight: bold;");
-    console.log("   listFiles('/home/username')");
-    console.log("   listFiles('C:\\\\Users\\\\Username')");
-    console.log("");
-    
-    console.log("%cNow try:", "color: #22c55e; font-weight: bold;");
-    console.log("   listFiles('/')");
-    console.log("");
-    
-    return "Demo ready! Try: listFiles('/')";
 }

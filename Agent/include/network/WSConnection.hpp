@@ -8,6 +8,14 @@ namespace asio = boost::asio;
 using tcp = asio::ip::tcp;
 namespace ssl = boost::asio::ssl;
 
+struct WSPayload {
+    std::string textData;
+    std::vector<unsigned char> binaryData;
+    bool isBinary;
+    WSPayload(std::string text) : textData(std::move(text)), isBinary(false) {}
+    WSPayload(std::vector<unsigned char> bin) : binaryData(std::move(bin)), isBinary(true) {}
+};
+
 class WSConnection : public std::enable_shared_from_this<WSConnection> {
 public:
   explicit WSConnection (asio::io_context& ioc,
@@ -33,6 +41,7 @@ public:
 
     void connect();
     void send(const std::string& msg);
+    void sendBinary(const std::vector<unsigned char>& data);
     void close();
 
 private:
@@ -45,7 +54,7 @@ private:
     std::string port_;
     std::string target_;
 
-    std::queue <std::string> writeQueue_;
+    std::queue<WSPayload> writeQueue_;
     bool writing_ = false;
     
     static constexpr int CONNECT_TIMEOUT_SECONDS = 10;

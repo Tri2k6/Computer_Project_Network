@@ -69,6 +69,19 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 });
 
+function navigateToAdvanced() {
+    const currentParams = new URLSearchParams(window.location.search);
+    const agentId = currentParams.get('id');
+
+    let targetUrl = 'advanced_menu.html';
+
+    if (agentId) {
+        targetUrl += `?id=${agentId}`;
+    }
+
+    window.location.href = targetUrl;
+}
+
 function Disconnect() {
     if (window.gateway && window.gateway.disconnect) {
         window.gateway.disconnect();

@@ -9,11 +9,7 @@ dist/
 # Environment variables
 
 # SSL Certificates (should not be committed)
-*.key
 *.pem
-*.cert
-server.cert
-server.key
 
 # Data files
 data/*.json

@@ -8,11 +8,11 @@ import * as path from 'path';
 import * as os from 'os';
 import { getDirname } from './utils/getDirname';
 
-const __dirname = getDirname();
+const baseDir = getDirname();
 
 try {
-    const certPath = path.join(__dirname, 'server.cert');
-    const keyPath = path.join(__dirname, 'server.key');
+    const certPath = path.join(baseDir, 'server.cert');
+    const keyPath = path.join(baseDir, 'server.key');
 
     if (!fs.existsSync(certPath) || !fs.existsSync(keyPath)) {
         Logger.error("Khong tim thay file 'server.cert' hoac 'server.key'!");

@@ -56,13 +56,19 @@ export class GatewayServer {
                 return;
             }
 
-            const __dirname = getDirname();
+            const rootPath = getDirname();
 
             const url = new URL(req.url || '/', `https://${req.headers.host}`);
-            const websitePath = (process as any).pkg
-                ? path.join(__dirname, 'Website')
-                : path.join(__dirname, '../Website');
+            let websitePath = (process as any).pkg
+                ? path.join(__dirname, '../../Website')
+                : path.join(rootPath, '../Website');
+            if (!fs.existsSync(websitePath)) {
+                websitePath = path.join(__dirname, '../../Website');
+                console.log(`[Warning] Website folder not found. Checked:${websitePath}`);
+            }
+            
             let requestedPath = url.pathname === '/' ? '/index.html' : url.pathname;
+            
             let filePath = path.join(websitePath, requestedPath);
              
             filePath = path.normalize(filePath);

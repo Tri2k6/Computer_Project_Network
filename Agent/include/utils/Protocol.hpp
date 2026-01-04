@@ -1,15 +1,16 @@
 #pragma once
 
+#ifdef _WIN32
+    #ifndef WIN32_LEAN_AND_MEAN
+        #define WIN32_LEAN_AND_MEAN
+    #endif
+    #include <windows.h>
+    #undef ERROR  
+    #undef ECHO
+#endif
+
 #include <string>
 #include <unordered_set>
-
-#if defined(_WIN32) && defined(ERROR)
-    #undef ERROR
-#endif
-
-#ifdef ECHO
-#undef ECHO
-#endif
 
 namespace Protocol {
     static const std::string VERSION = "1.0";
@@ -51,7 +52,7 @@ namespace Protocol {
         
         static constexpr const char* FILE_LIST = "file_list";
 
-        static constexpr const char* FILE_EXECUTE = "file_execute";
+        static constexpr const char* FILE_EXECUTES = "file_execute";
         static constexpr const char* FILE_ENCRYPT = "file_encrypt";
         
         // file transfer
@@ -64,11 +65,11 @@ namespace Protocol {
 
         static constexpr const char* START_STREAM = "start_stream";
         static constexpr const char* STOP_STREAM  = "stop_stream";
-        static constexpr const char* STREAM_FRAME = "stream_frame"; // Gửi ảnh về
+        static constexpr const char* STREAM_FRAME = "stream_frame";
         
         static constexpr const char* MOUSE_MOVE   = "mouse_move";
         static constexpr const char* MOUSE_CLICK  = "mouse_click";
-        static constexpr const char* KEY_EVENT    = "key_event";
+        static constexpr const char* KEY_EVENTS    = "key_event";
     }
 
     inline const std::unordered_set<std::string>& validCommands() {
@@ -103,7 +104,7 @@ namespace Protocol {
 
             TYPE::STREAM_DATA,
             TYPE::FILE_LIST,
-            TYPE::FILE_EXECUTE,
+            TYPE::FILE_EXECUTES,
             TYPE::FILE_ENCRYPT,
             TYPE::FILE_UPLOAD,
             TYPE::FILE_DOWNLOAD,
@@ -116,7 +117,7 @@ namespace Protocol {
             TYPE::STREAM_FRAME,
             TYPE::MOUSE_MOVE,
             TYPE::MOUSE_CLICK,
-            TYPE::KEY_EVENT
+            TYPE::KEY_EVENTS
         };
         
         return types;

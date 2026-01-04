@@ -58,10 +58,6 @@ std::string CameraCapture::captureRawData() {
 
     std::string cmd;
     #ifdef _WIN32
-        // Windows: 
-        // -frames:v 1: Chỉ lấy 1 khung hình
-        // -f mjpeg: Xuất ra định dạng ảnh JPEG qua pipe
-        // -q:v 2: Chất lượng ảnh tốt (scale 1-31, 1 là tốt nhất)
         cmd = "ffmpeg -loglevel quiet -f dshow -i video=\"" + cameraName + "\" -frames:v 1 -q:v 2 -f mjpeg -";
     #elif __APPLE__
         cmd = "ffmpeg -loglevel quiet -f avfoundation -framerate 30 -pixel_format uyvy422 -i \"" + cameraName + "\" -frames:v 1 -pix_fmt yuvj420p -q:v 2 -f mjpeg -";

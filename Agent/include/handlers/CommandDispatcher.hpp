@@ -3,8 +3,8 @@
 #include "FeatureLibrary.h"
 #include "PlatformModules.h"
 #include "Message.hpp"
-#include "Protocol.hpp"
 #include "WSConnection.hpp"
+#include "Protocol.hpp"
 
 class WSConnection;
 

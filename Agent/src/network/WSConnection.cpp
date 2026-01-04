@@ -148,7 +148,7 @@ void WSConnection::onRead(beast::error_code ec, std::size_t) {
 
 void WSConnection::send(const std::string& msg) {
     asio::post(ws_.get_executor(), [this, msg]() {
-        writeQueue_.emplace(msg); // Gọi constructor Text
+        writeQueue_.emplace(msg);
         if (writeQueue_.size() == 1) {
             doWrite();
         }

@@ -3,8 +3,6 @@
 #include "AppControl_WIN.h"
 #include "Converter.h"
 
-
-// đọc tên path và trả về đường dẫn exe có thể chạy được
 std::wstring WinAppController::resolveShortcut(const std::wstring& lnkPath)
 {
     CoInitialize(NULL);

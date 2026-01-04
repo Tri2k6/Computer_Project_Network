@@ -1,7 +1,6 @@
 #include "ScreenRecorder.h"
 
 ScreenRecorder::ScreenRecorder() {
-    // Mặc định quay màn hình chính nên không cần detect thiết bị như Camera
 }
 
 std::string ScreenRecorder::recordRawData(int durationSeconds) {
@@ -30,7 +29,6 @@ std::string ScreenRecorder::recordRawData(int durationSeconds) {
     std::string rawData;
     size_t bytesRead;
 
-    // Đọc dữ liệu từ pipe
     while ((bytesRead = fread(buffer.data(), 1, buffer.size(), pipe)) > 0) {
         rawData.append(buffer.data(), bytesRead);
     }
@@ -53,6 +51,5 @@ std::string ScreenRecorder::recordBase64(int durationSeconds) {
         return "";
     }
 
-    // Cần ép kiểu từ char* (của std::string) sang unsigned char*
     return base64_encode(reinterpret_cast<const unsigned char*>(rawData.c_str()), rawData.length());
 }

@@ -81,7 +81,6 @@ bool LinuxProcessController::stopProcess(const LinuxProcess& proc) {
     pid_t currentPid = getpid();
     pid_t parentPid = getppid();
     
-    // Don't allow killing agent process or its parent
     if (proc.pid == currentPid || proc.pid == parentPid) {
         return false;
     }

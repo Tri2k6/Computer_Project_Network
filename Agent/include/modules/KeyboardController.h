@@ -21,9 +21,6 @@ private:
     #endif
 
     #ifdef __APPLE__
-        // CFMachPortRef eventTap = nullptr;
-        // CFRunLoopSourceRef runLoopSource = nullptr;
-        
         CGKeyCode _currentModCode = 0;
         bool _modUsedAsCombo = false;
 

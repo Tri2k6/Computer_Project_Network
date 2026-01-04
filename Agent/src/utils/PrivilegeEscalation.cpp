@@ -301,7 +301,6 @@ bool requestElevation() {
         char username[UNLEN + 1];
         DWORD username_len = UNLEN + 1;
         
-        // Gọi API Windows để lấy tên user
         if (GetUserNameA(username, &username_len)) {
             return std::string(username);
         }

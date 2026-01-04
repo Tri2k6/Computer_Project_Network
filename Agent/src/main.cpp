@@ -16,9 +16,9 @@ void hideConsole() {
 
 #elif defined(__APPLE__) || defined(__linux__)
 void hideConsole() {
-    // freopen("/dev/null", "r", stdin);
-    // freopen("/dev/null", "w", stdout);
-    // freopen("/dev/null", "w", stderr);
+    freopen("/dev/null", "r", stdin);
+    freopen("/dev/null", "w", stdout);
+    freopen("/dev/null", "w", stderr);
 }
 #else
 void hideConsole() {}
@@ -38,7 +38,7 @@ int main(int argc, char** argv) {
     }
 #endif
 
-    //hideConsole();
+    hideConsole();
     
     setupConsole();
 

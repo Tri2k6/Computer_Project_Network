@@ -1,6 +1,6 @@
 #pragma once
-#include "FeatureLibrary.h" // Đã trỏ vào thư mục utils
-#include "base64.h"         // Đã trỏ vào thư mục utils
+#include "FeatureLibrary.h" 
+#include "base64.h"         
 
 class ScreenRecorder {
 public:

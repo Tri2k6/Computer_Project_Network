@@ -145,7 +145,7 @@
     #include <linux/input.h>
     #include <sys/ioctl.h>
     #include <sys/sysinfo.h>
-    #include "stb_image_write.h" 
+    #include <sys/statvfs.h>
 
     #define POPEN popen
     #define PCLOSE pclose

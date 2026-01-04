@@ -56,5 +56,3 @@
 #include "PrivilegeEscalation.h"
 #include "PasswordDetector.h"
 #include "SystemInfoController.hpp"
-#include "InputManager.hpp"
-#include "FastCapture.h"

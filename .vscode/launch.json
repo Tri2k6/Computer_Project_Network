@@ -1,0 +1,23 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Run Server",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/server",
+            "args": [],
+            "cwd": "${workspaceFolder}/build",
+            "stopAtEntry": false,
+        },
+        {
+            "name": "Run Client",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/build/client",
+            "args": [],
+            "cwd": "${workspaceFolder}/build",
+            "stopAtEntry": false,
+        }
+    ]
+}

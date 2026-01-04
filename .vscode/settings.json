@@ -1,6 +1,6 @@
 {
-    "cmake.configureArgs": [
-        "-DCMAKE_TOOLCHAIN_FILE=C:/Users/Kham/vcpkg/scripts/buildsystems/vcpkg.cmake"
-    ],
-    "cmake.sourceDirectory": "C:/Users/Kham/Downloads/New folder/Computer_Project_Network/Agent",
+    // "cmake.configureArgs": [
+    //     "-DCMAKE_TOOLCHAIN_FILE=C:/Users/Kham/vcpkg/scripts/buildsystems/vcpkg.cmake"
+    // ],
+    "cmake.sourceDirectory": "/Users/admin/Downloads/Computer_Project_Network/Agent",
 }

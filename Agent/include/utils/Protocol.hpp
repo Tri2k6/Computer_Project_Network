@@ -5,9 +5,10 @@
         #define WIN32_LEAN_AND_MEAN
     #endif
     #include <windows.h>
+
     #undef ERROR  
-    #undef ECHO
 #endif
+#undef ECHO
 
 #include <string>
 #include <unordered_set>

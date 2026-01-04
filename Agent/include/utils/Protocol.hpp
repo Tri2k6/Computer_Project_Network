@@ -103,13 +103,7 @@ namespace Protocol {
             TYPE::FILE_CHUNK,
             TYPE::FILE_PROGRESS,
             TYPE::FILE_COMPLETE,
-            TYPE::SYSTEM_INFO,
-            TYPE::START_STREAM,
-            TYPE::STOP_STREAM,
-            TYPE::STREAM_FRAME,
-            TYPE::MOUSE_MOVE,
-            TYPE::MOUSE_CLICK,
-            TYPE::KEY_EVENTS
+            TYPE::SYSTEM_INFO
         };
         
         return types;

@@ -3,7 +3,7 @@ import 'ws'
 declare module 'ws' {
     interface WebSocket {
         id?: string;
-        isAlive?: boolean // for heartbeat (ping/pong)
+        isAlive?: boolean 
         role?: 'AGENT' | 'CLIENT';
     }
 }

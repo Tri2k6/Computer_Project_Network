@@ -77,10 +77,6 @@ export class AuthHandler {
         this.authenticateClient(ws, sessionId, ip, user, machineId);
     }
 
-    /**
-     * Auto-authenticate AGENT (server) - no password required
-     * Agent just needs to connect and will receive its unique ID
-     */
     private authenticateAgent(
         ws: WebSocket,
         sessionId: string,
@@ -96,13 +92,10 @@ export class AuthHandler {
 
         const port = (ws as any)._socket?.remotePort || 0;
 
-        // Check if there's an existing AGENT connection with the same IP:PORT
-        // Same IP:PORT = same agent (reconnect)
         const existingConnection = this.connectionRegistry.findConnectionByIPPort(ip, port);
         let finalSessionId = sessionId;
         
         if (existingConnection && existingConnection.role === 'AGENT' && existingConnection.id !== sessionId) {
-            // Reuse the existing connection ID for the same IP:PORT (reconnect)
             finalSessionId = existingConnection.id;
             Logger.info(`[Auth] Reusing existing connection ID ${finalSessionId} for AGENT from ${ip}:${port}`);
             existingConnection.close();
@@ -169,13 +162,10 @@ export class AuthHandler {
 
         const port = (ws as any)._socket?.remotePort || 0;
         
-        // Check if there's an existing CLIENT connection with the same IP:PORT
-        // Same IP:PORT = same client (reconnect)
         const existingConnection = this.connectionRegistry.findConnectionByIPPort(ip, port);
         let finalSessionId = sessionId;
         
         if (existingConnection && existingConnection.role === 'CLIENT' && existingConnection.id !== sessionId) {
-            // Reuse the existing connection ID for the same IP:PORT (reconnect)
             finalSessionId = existingConnection.id;
             Logger.info(`[Auth] Reusing existing connection ID ${finalSessionId} for CLIENT from ${ip}:${port}`);
             existingConnection.close();
@@ -272,7 +262,6 @@ export class AuthHandler {
             return;
         }
 
-        // Token is valid, authenticate
         const sessionId = ws.id || payload.sessionId;
         this.authenticateConnection(
             ws,
@@ -281,7 +270,7 @@ export class AuthHandler {
             payload.name,
             payload.role,
             payload.machineId,
-            true // isTokenAuth
+            true
         );
     }
 
@@ -327,7 +316,6 @@ export class AuthHandler {
         const userRole = role === 'AGENT' ? 'AGENT' : 'CLIENT';
         const port = (ws as any)._socket?.remotePort || 0;
         
-        // Get or generate name for the connection
         let name = user || machineId;
         const cachedName = this.dbManager.getConnectionName(machineId, userRole);
         if (cachedName) {
@@ -336,23 +324,19 @@ export class AuthHandler {
             name = user;
         }
 
-        // For both CLIENT and AGENT: Check for existing connection by IP:PORT (same IP:PORT = same connection)
         let finalSessionId = sessionId;
         const existingByIPPort = this.connectionRegistry.findConnectionByIPPort(ip, port);
         
         if (existingByIPPort && existingByIPPort.role === userRole && existingByIPPort.id !== sessionId) {
-            // Reuse the existing connection ID for the same IP:PORT (reconnect)
             finalSessionId = existingByIPPort.id;
             Logger.info(`[Auth] Reusing existing connection ID ${finalSessionId} for ${userRole} from ${ip}:${port}`);
             existingByIPPort.close();
             this.connectionRegistry.unregisterConnection(existingByIPPort.id);
         }
         
-        // Check for existing connection by persistent ID (reconnect from same IP)
         const persistentId = this.connectionRegistry.getPersistentId(machineId, userRole, ip);
         const existingByPersistentId = this.connectionRegistry.findConnectionByPersistentId(machineId, userRole, ip);
         if (existingByPersistentId && existingByPersistentId.id !== finalSessionId) {
-            // Reuse old connection ID if reconnecting from same IP
             finalSessionId = existingByPersistentId.id;
             Logger.info(`[Auth] Reconnect detected: ${persistentId} (reusing ID: ${finalSessionId})`);
             existingByPersistentId.close();
@@ -361,7 +345,6 @@ export class AuthHandler {
 
         const newConnection = new Connection(ws, finalSessionId, userRole, ip, machineId, name, port);
 
-        // Check for duplicates using ConnectionRegistry
         const registrationResult = this.connectionRegistry.registerConnection(newConnection);
         
         if (!registrationResult.success) {
@@ -371,7 +354,6 @@ export class AuthHandler {
                 return;
         }
 
-        // Save to database
         const now = Date.now();
         this.dbManager.addConnection({
             id: finalSessionId,
@@ -383,10 +365,8 @@ export class AuthHandler {
             lastSeen: now
         });
 
-        // Log successful authentication
         this.dbManager.logAuthAttempt(ip, machineId, userRole, true, isTokenAuth ? "Token auth" : "Password auth");
 
-        // Add to appropriate manager
         if (userRole === 'AGENT') {
             this.agentManager.addAgent(newConnection);
         } else {
@@ -396,7 +376,6 @@ export class AuthHandler {
         ws.id = finalSessionId;
         ws.role = userRole;
 
-        // Generate JWT tokens only for CLIENT (AGENT doesn't need tokens)
         let accessToken: string | undefined;
         let refreshToken: string | undefined;
         

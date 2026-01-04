@@ -56,7 +56,6 @@ export class GatewayServer {
                 return;
             }
 
-            // Get __dirname for ES modules (pkg-compatible)
             const __dirname = getDirname();
 
             const url = new URL(req.url || '/', `https://${req.headers.host}`);
@@ -270,12 +269,10 @@ export class GatewayServer {
                 return;
             }
 
-            // Serve static files from Website directory
             const websitePath = path.join(process.cwd(), 'Website');
             let requestedPath = url.pathname === '/' ? '/index.html' : url.pathname;
             let filePath = path.join(websitePath, requestedPath);
             
-            // Security: prevent directory traversal - normalize path
             filePath = path.normalize(filePath);
             if (!filePath.startsWith(path.normalize(websitePath))) {
                 res.writeHead(403);
@@ -283,10 +280,8 @@ export class GatewayServer {
                 return;
             }
 
-            // Check if file exists
             fs.stat(filePath, (err, stats) => {
                 if (err) {
-                    // If file doesn't exist and path is root or ends with /, try index.html
                     if (url.pathname === '/' || url.pathname.endsWith('/')) {
                         filePath = path.join(websitePath, 'index.html');
                     } else {
@@ -295,11 +290,9 @@ export class GatewayServer {
                         return;
                     }
                 } else if (!stats.isFile()) {
-                    // If it's a directory, try index.html inside it
                     filePath = path.join(filePath, 'index.html');
                 }
 
-                // Final check and read file
                 fs.readFile(filePath, (err, data) => {
                     if (err) {
             res.writeHead(404);
@@ -307,7 +300,6 @@ export class GatewayServer {
                         return;
                     }
 
-                    // Determine content type
                     const ext = path.extname(filePath).toLowerCase();
                     const contentTypes: { [key: string]: string } = {
                         '.html': 'text/html',
@@ -500,7 +492,6 @@ export class GatewayServer {
 
     private startHeartbeat() {
         this.heartbeatInterval = setInterval(() => {
-            // Heartbeat for secure connections (WSS)
             this.wss.clients.forEach((ws : WebSocket) => {
                 if (ws.isAlive === false) {
                     const conn = ws.id ? this.connectionRegistry.getConnection(ws.id) : null;
@@ -517,7 +508,6 @@ export class GatewayServer {
                 }
             });
 
-            // Heartbeat for insecure connections (WS)
             if (this.wssInsecure) {
                 this.wssInsecure.clients.forEach((ws : WebSocket) => {
                     if (ws.isAlive === false) {
@@ -543,7 +533,6 @@ export class GatewayServer {
         this.ingestServer = http.createServer((req, res) => {
             const url = new URL(req.url || '/', `http://${req.headers.host}`);
             
-            // Handle CORS preflight requests
             if (req.method === 'OPTIONS') {
                 res.writeHead(200, {
                     'Access-Control-Allow-Origin': '*',
@@ -555,7 +544,6 @@ export class GatewayServer {
                 return;
             }
 
-            // Handle /ingest/* endpoint
             if (url.pathname.startsWith('/ingest/') && req.method === 'POST') {
                 let body = '';
                 
@@ -564,8 +552,6 @@ export class GatewayServer {
                 });
                 
                 req.on('end', () => {
-                    // Silently accept the data (debugging/telemetry endpoint)
-                    // Optionally log it if needed
                     Logger.debug(`[Ingest] Received data at ${url.pathname}`);
                     
                     res.writeHead(200, {
@@ -589,7 +575,6 @@ export class GatewayServer {
                 return;
             }
 
-            // 404 for other paths
             res.writeHead(404, {
                 'Content-Type': 'application/json',
                 'Access-Control-Allow-Origin': '*'

@@ -23,7 +23,6 @@ export class DiscoveryListener {
         const privateIPs: string[] = [];
         const publicIPs: string[] = [];
         
-        // Collect all IPs first
         for (const name of Object.keys(interfaces)) {
             const nets = interfaces[name];
             if (!nets) continue;
@@ -31,7 +30,6 @@ export class DiscoveryListener {
             for (const net of nets) {
                 if (net.family === 'IPv4' && !net.internal && net.address) {
                     const addr = net.address;
-                    // Check if it's a private IP (LAN)
                     if (addr.startsWith('10.') || 
                         addr.startsWith('192.168.') || 
                         (addr.startsWith('172.') && 
@@ -47,14 +45,12 @@ export class DiscoveryListener {
             }
         }
         
-        // Prioritize private IPs (LAN) over public IPs
         if (privateIPs.length > 0) {
             const selectedIP = privateIPs[0];
             Logger.info(`[Discovery] Selected LAN IP: ${selectedIP} (from ${privateIPs.length} private IPs)`);
             return selectedIP;
         }
         
-        // Fallback to public IP if no private IP found
         if (publicIPs.length > 0) {
             const selectedIP = publicIPs[0];
             Logger.warn(`[Discovery] No private IP found, using public IP: ${selectedIP}`);
@@ -100,8 +96,6 @@ export class DiscoveryListener {
         Logger.info(`[Discovery] Received message from ${rinfo.address}:${rinfo.port} - "${message}"`);
         
         if (message === DISCOVERY_REQUEST) {
-            // Get the IP address of the interface that received this request
-            // This ensures we return an IP that is reachable from the requesting agent
             const responseIP = this.getResponseIP(rinfo.address);
             const response = `${DISCOVERY_RESPONSE_PREFIX} ${responseIP}:${this.gatewayPort}`;
             
@@ -120,12 +114,10 @@ export class DiscoveryListener {
     }
 
     private getResponseIP(requesterIP: string): string {
-        // Try to find an IP in the same subnet as the requester
         const interfaces = os.networkInterfaces();
         const requesterParts = requesterIP.split('.');
         
         if (requesterParts.length === 4) {
-            // Check if requester is in private network range
             const isPrivate = requesterIP.startsWith('10.') || 
                              requesterIP.startsWith('192.168.') || 
                              requesterIP.startsWith('172.16.') || 
@@ -146,7 +138,6 @@ export class DiscoveryListener {
                              requesterIP.startsWith('172.31.');
             
             if (isPrivate) {
-                // Find IP in same subnet (same first 3 octets for class C)
                 const subnetPrefix = requesterParts.slice(0, 3).join('.');
                 
                 for (const name of Object.keys(interfaces)) {
@@ -158,7 +149,6 @@ export class DiscoveryListener {
                             const gatewayParts = net.address.split('.');
                             if (gatewayParts.length === 4) {
                                 const gatewaySubnet = gatewayParts.slice(0, 3).join('.');
-                                // If same subnet, use this IP
                                 if (gatewaySubnet === subnetPrefix) {
                                     Logger.info(`[Discovery] Found matching subnet IP: ${net.address} (same subnet as ${requesterIP})`);
                                     return net.address;
@@ -168,7 +158,6 @@ export class DiscoveryListener {
                     }
                 }
                 
-                // If no exact subnet match, find any private IP
                 for (const name of Object.keys(interfaces)) {
                     const nets = interfaces[name];
                     if (!nets) continue;
@@ -186,7 +175,6 @@ export class DiscoveryListener {
             }
         }
         
-        // Fallback to default gateway IP
         Logger.info(`[Discovery] Using default gateway IP: ${this.gatewayIP}`);
         return this.gatewayIP;
     }

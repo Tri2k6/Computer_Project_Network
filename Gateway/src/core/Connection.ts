@@ -1,4 +1,4 @@
-import { WebSocket, RawData } from "ws"; // [CẬP NHẬT] Thêm RawData
+import { WebSocket, RawData } from "ws";
 import { Message } from "../types/Message";
 import { CommandType } from "../types/Protocols";
 import { Logger } from "../utils/Logger";
@@ -33,9 +33,8 @@ export class Connection {
 
     public isAlive: boolean = true;
 
-    // [MỚI] Callbacks để Server.ts gán logic xử lý vào
-    public onCommand: ((msg: Message) => void) | null = null; // Xử lý JSON (Lệnh)
-    public onStream: ((data: RawData) => void) | null = null; // Xử lý Binary (Hình ảnh)
+    public onCommand: ((msg: Message) => void) | null = null;
+    public onStream: ((data: RawData) => void) | null = null;
     public onDisconnect: (() => void) | null = null;
 
     constructor(ws: WebSocket, id: string, role: ConnectionRole, ip: string, machineId: string, name: string = '', port: number = 0) {
@@ -60,27 +59,19 @@ export class Connection {
             port: port
         });
 
-        // [MỚI] Khởi tạo lắng nghe sự kiện ngay khi tạo Connection
         this.initListeners();
     }
 
-    // [MỚI] Hàm thiết lập các Event Listeners
     private initListeners() {
-        // Lắng nghe tin nhắn từ Socket
         this.ws.on('message', (data: RawData, isBinary: boolean) => {
             try {
                 if (isBinary) {
-                    // ==> NẾU LÀ BINARY: Đây là dữ liệu Stream hình ảnh
-                    // Chuyển ngay cho hàm xử lý Stream (sẽ được Server gán)
                     if (this.onStream) {
                         this.onStream(data);
                     }
                 } else {
-                    // ==> NẾU LÀ TEXT: Đây là JSON Lệnh (Command)
                     const messageString = data.toString();
                     const message = JSON.parse(messageString) as Message;
-                    
-                    // Chuyển cho hàm xử lý Lệnh
                     if (this.onCommand) {
                         this.onCommand(message);
                     }
@@ -154,7 +145,6 @@ export class Connection {
 
     public send(message: Message): boolean {
         if (this.ws.readyState !== WebSocket.OPEN) {
-            // Logger.warn(`[Connection] Cannot send to ${this.id} (Socket closed)`);
             return false;
         }
 

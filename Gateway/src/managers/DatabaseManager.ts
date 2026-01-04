@@ -127,40 +127,19 @@ export class DatabaseManager {
             )
         `);
 
-        // #region debug log - check machine_info schema
-        try {
-            const tableInfo = this.db.prepare("PRAGMA table_info(machine_info)").all() as Array<{name: string, type: string}>;
-            fetch('http://127.0.0.1:7242/ingest/10c16e71-75ba-4efd-b6cb-47716d67b948',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'DatabaseManager.ts:130',message:'Checking machine_info table schema',data:{columns:tableInfo.map(c=>c.name),hasRole:tableInfo.some(c=>c.name==='role'),hasMachineId:tableInfo.some(c=>c.name==='machineId')},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-        } catch (e) {
-            fetch('http://127.0.0.1:7242/ingest/10c16e71-75ba-4efd-b6cb-47716d67b948',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'DatabaseManager.ts:130',message:'machine_info table does not exist yet',data:{error:String(e)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-        }
-        // #endregion
-
-        // Check if table exists with old schema and migrate if needed
         try {
             const tableInfo = this.db.prepare("PRAGMA table_info(machine_info)").all() as Array<{name: string, type: string}>;
             const columnNames = tableInfo.map(col => col.name);
             const hasRole = columnNames.includes('role');
             const hasMachineId = columnNames.includes('machineId');
             
-            // #region debug log - migration decision
-            Logger.info(`[DatabaseManager] machine_info schema check: columns=${columnNames.join(',')}, hasRole=${hasRole}, hasMachineId=${hasMachineId}`);
-            fetch('http://127.0.0.1:7242/ingest/10c16e71-75ba-4efd-b6cb-47716d67b948',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'DatabaseManager.ts:140',message:'Migration check result',data:{columns:columnNames,hasRole,hasMachineId,needsMigration:!hasRole||hasMachineId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-            // #endregion
-            
             if (!hasRole || hasMachineId) {
-                // Old schema detected - drop and recreate
                 Logger.info('[DatabaseManager] Migrating machine_info table to new schema (old schema detected)...');
                 this.db.exec('DROP TABLE IF EXISTS machine_info');
-                // #region debug log - table dropped
-                Logger.info('[DatabaseManager] Dropped old machine_info table');
-                fetch('http://127.0.0.1:7242/ingest/10c16e71-75ba-4efd-b6cb-47716d67b948',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'DatabaseManager.ts:152',message:'Dropped old machine_info table',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-                // #endregion
             } else {
                 Logger.info('[DatabaseManager] machine_info table already has correct schema, no migration needed');
             }
         } catch (e) {
-            // Table doesn't exist yet, will be created below
             Logger.info(`[DatabaseManager] machine_info table does not exist yet: ${e}`);
         }
 
@@ -173,35 +152,15 @@ export class DatabaseManager {
             )
         `);
         
-        // #region debug log - verify table created
-        try {
-            const verifyInfo = this.db.prepare("PRAGMA table_info(machine_info)").all() as Array<{name: string, type: string}>;
-            Logger.info(`[DatabaseManager] machine_info table created/verified with columns: ${verifyInfo.map(c => c.name).join(', ')}`);
-            fetch('http://127.0.0.1:7242/ingest/10c16e71-75ba-4efd-b6cb-47716d67b948',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'DatabaseManager.ts:168',message:'machine_info table created/verified',data:{columns:verifyInfo.map(c=>c.name)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'A'})}).catch(()=>{});
-        } catch (e) {
-            Logger.error(`[DatabaseManager] Failed to verify machine_info table: ${e}`);
-        }
-        // #endregion
-
-        // Check if query_results table has old schema (with queryId) and migrate if needed
         try {
             const tableInfo = this.db.prepare("PRAGMA table_info(query_results)").all() as Array<{name: string, type: string}>;
             const hasQueryId = tableInfo.some(col => col.name === 'queryId');
             
-            // #region debug log - query_results migration check
-            fetch('http://127.0.0.1:7242/ingest/10c16e71-75ba-4efd-b6cb-47716d67b948',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'DatabaseManager.ts:165',message:'Checking query_results schema',data:{hasQueryId,needsMigration:hasQueryId},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-            // #endregion
-            
             if (hasQueryId) {
-                // Old schema detected - drop and recreate
                 Logger.info('[DatabaseManager] Migrating query_results table to new schema...');
                 this.db.exec('DROP TABLE IF EXISTS query_results');
-                // #region debug log - query_results dropped
-                fetch('http://127.0.0.1:7242/ingest/10c16e71-75ba-4efd-b6cb-47716d67b948',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'DatabaseManager.ts:172',message:'Dropped old query_results table',data:{},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'B'})}).catch(()=>{});
-                // #endregion
             }
         } catch (e) {
-            // Table doesn't exist yet, will be created below
         }
 
         this.db.exec(`
@@ -522,9 +481,6 @@ export class DatabaseManager {
 
     public updateMachineInfo(ip: string, port: number, role: 'AGENT' | 'CLIENT'): void {
         try {
-            // #region debug log - before update
-            fetch('http://127.0.0.1:7242/ingest/10c16e71-75ba-4efd-b6cb-47716d67b948',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'DatabaseManager.ts:455',message:'Updating machine info',data:{ip,port,role},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-            // #endregion
             
             const stmt = this.db.prepare(`
                 INSERT OR REPLACE INTO machine_info 
@@ -533,13 +489,7 @@ export class DatabaseManager {
             `);
             stmt.run(ip, port, role);
             
-            // #region debug log - after update
-            fetch('http://127.0.0.1:7242/ingest/10c16e71-75ba-4efd-b6cb-47716d67b948',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'DatabaseManager.ts:463',message:'Machine info updated successfully',data:{ip,port,role},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-            // #endregion
         } catch (error) {
-            // #region debug log - error
-            fetch('http://127.0.0.1:7242/ingest/10c16e71-75ba-4efd-b6cb-47716d67b948',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'DatabaseManager.ts:465',message:'Failed to update machine info',data:{ip,port,role,error:String(error)},timestamp:Date.now(),sessionId:'debug-session',runId:'run1',hypothesisId:'C'})}).catch(()=>{});
-            // #endregion
             Logger.error(`[DatabaseManager] Failed to update machine info: ${error}`);
         }
     }

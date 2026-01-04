@@ -185,7 +185,7 @@ export class ActivityLogger {
                 sql += ' LIMIT ?';
                 params.push(query.limit);
             } else {
-                sql += ' LIMIT 1000'; // Default limit
+                sql += ' LIMIT 1000';  
             }
 
             if (query.offset) {

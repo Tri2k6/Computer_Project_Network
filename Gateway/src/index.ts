@@ -8,11 +8,9 @@ import * as path from 'path';
 import * as os from 'os';
 import { getDirname } from './utils/getDirname';
 
-// Get __dirname for ES modules (pkg-compatible)
 const __dirname = getDirname();
 
 try {
-    // SSL certificates should be in the same directory as the executable
     const certPath = path.join(__dirname, 'server.cert');
     const keyPath = path.join(__dirname, 'server.key');
 
@@ -35,7 +33,6 @@ try {
     const privateIPs: string[] = [];
     const publicIPs: string[] = [];
     
-    // Collect all IPs first, prioritizing private (LAN) IPs
     for (const name of Object.keys(networkInterfaces || {})) {
         const nets = networkInterfaces![name];
         if (!nets) continue;
@@ -43,7 +40,6 @@ try {
         for (const net of nets) {
             if (net.family === 'IPv4' && !net.internal && net.address) {
                 const addr = net.address;
-                // Check if it's a private IP (LAN)
                 if (addr.startsWith('10.') || 
                     addr.startsWith('192.168.') || 
                     (addr.startsWith('172.') && 
@@ -59,7 +55,6 @@ try {
         }
     }
     
-    // Prioritize private IPs (LAN) over public IPs
     if (privateIPs.length > 0) {
         gatewayIP = privateIPs[0];
         Logger.info(`[Gateway] Selected LAN IP: ${gatewayIP} (from ${privateIPs.length} private IPs)`);

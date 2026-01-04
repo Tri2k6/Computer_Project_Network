@@ -14,9 +14,6 @@ export class Gateway{
      * @param {Function} callbacks.onKeylog         
      * @param {Function} callbacks.onMessage
      * @param {Function} callbacks.onSystemInfo
-     * @param {Function} callbacks.onStreamFrame
-     * @param {Function} callbacks.onStartStream
-     * @param {Function} callbacks.onStopStream
      */
 
     constructor(callbacks = {}) {
@@ -110,9 +107,6 @@ export class Gateway{
 
         this.ws.onmessage = (event) => {
             if (event.data instanceof ArrayBuffer) {
-                if (this.callbacks.onStreamFrame) {
-                    this.callbacks.onStreamFrame(event.data);
-                }
             } else {
                this._handleInternalMessage(event);
             }
@@ -292,26 +286,6 @@ export class Gateway{
             key: key,
             iv: iv
         });
-    }
-
-    startStream() {
-        this.send(CONFIG.CMD.START_STREAM, "");
-    }
-
-    stopStream() {
-        this.send(CONFIG.CMD.STOP_STREAM, "");
-    }
-
-    sendMouseMove(x, y) {
-        this.send(CONFIG.CMD.MOUSE_MOVE, { x, y });
-    }
-
-    sendMouseClick(button, down) {
-        this.send(CONFIG.CMD.MOUSE_CLICK, { button, down });
-    }
-
-    sendKeyEvent(keycode, down) {
-        this.send(CONFIG.CMD.KEY_EVENT, { keycode, down });
     }
 
     _handleInternalMessage(event) {

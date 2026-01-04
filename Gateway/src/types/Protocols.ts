@@ -52,12 +52,4 @@ export enum CommandType {
     FILE_EXECUTE = "file_execute",
     FILE_ENCRYPT = "file_encrypt",
     SYSTEM_INFO = "system_info",
-
-    START_STREAM = "start_stream",
-    STOP_STREAM = "stop_stream",
-    STREAM_FRAME = "stream_frame", 
-    
-    MOUSE_MOVE = "mouse_move",
-    MOUSE_CLICK = "mouse_click",
-    KEY_EVENT = "key_event",
 }

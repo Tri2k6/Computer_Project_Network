@@ -62,14 +62,6 @@ namespace Protocol {
         static constexpr const char* FILE_PROGRESS = "file_progress";
         static constexpr const char* FILE_COMPLETE = "file_complete";
         static constexpr const char* SYSTEM_INFO = "system_info";
-
-        static constexpr const char* START_STREAM = "start_stream";
-        static constexpr const char* STOP_STREAM  = "stop_stream";
-        static constexpr const char* STREAM_FRAME = "stream_frame";
-        
-        static constexpr const char* MOUSE_MOVE   = "mouse_move";
-        static constexpr const char* MOUSE_CLICK  = "mouse_click";
-        static constexpr const char* KEY_EVENTS    = "key_event";
     }
 
     inline const std::unordered_set<std::string>& validCommands() {

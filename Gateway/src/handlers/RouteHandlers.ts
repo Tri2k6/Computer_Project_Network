@@ -17,10 +17,6 @@ export class RouteHandler {
     private activityLogger: ActivityLogger;
 
     private readonly HIGH_FREQUENCY_COMMANDS = [
-        CommandType.MOUSE_MOVE,
-        CommandType.MOUSE_CLICK,
-        CommandType.KEY_EVENT,
-        CommandType.STREAM_FRAME,
         CommandType.FILE_CHUNK,
         CommandType.FILE_PROGRESS
     ];
@@ -109,9 +105,7 @@ export class RouteHandler {
                 CommandType.CONNECT_AGENT, CommandType.SYSTEM_INFO,
                 CommandType.FILE_LIST, CommandType.FILE_UPLOAD, CommandType.FILE_DOWNLOAD, 
                 CommandType.FILE_CHUNK, CommandType.FILE_ENCRYPT, CommandType.FILE_EXECUTE,
-                CommandType.START_STREAM, CommandType.STOP_STREAM,
-                CommandType.MOUSE_MOVE, CommandType.MOUSE_CLICK, CommandType.KEY_EVENT
-            ];
+               ];
 
             if (msg.type === CommandType.GET_AGENTS) {
                 const list = this.agentManager.getAgentListDetails();
@@ -209,11 +203,6 @@ export class RouteHandler {
 
                 this.activityLogger.logCommand(senderConn, msg, targetAgent, true);
                 Logger.info(`[Router] Forwarded ${msg.type} from ${senderName} (${sender.id}) to ${targetName} (${targetId})`);
-            }
-        } else {
-            if (msg.type !== CommandType.MOUSE_MOVE) {
-                this.activityLogger.logCommand(senderConn, msg, null, false, { error: `Target ${targetId} not found or offline` });
-                this.sendError(sender, `Target ${targetId} not found or offline`);
             }
         }
     }

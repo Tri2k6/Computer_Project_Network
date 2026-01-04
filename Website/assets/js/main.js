@@ -267,23 +267,6 @@ const gateway = new Gateway({
             window.ui.renderSystemInfo(responseData);
         }
     },
-    onStreamFrame: (base64Data, agentId) => {
-        if (window.renderFrame && typeof window.renderFrame === 'function') {
-            window.renderFrame(base64Data);
-        }
-    },
-    onStartStream: (responseData, agentId) => {
-        ui.log("Remote", `Stream started on Agent: ${agentId}`);
-        if (window.onStreamStarted && typeof window.onStreamStarted === 'function') {
-            window.onStreamStarted(responseData);
-        }
-    },
-    onStopStream: (responseData, agentId) => {
-        ui.log("Remote", `Stream stopped on Agent: ${agentId}`);
-        if (window.onStreamStopped && typeof window.onStreamStopped === 'function') {
-            window.onStreamStopped();
-        }
-    },
     onMessage: (msg) => {
         console.log("Raw Msg: ", msg);
     },
@@ -547,19 +530,6 @@ window.restartAgent = () => {
     }
 }
 
-window.startStream = () => {
-    ui.info(`[CMD] Starting Remote Stream on ${appState.currentTarget}...`);
-    Logic.startStream();
-};
-
-window.stopStream = () => {
-    ui.info(`[CMD] Stopping Remote Stream...`);
-    Logic.stopStream();
-};
-
-window.mouseMove = (x, y) => Logic.mouseMove(x, y);
-window.mouseClick = (button, down) => Logic.mouseClick(button, down);
-window.keyEvent = (keycode, down) => Logic.keyEvent(keycode, down);
 
 window.logout = () => {
     sessionStorage.removeItem('saved_password');

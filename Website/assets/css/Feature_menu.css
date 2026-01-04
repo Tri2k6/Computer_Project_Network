@@ -100,7 +100,7 @@
 .center-column {
     flex: 0 0 auto;
     display: flex;
-    flex-direction: column;  /* thêm dòng này */
+    flex-direction: column;  
     justify-content: center;
     align-items: center;
     position: relative;
@@ -204,7 +204,7 @@
 .typing-effect {
     overflow: hidden;
     white-space: nowrap;
-    border-right: 2px solid var(--text-blue); /* thêm màu mặc định */
+    border-right: 2px solid var(--text-blue); 
     width: 0ch;
     animation: typing 2s steps(15) 1s forwards, blink 0.75s step-end infinite;
 }

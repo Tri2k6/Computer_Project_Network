@@ -4,17 +4,16 @@ const win = window;
 let ramChart = null;
 let cpuChart = null;
 
-// Cấu hình chung cho Chart
 const commonOptions = {
     responsive: true,
     maintainAspectRatio: false,
-    animation: false, // Tắt animation để update mượt hơn real-time
+    animation: false, 
     plugins: { legend: { display: false } },
     scales: {
         y: { beginAtZero: true, max: 100, grid: { color: '#f1f5f9' }, ticks: { display: false } },
         x: { display: false }
     },
-    elements: { point: { radius: 0 } } // Ẩn điểm tròn cho gọn
+    elements: { point: { radius: 0 } }
 };
 
 function initCharts() {
@@ -27,7 +26,7 @@ function initCharts() {
                 labels: Array(30).fill(''),
                 datasets: [{
                     data: Array(30).fill(0),
-                    borderColor: '#f97316', // Orange
+                    borderColor: '#f97316', 
                     backgroundColor: 'rgba(249, 115, 22, 0.1)',
                     fill: true,
                     tension: 0.4,
@@ -47,7 +46,7 @@ function initCharts() {
                 labels: Array(30).fill(''),
                 datasets: [{
                     data: Array(30).fill(0),
-                    borderColor: '#3b82f6', // Blue
+                    borderColor: '#3b82f6',
                     backgroundColor: 'rgba(59, 130, 246, 0.1)',
                     fill: true,
                     tension: 0.4,
@@ -67,17 +66,14 @@ function updateChart(chart, value) {
 
     data.push(value);
     data.shift();
-    // Label shift (dummy)
     labels.push('');
     labels.shift();
 
-    chart.update('none'); // Update mode 'none' để không trigger animation
+    chart.update('none'); 
 }
 
 // === MAIN RENDER FUNCTION ===
 win.ui.renderSystemInfo = (response) => {
-    // console.log("[SystemInfo] Received:", response); // Debug nếu cần
-
     if (!response || response.status !== "ok" || !response.data) return;
     const stats = response.data;
 
@@ -89,10 +85,8 @@ win.ui.renderSystemInfo = (response) => {
     if (document.getElementById('os-info')) 
         document.getElementById('os-info').textContent = osName;
 
-    // Logic đổi Icon
     const osIcon = document.getElementById('os-icon');
     if (osIcon) {
-        // Reset class gốc
         osIcon.className = ''; 
         
         const lowerOS = osName.toLowerCase();
@@ -105,7 +99,7 @@ win.ui.renderSystemInfo = (response) => {
         } else if (lowerOS.includes('android')) {
             osIcon.className = 'fa-brands fa-android';
         } else {
-            osIcon.className = 'fa-solid fa-desktop'; // Mặc định
+            osIcon.className = 'fa-solid fa-desktop'; 
         }
     }
     // 2. CPU Info
@@ -145,8 +139,8 @@ win.ui.renderSystemInfo = (response) => {
             const usedGb = d.total_gb - d.free_gb;
             const percent = d.total_gb > 0 ? (usedGb / d.total_gb * 100) : 0;
             let colorClass = '#3b82f6'; // Blue default
-            if (percent > 80) colorClass = '#f97316'; // Orange warning
-            if (percent > 90) colorClass = '#ef4444'; // Red alert
+            if (percent > 80) colorClass = '#f97316';
+            if (percent > 90) colorClass = '#ef4444';
 
             return `
                 <div class="disk-item">
@@ -179,25 +173,18 @@ win.ui.renderSystemInfo = (response) => {
 };
 
 function fetchStats() {
-    // Chỉ gửi lệnh nếu đã đăng nhập và đã chọn 1 target cụ thể
     if (win.gateway?.isAuthenticated && win.gateway.targetId !== 'ALL') {
         
-        // 1. Gửi lệnh lấy thông tin
         win.gateway.send(CONFIG.CMD.SYSTEM_INFO, {});
         
-        // 2. Cập nhật hiển thị tên Agent
         const display = document.getElementById('agent-name-display');
         if(display) {
-            // Lấy danh sách các agent đang online
             const agents = win.gateway.agentsList || [];
             
-            // Tìm agent trùng với targetId hiện tại
             const currentAgent = agents.find(a => a.id === win.gateway.targetId);
             
-            // Nếu tìm thấy thì lấy machineId, còn không thì dùng tạm targetId
             const displayName = currentAgent ? currentAgent.machineId : win.gateway.targetId;
             
-            // Hiển thị ra màn hình (giữ nguyên icon desktop cho đẹp)
             display.innerHTML = ` ${displayName}`;
         }
         
@@ -209,11 +196,10 @@ function fetchStats() {
 document.addEventListener('DOMContentLoaded', () => {
     initCharts();
 
-    // Polling logic: Gọi liên tục mỗi 2s để chart chạy mượt
     const initialFetch = setInterval(() => {
         if (fetchStats()) {
             clearInterval(initialFetch); 
-            setInterval(fetchStats, 1000); // 2 giây refresh 1 lần
+            setInterval(fetchStats, 1000); 
         }
     }, 500);
 

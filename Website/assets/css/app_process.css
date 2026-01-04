@@ -26,23 +26,23 @@
     justify-content: center;
     align-items: center;
     width: 100%;
-    max-width: 1400px; /* Mở rộng xíu để thoáng */
-    gap: 40px; /* Khoảng cách giữa các cột */
+    max-width: 1400px; 
+    gap: 40px;
 }
 
 /* --- LEFT PANEL (LAPTOP) --- */
 .left-panel {
     flex: 1;
     display: flex;
-    justify-content: flex-end; /* Đẩy ảnh về phía bảng */
+    justify-content: flex-end; 
     align-items: center;
 }
 
 /* KHUNG BAO QUANH ẢNH LAPTOP (QUAN TRỌNG ĐỂ CĂN CHỮ) */
 .laptop-wrapper {
     position: relative;
-    width: fit-content; /* Khung ôm sát kích thước ảnh */
-    display: flex; /* Loại bỏ khoảng trắng thừa dưới chân ảnh */
+    width: fit-content; 
+    display: flex; 
     justify-content: center;
     margin-top: 50px;
     margin-right: 100px;
@@ -50,26 +50,23 @@
 
 .laptop-img {
     width: 100%;
-    max-width: 480px; /* Giới hạn độ to của ảnh */
+    max-width: 480px;
     height: auto;
     display: block;
     filter: drop-shadow(0 20px 20px rgba(0,0,0,0.25));
 }
 
-/* Lớp phủ chứa chữ */
 .screen-overlay {
     position: absolute;
-    /* Căn chỉnh vị trí chữ dựa trên khung wrapper */
-    top: 35%; /* 35% từ trên xuống là tâm của màn hình xanh (tránh bàn phím) */
+    top: 35%; 
     left: 50%; 
-    transform: translate(-50%, -50%); /* Dịch chuyển để tâm chữ trùng tâm điểm neo */
+    transform: translate(-50%, -50%); 
     
-    width: 80%; /* Vùng an toàn cho chữ */
+    width: 80%; 
     text-align: center;
     z-index: 10;
 }
 
-/* Style chữ Code */
 .code-text {
     font-family: 'Courier Prime', monospace;
     font-size: 27px; 
@@ -191,10 +188,10 @@
 
 .process-items-wrapper {
     flex-grow: 1;
-    background-color: var(--bg-color); /* Màu nền nhạt cho list */
+    background-color: var(--bg-color);
     border-radius: 8px;
     padding: 10px;
-    overflow-y: auto; /* Cho phép cuộn nếu danh sách dài */
+    overflow-y: auto;
 }
 
 .process-list {
@@ -245,17 +242,17 @@
 /* Footer Pagination */
 .change_page {
     display: flex;
-    align-items: center;      /* căn giữa theo chiều dọc */
-    justify-content: center;  /* căn giữa theo chiều ngang */
-    gap: 15px;                /* khoảng cách giữa các phần tử */
+    align-items: center;     
+    justify-content: center;  
+    gap: 15px;                
     margin-top: 20px;
 }
 
 .nav-square {
     border: none;
     display: flex;
-    justify-content: center; /* căn giữa ngang */
-    align-items: center;     /* căn giữa dọc */
+    justify-content: center; 
+    align-items: center;    
     border: none !important;
     width: 20px;
     height: 20px;
@@ -268,7 +265,7 @@
 
 .nav-square:disabled {
     cursor: not-allowed;
-    pointer-events: none; /* Không cho click */
+    pointer-events: none;
     background-color: var(--disabled);
     border-color: var(--disabled);
     opacity: 0.5;

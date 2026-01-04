@@ -26,7 +26,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function resetSearch() {
     searchInput.value = '';
-    // Reset về dữ liệu gốc
     currentData = [...originalData];
     currentPage = 1;
     renderData();

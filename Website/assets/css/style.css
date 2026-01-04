@@ -28,7 +28,7 @@ body {
     width: 100vw;
     display: flex;
     flex-direction: column;
-    overflow: hidden; /* Ngăn thanh cuộn nếu muốn trang cố định */
+    overflow: hidden; 
 }
 
 /* =========================================
@@ -40,9 +40,9 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0 5%; /* Padding trái phải 5% */
+    padding: 0 5%;
     flex-shrink: 0;
-    z-index: 100; /* Luôn nằm trên cùng */
+    z-index: 100; 
 }
 
 /* Logo Styling */
@@ -97,7 +97,7 @@ body {
     opacity: 0;
     transform: translateY(20px);
     animation: pageFadeIn 0.3s ease-out forwards;
-} /* Fade in cả trang khi mở lên */
+}
 
 @keyframes pageFadeIn {
     to {
@@ -327,7 +327,7 @@ body {
 .server-list-container {
     width: 600px;
     height: 500px;
-    background-color: var(--nav-bg); /* Màu cam giống menu */
+    background-color: var(--nav-bg);
     border-radius: 12px;
     box-shadow: 0 10px 20px rgba(0,0,0,0.3);
     display: flex;
@@ -377,10 +377,10 @@ body {
 /* Khu vực chứa danh sách */
 .server-items-wrapper {
     flex-grow: 1;
-    background-color: var(--bg-color); /* Màu nền nhạt cho list */
+    background-color: var(--bg-color);
     border-radius: 8px;
     padding: 10px;
-    overflow-y: auto; /* Cho phép cuộn nếu danh sách dài */
+    overflow-y: auto; 
 }
 
 .server-list {
@@ -431,17 +431,17 @@ body {
 /* Footer phân trang */
 .change_page {
     display: flex;
-    align-items: center;      /* căn giữa theo chiều dọc */
-    justify-content: center;  /* căn giữa theo chiều ngang */
-    gap: 15px;                /* khoảng cách giữa các phần tử */
+    align-items: center;     
+    justify-content: center; 
+    gap: 15px;              
     margin-top: 20px;
 }
 
 .nav-btn {
     border: none;
     display: flex;
-    justify-content: center; /* căn giữa ngang */
-    align-items: center;     /* căn giữa dọc */
+    justify-content: center;
+    align-items: center;    
     width: 20px;
     height: 20px;
     border-radius: 4px;
@@ -463,7 +463,7 @@ body {
 
 .nav-btn:disabled {
     cursor: not-allowed;
-    pointer-events: none; /* Không cho click */
+    pointer-events: none;
     background-color: var(--disabled);
     border-color: var(--disabled);
     opacity: 0.5;
@@ -510,7 +510,7 @@ body {
 
 @media (max-width: 768px) {
     body {
-        height: auto; /* Cho phép cuộn trên mobile */
+        height: auto;
         overflow: auto;
     }
 
@@ -522,13 +522,12 @@ body {
         gap: 15px;
     }
     
-    /* Ẩn bớt menu, chỉ hiện nút About */
     .nav-item:not(.btn-about) {
         display: none; 
     }
 
     .content-wrapper {
-        flex-direction: column-reverse; /* Đảo ngược: Ảnh trên, chữ dưới */
+        flex-direction: column-reverse; 
         text-align: center;
         padding-top: 40px;
         padding-bottom: 40px;
@@ -555,7 +554,6 @@ body {
         font-size: 36px;
     }
 
-    /* Ẩn dây nối trên mobile vì bố cục thay đổi */
     .wire {
         display: none; 
     }

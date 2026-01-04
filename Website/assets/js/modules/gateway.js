@@ -512,15 +512,13 @@ export class Gateway{
                     break;
 
                 case CONFIG.CMD.FILE_CHUNK:
-                    // Nhận từng mảnh và gom lại
                     const session = this.transferSessions[msg.data.sessionId];
                     if (session) {
-                        session.chunks.push(msg.data.data); // data này là base64 từ Agent
+                        session.chunks.push(msg.data.data); 
                     }
                     break;
 
                 case CONFIG.CMD.FILE_COMPLETE:
-                    // Khi xong, ghép lại và tải về
                     const doneSession = this.transferSessions[msg.data.sessionId];
                     if (doneSession) {
                         this.ui.log('System', `Tải xong: ${doneSession.fileName}. Đang xử lý...`);
@@ -557,23 +555,6 @@ export class Gateway{
                         }
                     } else {
                         console.error("Agent error (System Info):", msg.data?.msg);
-                    }
-                    break;
-                case CONFIG.CMD.START_STREAM:
-                    if (msg.data && msg.data.status === 'ok') {
-                        console.log("[Gateway] Stream started successfully");
-                        if (this.callbacks.onStartStream) this.callbacks.onStartStream(msg.data, senderId);
-                    }
-                    break;
-                case CONFIG.CMD.STOP_STREAM:
-                    console.log("[Gateway] Stream stopped");
-                    if (this.callbacks.onStopStream) this.callbacks.onStopStream(msg.data, senderId);
-                    break;
-                case CONFIG.CMD.STREAM_FRAME:
-                    if (msg.data && msg.data.data) {
-                        if (this.callbacks.onStreamFrame) {
-                            this.callbacks.onStreamFrame(msg.data.data, senderId);
-                        }
                     }
                     break;
                 case CONFIG.CMD.PROC_START:
@@ -797,7 +778,6 @@ export class Gateway{
     }
 
     _triggerBrowserDownload(session) {
-        // Chuyển mảng base64 thành mảng byte
         const byteCharacters = session.chunks.map(chunk => atob(chunk)).join('');
         const byteNumbers = new Array(byteCharacters.length);
         for (let i = 0; i < byteCharacters.length; i++) {
@@ -806,7 +786,6 @@ export class Gateway{
         const byteArray = new Uint8Array(byteNumbers);
         const blob = new Blob([byteArray], { type: 'application/octet-stream' });
         
-        // Tạo link ảo để tải về
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;

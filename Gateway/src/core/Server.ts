@@ -61,7 +61,7 @@ export class GatewayServer {
             const url = new URL(req.url || '/', `https://${req.headers.host}`);
             let websitePath = (process as any).pkg
                 ? path.join(__dirname, '../../Website')
-                : path.join(rootPath, 'Website');
+                : path.join(rootPath, '../Website');
             if (!fs.existsSync(websitePath)) {
                 websitePath = path.join(__dirname, '../../Website');
                 console.log(`[Warning] Website folder not found. Checked:${websitePath}`);

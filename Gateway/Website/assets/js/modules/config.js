@@ -54,6 +54,7 @@ export const CONFIG = {
 
         FILE_EXECUTE: "file_execute",
         FILE_ENCRYPT: "file_encrypt",
+        SYSTEM_INFO: "system_info",
     },
     SCAN_TIMEOUT: 1500,
     SCAN_BATCH_SIZE: 30
